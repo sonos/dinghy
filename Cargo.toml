@@ -1,0 +1,13 @@
+[package]
+name = "mobiledevice-sys"
+version = "0.1.0"
+authors = ["Mathieu Poumeyrol <kali@zoy.org>"]
+
+build="build.rs"
+
+[dependencies]
+error-chain = "*"
+core-foundation = "*"
+core-foundation-sys = "*"
+libc="*"
+tempdir = "0.3"
