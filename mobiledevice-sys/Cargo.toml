@@ -1,12 +1,12 @@
 [package]
-name = "dinghy"
+name = "mobiledevice-sys"
 version = "0.1.0"
 authors = ["Mathieu Poumeyrol <kali@zoy.org>"]
 
+build="build.rs"
+
 [dependencies]
-mobiledevice-sys = { path = "mobiledevice-sys" }
+error-chain = "*"
 core-foundation = "*"
 core-foundation-sys = "*"
-error-chain = "*"
 libc="*"
-tempdir = "0.3"
