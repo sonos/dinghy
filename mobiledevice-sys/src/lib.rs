@@ -21,6 +21,8 @@ pub struct am_device {
     unknown3: [c_char; 8],
 }
 
+unsafe impl Send for am_device {}
+
 pub const ADNCI_MSG_CONNECTED: c_uint = 1;
 pub const ADNCI_MSG_DISCONNECTED: c_uint = 2;
 pub const ADNCI_MSG_UNSUBSCRIBED: c_uint = 3;
