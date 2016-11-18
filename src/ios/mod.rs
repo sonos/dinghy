@@ -21,7 +21,9 @@ pub struct IosDevice {
     ptr: *const am_device,
     name: String,
 }
+
 unsafe impl Send for IosDevice {}
+
 impl Device for IosDevice {
     fn name(&self) -> &str {
         &*self.name
