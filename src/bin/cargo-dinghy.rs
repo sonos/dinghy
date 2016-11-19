@@ -53,6 +53,7 @@ fn run(matches: clap::ArgMatches) -> Result<()> {
                     dinghy::xcode::wrap_as_app(&d.target(), "debug", &*t.0, t.1, app_id)?;
                 println!("app : {:?}", app);
                 dinghy::xcode::sign_app(&app, &signing)?;
+                dinghy::ios::install_app(unsafe { std::mem::transmute(d.ptr()) } , app)?;
             }
             Ok(())
         }

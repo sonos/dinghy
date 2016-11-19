@@ -41,6 +41,9 @@ impl Device for IosDevice {
     fn target_os(&self) -> &'static str {
         "ios"
     }
+    unsafe fn ptr(&self) -> *const c_void {
+        mem::transmute(self.ptr)
+    }
 }
 
 impl IosDevice {
@@ -51,11 +54,12 @@ impl IosDevice {
             Some(Value::String(s)) => s,
             x => Err(format!("DeviceName should have been a string, was {:?}", x))?,
         };
-        let id = if let Value::String(id) = rustify(unsafe { AMDeviceCopyDeviceIdentifier(ptr) } )? {
-            id
-        } else {
-            Err("unexpected id format")?
-        };
+        let id =
+            if let Value::String(id) = rustify(unsafe { AMDeviceCopyDeviceIdentifier(ptr) })? {
+                id
+            } else {
+                Err("unexpected id format")?
+            };
         Ok(IosDevice {
             ptr: ptr,
             name: name,
@@ -227,6 +231,27 @@ extern "C" fn mount_callback(dict: CFDictionaryRef, _arg: *mut c_void) {
         ()
     };
 
+}
+
+pub fn install_app<P: AsRef<path::Path>>(dev: *const am_device, app: P) -> Result<()> {
+    unsafe {
+        mk_result(AMDeviceConnect(dev))?;
+        println!("Pairing ? {}", AMDeviceIsPaired(dev));
+        mk_result(AMDeviceValidatePairing(dev))?;
+        println!("Start Session...");
+        mk_result(AMDeviceStartSession(dev))?;
+        let path = app.as_ref().to_str().ok_or("failure to convert")?;
+        let url =
+            ::core_foundation::url::CFURL::from_file_system_path(CFString::new(path), 0, true);
+        use core_foundation::dictionary::CFDictionary;
+        use core_foundation::string::CFString;
+        let options = [(CFString::from_static_string("PackageType"),
+                        CFString::from_static_string("Developper").as_CFType())];
+        let options = CFDictionary::from_CFType_pairs(&options);
+        mk_result(AMDeviceSecureTransferPath(0, dev, url.as_concrete_TypeRef(), options.as_concrete_TypeRef(), ptr::null(), ptr::null()))?;
+        mk_result(AMDeviceSecureInstallApplication(0, dev, url.as_concrete_TypeRef(), options.as_concrete_TypeRef(), ptr::null(), ptr::null()))?;
+    }
+    Ok(())
 }
 
 fn start_remote_debug_server(dev: *const am_device, url: &str) -> Result<c_int> {

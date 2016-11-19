@@ -13,7 +13,7 @@ extern crate tempdir;
 extern crate mobiledevice_sys;
 
 
-mod ios;
+pub mod ios;
 pub mod xcode;
 
 pub mod build;
@@ -36,6 +36,7 @@ pub trait Device: std::fmt::Debug {
                 self.target_vendor(),
                 self.target_os())
     }
+    unsafe fn ptr(&self) -> *const libc::c_void;
 }
 
 pub struct Dinghy {

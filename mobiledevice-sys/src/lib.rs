@@ -7,6 +7,7 @@ use libc::*;
 
 use core_foundation::dictionary::CFDictionaryRef;
 use core_foundation::string::CFStringRef;
+use core_foundation::url::CFURLRef;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -84,4 +85,6 @@ extern "C" {
                                 -> c_int;
 
     pub fn AMDeviceCopyDeviceIdentifier(device: *const am_device) -> *const c_void;
+    pub fn AMDeviceSecureInstallApplication(zero: c_int, device: *const am_device, url: CFURLRef , options:CFDictionaryRef, callback: *const c_void, cbarg: *const c_void) -> c_int;
+    pub fn AMDeviceSecureTransferPath(zero: c_int, device: *const am_device, url: CFURLRef , options:CFDictionaryRef, callback: *const c_void, cbarg: *const c_void) -> c_int;
 }
