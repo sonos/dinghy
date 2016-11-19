@@ -5,6 +5,7 @@ use errors::*;
 
 use libc::*;
 
+use core_foundation::array::CFArray;
 use core_foundation::base::{CFType, CFTypeRef, TCFType};
 use core_foundation::string::CFString;
 use core_foundation::dictionary::{CFDictionary, CFDictionaryRef};
@@ -48,8 +49,7 @@ impl Device for IosDevice {
 
 impl IosDevice {
     fn from(ptr: *const am_device) -> Result<IosDevice> {
-        mk_result(unsafe { AMDeviceConnect(ptr) })?;
-        let properties = properties(ptr);
+        let _session = ensure_session(ptr)?;
         let name = match device_read_value(ptr, "DeviceName")? {
             Some(Value::String(s)) => s,
             x => Err(format!("DeviceName should have been a string, was {:?}", x))?,
@@ -69,7 +69,6 @@ impl IosDevice {
 }
 
 pub struct IosManager {
-    worker: thread::JoinHandle<()>,
     devices: sync::Arc<sync::Mutex<Vec<IosDevice>>>,
 }
 
@@ -78,26 +77,29 @@ impl Default for IosManager {
         let devices = sync::Arc::new(sync::Mutex::new(vec![]));
 
         let devices_to_take_away = Box::new(devices.clone());
-        let thr =
-            thread::spawn(move || {
-                let notify: *const am_device_notification = ptr::null();
-                unsafe {
-                    AMDeviceNotificationSubscribe(device_callback, 0, 0,
-                                              Box::into_raw(devices_to_take_away) as *mut c_void, &mut notify.into());
-                }
-                ::core_foundation::runloop::CFRunLoop::run_current();
-            });
+        thread::spawn(move || {
+            let notify: *const am_device_notification = ptr::null();
+            unsafe {
+                AMDeviceNotificationSubscribe(device_callback,
+                                              0,
+                                              0,
+                                              Box::into_raw(devices_to_take_away) as *mut c_void,
+                                              &mut notify.into());
+            }
+            ::core_foundation::runloop::CFRunLoop::run_current();
+        });
 
         extern "C" fn device_callback(info: *mut am_device_notification_callback_info,
                                       devices: *mut c_void) {
             let device = unsafe { (*info).dev };
             let devices: &sync::Arc<sync::Mutex<Vec<IosDevice>>> =
                 unsafe { mem::transmute(devices) };
-            devices.lock().map(|mut devices| devices.push(IosDevice::from(device).unwrap()));
+            let _ = devices.lock()
+                .map(|mut devices| devices.push(IosDevice::from(device).unwrap()));
         }
 
         IosManager {
-            worker: thr,
+            //       worker: thr,
             devices: devices,
         }
     }
@@ -193,15 +195,14 @@ fn device_support_path(dev: *const am_device) -> Result<Option<path::PathBuf>> {
 fn mount_developper_image(dev: *const am_device) -> Result<()> {
     use std::io::Read;
     unsafe {
+        let _session = ensure_session(dev);
         let ds_path = device_support_path(dev)?.ok_or("No device support found in xcode")?;
         let image_path = ds_path.join("DeveloperDiskImage.dmg");
         let sig_image_path = ds_path.join("DeveloperDiskImage.dmg.signature");
         let mut sig: Vec<u8> = vec![];
-        fs::File::open(sig_image_path)?.read_to_end(&mut sig);
+        fs::File::open(sig_image_path)?.read_to_end(&mut sig)?;
         let sig = CFData::from_buffer(&*sig);
 
-        use core_foundation::dictionary::CFDictionary;
-        use core_foundation::string::CFString;
         let options = [(CFString::from_static_string("ImageType"),
                         CFString::from_static_string("Developper").as_CFType()),
                        (CFString::from_static_string("ImageSignature"), sig.as_CFType())];
@@ -212,7 +213,7 @@ fn mount_developper_image(dev: *const am_device) -> Result<()> {
                                    options.as_concrete_TypeRef(),
                                    mount_callback,
                                    0);
-        if r == 0xe8000076 {
+        if r as u32 == 0xe8000076 {
             // already mounted, that's fine.
             return Ok(());
         }
@@ -222,7 +223,7 @@ fn mount_developper_image(dev: *const am_device) -> Result<()> {
 }
 
 extern "C" fn mount_callback(dict: CFDictionaryRef, _arg: *mut c_void) {
-    let status = unsafe {
+    unsafe {
         let cft: CFDictionary = TCFType::wrap_under_get_rule(dict);
         let status = cft.get(CFString::from_static_string("Status").as_CFTypeRef());
         if let Ok(Value::String(r)) = rustify(status) {
@@ -233,43 +234,85 @@ extern "C" fn mount_callback(dict: CFDictionaryRef, _arg: *mut c_void) {
 
 }
 
+struct Session(*const am_device);
+
+fn ensure_session(dev: *const am_device) -> Result<Session> {
+    unsafe {
+        debug!("ensure session 1");
+        mk_result(AMDeviceConnect(dev))?;
+        debug!("ensure session 1.4");
+        if AMDeviceIsPaired(dev) == 0 {
+            Err("lost pairing")?
+        };
+        debug!("ensure session 2");
+        mk_result(AMDeviceValidatePairing(dev))?;
+        debug!("ensure session 3");
+        mk_result(AMDeviceStartSession(dev))?;
+        Ok(Session(dev))
+        /*
+        debug!("ensure session 4 ({:x})", rv);
+        if rv as u32 == 0xe800001d {
+            Ok(Session(::std::ptr::null()))
+        } else {
+            mk_result(rv)?;
+            Ok(Session(dev))
+        }
+        */
+    }
+}
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        unsafe {
+            if !self.0.is_null() {
+                if let Err(e) = mk_result(AMDeviceStopSession(self.0)) {
+                    println!("Error closing session {:?}", e);
+                }
+                if let Err(e) = mk_result(AMDeviceDisconnect(self.0)) {
+                    println!("Error disconnecting {:?}", e);
+                }
+            }
+        }
+    }
+}
+
 pub fn install_app<P: AsRef<path::Path>>(dev: *const am_device, app: P) -> Result<()> {
     unsafe {
-        mk_result(AMDeviceConnect(dev))?;
-        println!("Pairing ? {}", AMDeviceIsPaired(dev));
-        mk_result(AMDeviceValidatePairing(dev))?;
-        println!("Start Session...");
-        mk_result(AMDeviceStartSession(dev))?;
+        let _session = ensure_session(dev)?;
         let path = app.as_ref().to_str().ok_or("failure to convert")?;
         let url =
             ::core_foundation::url::CFURL::from_file_system_path(CFString::new(path), 0, true);
-        use core_foundation::dictionary::CFDictionary;
-        use core_foundation::string::CFString;
         let options = [(CFString::from_static_string("PackageType"),
                         CFString::from_static_string("Developper").as_CFType())];
         let options = CFDictionary::from_CFType_pairs(&options);
-        mk_result(AMDeviceSecureTransferPath(0, dev, url.as_concrete_TypeRef(), options.as_concrete_TypeRef(), ptr::null(), ptr::null()))?;
-        mk_result(AMDeviceSecureInstallApplication(0, dev, url.as_concrete_TypeRef(), options.as_concrete_TypeRef(), ptr::null(), ptr::null()))?;
+        mk_result(AMDeviceSecureTransferPath(0,
+                                             dev,
+                                             url.as_concrete_TypeRef(),
+                                             options.as_concrete_TypeRef(),
+                                             ptr::null(),
+                                             ptr::null()))?;
+        mk_result(AMDeviceSecureInstallApplication(0,
+                                                   dev,
+                                                   url.as_concrete_TypeRef(),
+                                                   options.as_concrete_TypeRef(),
+                                                   ptr::null(),
+                                                   ptr::null()))?;
     }
     Ok(())
 }
 
-fn start_remote_debug_server(dev: *const am_device, url: &str) -> Result<c_int> {
+fn start_remote_debug_server(dev: *const am_device) -> Result<c_int> {
     unsafe {
-        mk_result(AMDeviceConnect(dev))?;
-        println!("Pairing ? {}", AMDeviceIsPaired(dev));
-        mk_result(AMDeviceValidatePairing(dev))?;
-        println!("Start Session...");
-        mk_result(AMDeviceStartSession(dev))?;
-        println!("Mount image...");
+        debug!("mount developper image");
         mount_developper_image(dev)?;
-        println!("Start debug service...");
+        debug!("start debugserver on phone");
         let mut fd: c_int = 0;
         mk_result(AMDeviceStartService(dev,
                                        CFString::from_static_string("com.apple.debugserver")
                                            .as_concrete_TypeRef(),
                                        &mut fd,
                                        ptr::null()))?;
+        debug!("debug server running");
         Ok(fd)
     }
 }
@@ -282,7 +325,6 @@ fn start_lldb_proxy(fd: c_int) -> Result<u16> {
     let proxy = TcpListener::bind("127.0.0.1:0")?;
     let addr = proxy.local_addr()?;
     device.set_nonblocking(true)?;
-    println!("listening on {:?}", addr);
     thread::spawn(move || {
         fn server(proxy: TcpListener, mut device: TcpStream) -> Result<()> {
             for stream in proxy.incoming() {
@@ -312,11 +354,16 @@ fn start_lldb_proxy(fd: c_int) -> Result<u16> {
     Ok(addr.port())
 }
 
-fn launch_lldb(dev: *const am_device, proxy_port: u16) -> Result<()> {
+fn launch_lldb<P: AsRef<path::Path>, P2: AsRef<path::Path>>(dev: *const am_device,
+                                                            proxy_port: u16,
+                                                            local: P,
+                                                            remote: P2)
+                                                            -> Result<()> {
     use std::process::Command;
     use std::io::Write;
+    let _session = ensure_session(dev);
     let dir = ::tempdir::TempDir::new("mobiledevice-rs-lldb")?;
-    let tmppath = dir.into_path();//FIXME
+    let tmppath = dir.path();
     let lldb_script_filename = tmppath.join("lldb-script");
     let sysroot = device_support_path(dev)
         ?
@@ -330,7 +377,8 @@ fn launch_lldb(dev: *const am_device, proxy_port: u16) -> Result<()> {
         let mut script = fs::File::create(&lldb_script_filename)?;
         writeln!(script, "platform select remote-ios --sysroot '{}'", sysroot)?;
         writeln!(script,
-                 "target create /Users/kali/dev/run-rust-on-ios/Command.app")?;
+                 "target create {}",
+                 local.as_ref().to_str().ok_or("untranslatable path")?)?;
         writeln!(script, "script pass")?;
 
         writeln!(script, "command script import {:?}", python_lldb_support)?;
@@ -343,9 +391,8 @@ fn launch_lldb(dev: *const am_device, proxy_port: u16) -> Result<()> {
 
         writeln!(script, "connect connect://127.0.0.1:{}", proxy_port)?;
         writeln!(script,
-                 "set_remote_path \
-                  /private/var/containers/Bundle/Application/F595084A-70AA-40E0-9AB2-5516EABEA648/Command.\
-                  app")?;
+                 "set_remote_path {}",
+                 remote.as_ref().to_str().unwrap())?;
         writeln!(script, "run")?;
         writeln!(script, "quit")?;
     }
@@ -354,13 +401,47 @@ fn launch_lldb(dev: *const am_device, proxy_port: u16) -> Result<()> {
     Ok(())
 }
 
-fn run_remote(dev: *const am_device) -> Result<()> {
-    let fd = start_remote_debug_server(dev, "")?;
+pub fn run_remote<P: AsRef<path::Path>>(dev: *const am_device,
+                                        app: P,
+                                        bundle_id: &str)
+                                        -> Result<()> {
+    let _session = ensure_session(dev)?;
+
+    let options = [(CFString::from_static_string("ReturnAttributes"),
+                    CFArray::from_CFTypes(&[CFString::from_static_string("CFBundleIdentifier")
+                                                .as_CFType(),
+                                            CFString::from_static_string("Path").as_CFType()]))];
+    let options = CFDictionary::from_CFType_pairs(&options);
+    let apps: CFDictionaryRef = ptr::null();
+    unsafe {
+        mk_result(AMDeviceLookupApplications(dev,
+                                             options.as_concrete_TypeRef(),
+                                             ::std::mem::transmute(&apps)))?;
+    }
+    let apps: CFDictionary = unsafe { TCFType::wrap_under_get_rule(apps) };
+    let app_info: CFDictionary =
+        unsafe {
+            TCFType::wrap_under_get_rule(::std::mem::transmute(
+                apps.get(::std::mem::transmute(CFString::new(bundle_id).as_concrete_TypeRef()))
+            ))
+        };
+    let remote: String = if let Ok(Value::String(remote)) = unsafe {
+        rustify(app_info.get(::std::mem::transmute(CFString::from_static_string("Path")
+            .as_concrete_TypeRef())))
+    } {
+        remote
+    } else {
+        Err("Invalid info")?
+    };
+    let fd = start_remote_debug_server(dev)?;
+    debug!("start local lldb proxy");
     let proxy = start_lldb_proxy(fd)?;
-    launch_lldb(dev, proxy)?;
+    debug!("start lldb");
+    launch_lldb(dev, proxy, app, remote)?;
     Ok(())
 }
 
+#[allow(dead_code)]
 fn properties(dev: *const am_device) -> Result<HashMap<&'static str, Value>> {
     let properties = ["ActivationPublicKey",
                       "ActivationState",

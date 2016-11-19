@@ -1,5 +1,5 @@
 use std::{env, fs, io, path, process};
-use std::io::{Write, Read};
+use std::io::Write;
 
 use errors::*;
 
@@ -43,7 +43,7 @@ pub fn sign_app<P: AsRef<path::Path>>(app: P, settings:&SignatureSettings) -> Re
 
     let entitlements =
         app.as_ref().parent().ok_or("not building in root")?.join("entitlements.xcent");
-    debug!("entitlements file: {:?}", entitlements);
+    debug!("entitlements file: {}", entitlements.to_str().unwrap_or(""));
     let mut plist = fs::File::create(&entitlements)?;
     writeln!(plist, r#"<?xml version="1.0" encoding="UTF-8"?>"#)?;
     writeln!(plist, r#"<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">"#)?;
@@ -51,7 +51,7 @@ pub fn sign_app<P: AsRef<path::Path>>(app: P, settings:&SignatureSettings) -> Re
     writeln!(plist, "{}", settings.entitlements)?;
     writeln!(plist, r#"</dict></plist>"#)?;
 
-    process::Command::new("codesign").args(&[ "-vvvv", 
+    process::Command::new("codesign").args(&[
                 "-s", &*settings.identity.name,
                 "--entitlements",
                 entitlements.to_str().ok_or("not utf8 path")?,
@@ -84,7 +84,6 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
             .output()?;
     for line in String::from_utf8(find_identities.stdout)?.split("\n") {
         if let Some(caps) = identity_regex.captures(&line) {
-            let id: String = caps[1].into();
             let name: String = caps[2].into();
             if !name.starts_with("iPhone Developer: ") {
                 continue;
