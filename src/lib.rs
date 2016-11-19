@@ -6,13 +6,16 @@ extern crate error_chain;
 extern crate libc;
 #[macro_use]
 extern crate log;
+extern crate plist;
+extern crate regex;
 extern crate tempdir;
-extern crate tempfile;
 
 extern crate mobiledevice_sys;
 
 
 mod ios;
+pub mod xcode;
+
 pub mod build;
 pub mod errors;
 use errors::*;
@@ -23,6 +26,7 @@ pub trait PlatformManager {
 
 pub trait Device: std::fmt::Debug {
     fn name(&self) -> &str;
+    fn id(&self) -> &str;
     fn target_arch(&self) -> &str;
     fn target_vendor(&self) -> &str;
     fn target_os(&self) -> &str;

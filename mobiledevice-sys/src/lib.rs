@@ -82,4 +82,6 @@ extern "C" {
                                 socket_fd: *mut c_int,
                                 unknown: *const c_int)
                                 -> c_int;
+
+    pub fn AMDeviceCopyDeviceIdentifier(device: *const am_device) -> *const c_void;
 }

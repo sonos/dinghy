@@ -3,5 +3,7 @@ error_chain!{
         ::std::io::Error, IoError;
         ::std::string::FromUtf8Error, StringFromUtf8Error;
         Box<::cargo::CargoError>, CargoError;
+        ::plist::Error, PlistError;
+        ::regex::Error, RegexError;
     }
 }

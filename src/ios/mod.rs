@@ -19,6 +19,7 @@ use ::{Device, PlatformManager};
 #[derive(Clone,Debug)]
 pub struct IosDevice {
     ptr: *const am_device,
+    id: String,
     name: String,
 }
 
@@ -27,6 +28,9 @@ unsafe impl Send for IosDevice {}
 impl Device for IosDevice {
     fn name(&self) -> &str {
         &*self.name
+    }
+    fn id(&self) -> &str {
+        &*self.id
     }
     fn target_arch(&self) -> &'static str {
         "armv7"
@@ -47,9 +51,15 @@ impl IosDevice {
             Some(Value::String(s)) => s,
             x => Err(format!("DeviceName should have been a string, was {:?}", x))?,
         };
+        let id = if let Value::String(id) = rustify(unsafe { AMDeviceCopyDeviceIdentifier(ptr) } )? {
+            id
+        } else {
+            Err("unexpected id format")?
+        };
         Ok(IosDevice {
             ptr: ptr,
             name: name,
+            id: id,
         })
     }
 }
