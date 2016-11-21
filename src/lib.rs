@@ -39,7 +39,7 @@ pub trait Device: std::fmt::Debug {
     }
     fn start_remote_lldb(&self) -> Result<String>;
     fn install_app(&self, path:&path::Path) -> Result<()>;
-    fn run_app(&self, app:&path::Path, app_id:&str) -> Result<()>;
+    fn run_app(&self, app:&path::Path, app_id:&str, args:&str) -> Result<()>;
 }
 
 pub struct Dinghy {

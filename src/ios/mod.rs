@@ -53,9 +53,9 @@ impl Device for IosDevice {
     fn install_app(&self, app:&path::Path) -> Result<()> {
         install_app(self.ptr, app)
     }
-    fn run_app(&self, app_path:&path::Path, app_id:&str) -> Result<()> {
+    fn run_app(&self, app_path:&path::Path, app_id:&str, args:&str) -> Result<()> {
         let lldb_proxy = self.start_remote_lldb()?;
-        run_remote(self.ptr, &lldb_proxy, app_path, app_id)
+        run_remote(self.ptr, &lldb_proxy, app_path, app_id, args)
     }
 }
 
@@ -359,7 +359,8 @@ fn start_lldb_proxy(fd: c_int) -> Result<u16> {
 fn launch_lldb<P: AsRef<path::Path>, P2: AsRef<path::Path>>(dev: *const am_device,
                                                             proxy: &str,
                                                             local: P,
-                                                            remote: P2)
+                                                            remote: P2,
+                                                            args: &str)
                                                             -> Result<()> {
     use std::process::Command;
     use std::io::Write;
@@ -395,7 +396,7 @@ fn launch_lldb<P: AsRef<path::Path>, P2: AsRef<path::Path>>(dev: *const am_devic
         writeln!(script,
                  "set_remote_path {}",
                  remote.as_ref().to_str().unwrap())?;
-        writeln!(script, "run")?;
+        writeln!(script, "run {}", args)?;
         writeln!(script, "quit")?;
     }
 
@@ -406,7 +407,8 @@ fn launch_lldb<P: AsRef<path::Path>, P2: AsRef<path::Path>>(dev: *const am_devic
 pub fn run_remote<P: AsRef<path::Path>>(dev: *const am_device,
                                         lldb_proxy: &str,
                                         app_path: P,
-                                        bundle_id: &str)
+                                        bundle_id: &str,
+                                        args:&str)
                                         -> Result<()> {
     let _session = ensure_session(dev)?;
 
@@ -436,7 +438,7 @@ pub fn run_remote<P: AsRef<path::Path>>(dev: *const am_device,
     } else {
         Err("Invalid info")?
     };
-    launch_lldb(dev, lldb_proxy, app_path, remote)?;
+    launch_lldb(dev, lldb_proxy, app_path, remote, args)?;
     Ok(())
 }
 
