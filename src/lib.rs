@@ -12,12 +12,13 @@ extern crate tempdir;
 
 extern crate mobiledevice_sys;
 
-
 pub mod ios;
 pub mod xcode;
-
 pub mod build;
 pub mod errors;
+
+use std::path;
+
 use errors::*;
 
 pub trait PlatformManager {
@@ -36,7 +37,9 @@ pub trait Device: std::fmt::Debug {
                 self.target_vendor(),
                 self.target_os())
     }
-    unsafe fn ptr(&self) -> *const libc::c_void;
+    fn start_remote_lldb(&self) -> Result<String>;
+    fn install_app(&self, path:&path::Path) -> Result<()>;
+    fn run_app(&self, app:&path::Path, app_id:&str) -> Result<()>;
 }
 
 pub struct Dinghy {

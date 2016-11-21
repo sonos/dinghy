@@ -42,8 +42,20 @@ impl Device for IosDevice {
     fn target_os(&self) -> &'static str {
         "ios"
     }
-    unsafe fn ptr(&self) -> *const c_void {
-        mem::transmute(self.ptr)
+    fn start_remote_lldb(&self) -> Result<String> {
+        let _ = ensure_session(self.ptr);
+        let fd = start_remote_debug_server(self.ptr)?;
+        debug!("start local lldb proxy");
+        let proxy = start_lldb_proxy(fd)?;
+        debug!("start lldb");
+        Ok(format!("localhost:{}", proxy))
+    }
+    fn install_app(&self, app:&path::Path) -> Result<()> {
+        install_app(self.ptr, app)
+    }
+    fn run_app(&self, app_path:&path::Path, app_id:&str) -> Result<()> {
+        let lldb_proxy = self.start_remote_lldb()?;
+        run_remote(self.ptr, &lldb_proxy, app_path, app_id)
     }
 }
 
@@ -66,6 +78,7 @@ impl IosDevice {
             id: id,
         })
     }
+
 }
 
 pub struct IosManager {
@@ -211,7 +224,7 @@ fn mount_developper_image(dev: *const am_device) -> Result<()> {
                                    CFString::new(image_path.to_str().unwrap())
                                        .as_concrete_TypeRef(),
                                    options.as_concrete_TypeRef(),
-                                   mount_callback,
+                                   ::std::mem::transmute(0usize),
                                    0);
         if r as u32 == 0xe8000076 {
             // already mounted, that's fine.
@@ -220,18 +233,6 @@ fn mount_developper_image(dev: *const am_device) -> Result<()> {
         mk_result(r)?;
         Ok(())
     }
-}
-
-extern "C" fn mount_callback(dict: CFDictionaryRef, _arg: *mut c_void) {
-    unsafe {
-        let cft: CFDictionary = TCFType::wrap_under_get_rule(dict);
-        let status = cft.get(CFString::from_static_string("Status").as_CFTypeRef());
-        if let Ok(Value::String(r)) = rustify(status) {
-            print!("{}       \r", r);
-        }
-        ()
-    };
-
 }
 
 struct Session(*const am_device);
@@ -266,10 +267,10 @@ impl Drop for Session {
         unsafe {
             if !self.0.is_null() {
                 if let Err(e) = mk_result(AMDeviceStopSession(self.0)) {
-                    println!("Error closing session {:?}", e);
+                    debug!("Error closing session {:?}", e);
                 }
                 if let Err(e) = mk_result(AMDeviceDisconnect(self.0)) {
-                    println!("Error disconnecting {:?}", e);
+                    error!("Error disconnecting {:?}", e);
                 }
             }
         }
@@ -306,6 +307,7 @@ fn start_remote_debug_server(dev: *const am_device) -> Result<c_int> {
         debug!("mount developper image");
         mount_developper_image(dev)?;
         debug!("start debugserver on phone");
+        let _session = ensure_session(dev)?;
         let mut fd: c_int = 0;
         mk_result(AMDeviceStartService(dev,
                                        CFString::from_static_string("com.apple.debugserver")
@@ -355,7 +357,7 @@ fn start_lldb_proxy(fd: c_int) -> Result<u16> {
 }
 
 fn launch_lldb<P: AsRef<path::Path>, P2: AsRef<path::Path>>(dev: *const am_device,
-                                                            proxy_port: u16,
+                                                            proxy: &str,
                                                             local: P,
                                                             remote: P2)
                                                             -> Result<()> {
@@ -389,7 +391,7 @@ fn launch_lldb<P: AsRef<path::Path>, P2: AsRef<path::Path>>(dev: *const am_devic
         writeln!(script,
                  "command script add -s synchronous -f helpers.run_command run")?;
 
-        writeln!(script, "connect connect://127.0.0.1:{}", proxy_port)?;
+        writeln!(script, "connect connect://{}", proxy)?;
         writeln!(script,
                  "set_remote_path {}",
                  remote.as_ref().to_str().unwrap())?;
@@ -402,7 +404,8 @@ fn launch_lldb<P: AsRef<path::Path>, P2: AsRef<path::Path>>(dev: *const am_devic
 }
 
 pub fn run_remote<P: AsRef<path::Path>>(dev: *const am_device,
-                                        app: P,
+                                        lldb_proxy: &str,
+                                        app_path: P,
                                         bundle_id: &str)
                                         -> Result<()> {
     let _session = ensure_session(dev)?;
@@ -433,11 +436,7 @@ pub fn run_remote<P: AsRef<path::Path>>(dev: *const am_device,
     } else {
         Err("Invalid info")?
     };
-    let fd = start_remote_debug_server(dev)?;
-    debug!("start local lldb proxy");
-    let proxy = start_lldb_proxy(fd)?;
-    debug!("start lldb");
-    launch_lldb(dev, proxy, app, remote)?;
+    launch_lldb(dev, lldb_proxy, app_path, remote)?;
     Ok(())
 }
 
