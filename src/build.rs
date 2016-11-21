@@ -83,3 +83,29 @@ pub fn compile_benches(device_target: &str) -> Result<Vec<(String, path::PathBuf
     let compilation = cargo::ops::compile(&wd, &options)?;
     Ok(compilation.tests.iter().map(|t| (t.1.clone(), t.2.clone())).collect::<Vec<_>>())
 }
+
+pub fn compile_bin(device_target: &str) -> Result<Vec<path::PathBuf>> {
+    ensure_shim(device_target)?;
+    let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
+    let cfg = cargo::util::config::Config::default()?;
+    cfg.configure(0, None, &None, false, false)?;
+    let wd = cargo::core::Workspace::new(&wd_path, &cfg)?;
+    let options = cargo::ops::CompileOptions {
+        config: &cfg,
+        jobs: None,
+        target: Some(&device_target),
+        features: &[],
+        all_features: false,
+        no_default_features: false,
+        spec: &[],
+        filter: cargo::ops::CompileFilter::new(false, &[], &[], &[], &[]),
+        release: false,
+        mode: cargo::ops::CompileMode::Build,
+        message_format: cargo::ops::MessageFormat::Human,
+        target_rustdoc_args: None,
+        target_rustc_args: None,
+    };
+    let compilation = cargo::ops::compile(&wd, &options)?;
+    Ok(compilation.binaries)
+}
+
