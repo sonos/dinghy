@@ -22,6 +22,7 @@ pub struct IosDevice {
     ptr: *const am_device,
     id: String,
     name: String,
+    arch_cpu: &'static str,
 }
 
 unsafe impl Send for IosDevice {}
@@ -34,7 +35,7 @@ impl Device for IosDevice {
         &*self.id
     }
     fn target_arch(&self) -> &'static str {
-        "armv7"
+        &*self.arch_cpu
     }
     fn target_vendor(&self) -> &'static str {
         "apple"
@@ -66,6 +67,10 @@ impl IosDevice {
             Some(Value::String(s)) => s,
             x => Err(format!("DeviceName should have been a string, was {:?}", x))?,
         };
+        let cpu = match device_read_value(ptr, "CPUArchitecture")? {
+            Some(Value::String(ref v)) if v == "arm64" => "aarch64",
+            _ => "armv7"
+        };
         let id =
             if let Value::String(id) = rustify(unsafe { AMDeviceCopyDeviceIdentifier(ptr) })? {
                 id
@@ -76,6 +81,7 @@ impl IosDevice {
             ptr: ptr,
             name: name,
             id: id,
+            arch_cpu: cpu.into()
         })
     }
 
