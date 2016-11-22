@@ -1,7 +1,12 @@
 [package]
 name = "dinghy"
 version = "0.1.0"
-authors = ["Mathieu Poumeyrol <kali@zoy.org>"]
+authors = ["Mathieu Poumeyrol <mathieu.poumeyol@snips.ai>"]
+license = ""
+description = "Painless tests on mobile devices"
+keywords = [
+    "tests", "mobile", "ios", "android"
+]
 
 [dependencies]
 mobiledevice-sys = { path = "mobiledevice-sys" }
