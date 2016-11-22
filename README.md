@@ -88,7 +88,8 @@ longer living certificates, so you need this less often.
 
 On top of project window, make the target "Dinghy>Your Device", and run the
 project (play button). Xcode should ask you to go to your phone settings
-and Trust the certificate.
+and Trust the certificate. It's in the Preferences > General > 
+[your dev account name]. 
 
 At this point, we're ready to roll.
 

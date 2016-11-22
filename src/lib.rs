@@ -50,9 +50,12 @@ pub struct Dinghy {
 
 impl Default for Dinghy {
     fn default() -> Dinghy {
+        let mut managers:Vec<Box<PlatformManager>> = vec![Box::new(ios::IosManager::default()) as Box<PlatformManager>];
+        if let Some(android) = android::AndroidManager::probe() {
+            managers.push(Box::new(android) as Box<PlatformManager>)
+        }
         Dinghy {
-            managers: vec![Box::new(ios::IosManager::default()),
-                           Box::new(android::AndroidManager::default())],
+            managers: managers
         }
     }
 }

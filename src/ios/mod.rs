@@ -42,7 +42,6 @@ pub struct SigningIdentity {
     pub team: String,
 }
 
-
 unsafe impl Send for IosDevice {}
 
 impl Device for IosDevice {
@@ -148,7 +147,6 @@ impl Default for IosManager {
         }
 
         IosManager {
-            //       worker: thr,
             devices: devices,
         }
     }

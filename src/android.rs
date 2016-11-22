@@ -71,8 +71,12 @@ impl PlatformManager for AndroidManager {
     }
 }
 
-impl Default for AndroidManager {
-    fn default() -> AndroidManager {
-        AndroidManager {}
+impl AndroidManager {
+    pub fn probe() -> Option<AndroidManager> {
+        match Command::new("adb").arg("devices").status() {
+            Ok(_) => Some(AndroidManager {}),
+            Err(_) => None
+        }
+
     }
 }
