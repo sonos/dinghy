@@ -44,44 +44,30 @@ fn run(matches: clap::ArgMatches) -> Result<()> {
     let dinghy = dinghy::Dinghy::default();
     thread::sleep(Duration::from_millis(100));
     let d = dinghy.devices().unwrap().pop().ok_or("No phone found")?;
-    info!("Detected: `{}' ({}) -> {}", d.name(), d.target(), d.id());
-    let signing = dinghy::xcode::look_for_signature_settings(d.id())?
-        .pop()
-        .ok_or("no signing identity found")?;
-    debug!("{:?}", signing);
-    let app_id = signing.name.split(" ").last().ok_or("no app id ?")?;
-    info!("Will use {} -> {}", signing.identity.name, app_id);
-    let target = matches.value_of("TARGET").map(|s|s.to_string()).unwrap_or(d.target());
+    let target = matches.value_of("TARGET").map(|s| s.to_string()).unwrap_or(d.target());
     match matches.subcommand() {
         ("run", Some(_matches)) => {
             let bin = dinghy::build::compile_bin(&*target)?.pop().expect("no executable");
-            let app =
-                dinghy::xcode::wrap_as_app(&*target, "debug", "main", bin, app_id)?;
-            dinghy::xcode::sign_app(&app, &signing)?;
+            let app = d.make_app(&*bin, Some(&*target))?;
             d.install_app(&app.as_ref())?;
-            d.run_app(app.as_ref(), &app_id, "")?;
+            d.run_app(app.as_ref(), "")?;
             Ok(())
         }
         ("test", Some(_matches)) => {
             let tests = dinghy::build::compile_tests(&*target)?;
             for t in tests {
-                let app =
-                    dinghy::xcode::wrap_as_app(&*target, "debug", &*t.0, t.1, app_id)?;
-                dinghy::xcode::sign_app(&app, &signing)?;
+                let app = d.make_app(&t.1, Some(&*target))?;
                 d.install_app(&app.as_ref())?;
-                d.run_app(app.as_ref(), &app_id, "")?;
+                d.run_app(app.as_ref(), "")?;
             }
             Ok(())
         }
         ("bench", Some(_matches)) => {
             let tests = dinghy::build::compile_benches(&*target)?;
             for t in tests {
-                let app =
-                    dinghy::xcode::wrap_as_app(&*target, "release", &*t.0, t.1, app_id)?;
-                debug!("app: {:?}", app);
-                dinghy::xcode::sign_app(&app, &signing)?;
+                let app = d.make_app(&t.1, Some(&*target))?;
                 d.install_app(&app.as_ref())?;
-                d.run_app(app.as_ref(), &app_id, "--bench")?;
+                d.run_app(app.as_ref(), "--bench")?;
             }
             Ok(())
         }

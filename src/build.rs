@@ -13,7 +13,7 @@ pub fn create_shim<P: AsRef<path::Path>>(root: P, device_target: &str) -> Result
     fs::create_dir_all(&target_path)?;
     let shim = target_path.join("linker");
     if shim.exists() {
-        return Ok(())
+        return Ok(());
     }
     let mut linker_shim = fs::File::create(&shim)?;
     writeln!(linker_shim, "#!/bin/sh")?;
@@ -30,7 +30,8 @@ fn ensure_shim(device_target: &str) -> Result<()> {
     let root = wd_path.parent().ok_or("building at / ?")?;
     let target_path = root.join("target").join(device_target);
     create_shim(&root, &device_target)?;
-    env::set_var("CARGO_TARGET_ARMV7_APPLE_IOS_LINKER", target_path.join("linker"));
+    env::set_var("CARGO_TARGET_ARMV7_APPLE_IOS_LINKER",
+                 target_path.join("linker"));
     Ok(())
 }
 
@@ -108,4 +109,3 @@ pub fn compile_bin(device_target: &str) -> Result<Vec<path::PathBuf>> {
     let compilation = cargo::ops::compile(&wd, &options)?;
     Ok(compilation.binaries)
 }
-

@@ -2,20 +2,19 @@ use std::{env, fs, io, path, process};
 use std::io::Write;
 
 use errors::*;
+use super::{SignatureSettings, SigningIdentity};
 
-pub fn wrap_as_app<P: AsRef<path::Path>>(target: &str,
-                                         mode: &str,
-                                         name: &str,
-                                         executable: P,
-                                         app_bundle_id: &str)
-                                         -> Result<path::PathBuf> {
+pub fn wrap_as_app<P1, P2>(target: &str,
+                           name: &str,
+                           executable: P1,
+                           app_bundle_id: &str,
+                           app_path: P2)
+                           -> Result<path::PathBuf>
+    where P1: AsRef<path::Path>,
+          P2: AsRef<path::Path>
+{
     let app_name = app_bundle_id.split(".").last().unwrap();
-    let app_path = path::Path::new("target")
-        .join(target)
-        .join(mode)
-        .join("dinghy")
-        .join(name)
-        .join(format!("{}.app", app_name));
+    let app_path = app_path.as_ref().join(format!("{}.app", app_name));
     let _ = fs::remove_dir_all(&app_path);
     fs::create_dir_all(&app_path)?;
     fs::copy(&executable, app_path.join(app_name))?;
@@ -60,21 +59,6 @@ pub fn sign_app<P: AsRef<path::Path>>(app: P, settings: &SignatureSettings) -> R
                 app.as_ref().to_str().ok_or("not utf8 path")?])
         .status()?;
     Ok(())
-}
-
-#[derive(Debug,Clone)]
-pub struct SignatureSettings {
-    pub identity: SigningIdentity,
-    pub entitlements: String,
-    pub name: String,
-    pub profile: String,
-}
-
-#[derive(Debug,Clone)]
-pub struct SigningIdentity {
-    pub id: String,
-    pub name: String,
-    pub team: String,
 }
 
 pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSettings>> {

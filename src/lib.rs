@@ -13,7 +13,7 @@ extern crate tempdir;
 extern crate mobiledevice_sys;
 
 pub mod ios;
-pub mod xcode;
+pub mod android;
 pub mod build;
 pub mod errors;
 
@@ -38,22 +38,31 @@ pub trait Device: std::fmt::Debug {
                 self.target_os())
     }
     fn start_remote_lldb(&self) -> Result<String>;
-    fn install_app(&self, path:&path::Path) -> Result<()>;
-    fn run_app(&self, app:&path::Path, app_id:&str, args:&str) -> Result<()>;
+
+    fn make_app(&self, app: &path::Path, target:Option<&str>) -> Result<path::PathBuf>;
+    fn install_app(&self, path: &path::Path) -> Result<()>;
+    fn run_app(&self, app: &path::Path, args: &str) -> Result<()>;
 }
 
 pub struct Dinghy {
-    ios: Option<Box<PlatformManager>>,
+    managers: Vec<Box<PlatformManager>>,
 }
 
 impl Default for Dinghy {
     fn default() -> Dinghy {
-        Dinghy { ios: Some(Box::new(ios::IosManager::default())) }
+        Dinghy {
+            managers: vec![Box::new(ios::IosManager::default()),
+                           Box::new(android::AndroidManager::default())],
+        }
     }
 }
 
 impl Dinghy {
     pub fn devices(&self) -> Result<Vec<Box<Device>>> {
-        self.ios.as_ref().unwrap().devices()
+        let mut v = vec!();
+        for m in &self.managers {
+            v.extend(m.devices()?);
+        }
+        Ok(v)
     }
 }

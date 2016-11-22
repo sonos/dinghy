@@ -15,7 +15,9 @@ use core_foundation::boolean::CFBoolean;
 use core_foundation_sys::number::kCFBooleanTrue;
 
 use mobiledevice_sys::*;
-use ::{Device, PlatformManager};
+use ::{Device, PlatformManager };
+
+mod xcode;
 
 #[derive(Clone,Debug)]
 pub struct IosDevice {
@@ -24,6 +26,22 @@ pub struct IosDevice {
     name: String,
     arch_cpu: &'static str,
 }
+
+#[derive(Debug,Clone)]
+pub struct SignatureSettings {
+    pub identity: SigningIdentity,
+    pub entitlements: String,
+    pub name: String,
+    pub profile: String,
+}
+
+#[derive(Debug,Clone)]
+pub struct SigningIdentity {
+    pub id: String,
+    pub name: String,
+    pub team: String,
+}
+
 
 unsafe impl Send for IosDevice {}
 
@@ -51,12 +69,25 @@ impl Device for IosDevice {
         debug!("start lldb");
         Ok(format!("localhost:{}", proxy))
     }
-    fn install_app(&self, app:&path::Path) -> Result<()> {
+    fn make_app(&self, app: &path::Path, target:Option<&str>) -> Result<path::PathBuf> {
+        let target = target.map(|s| s.to_string()).unwrap_or(self.target().into());
+        let signing = xcode::look_for_signature_settings(&*self.id)?
+            .pop()
+            .ok_or("no signing identity found")?;
+        let app_id = signing.name.split(" ").last().ok_or("no app id ?")?;
+        let name = app.file_name();
+        let parent = app.parent().expect("no parents? too sad...");
+        let loc = parent.join("dinghy").join("name");
+        let app = xcode::wrap_as_app(&*target, "main", app, app_id, loc)?;
+        xcode::sign_app(&app, &signing)?;
+        Ok(app)
+    }
+    fn install_app(&self, app: &path::Path) -> Result<()> {
         install_app(self.ptr, app)
     }
-    fn run_app(&self, app_path:&path::Path, app_id:&str, args:&str) -> Result<()> {
+    fn run_app(&self, app_path: &path::Path, args: &str) -> Result<()> {
         let lldb_proxy = self.start_remote_lldb()?;
-        run_remote(self.ptr, &lldb_proxy, app_path, app_id, args)
+        run_remote(self.ptr, &lldb_proxy, app_path, args)
     }
 }
 
@@ -69,7 +100,7 @@ impl IosDevice {
         };
         let cpu = match device_read_value(ptr, "CPUArchitecture")? {
             Some(Value::String(ref v)) if v == "arm64" => "aarch64",
-            _ => "armv7"
+            _ => "armv7",
         };
         let id =
             if let Value::String(id) = rustify(unsafe { AMDeviceCopyDeviceIdentifier(ptr) })? {
@@ -81,10 +112,9 @@ impl IosDevice {
             ptr: ptr,
             name: name,
             id: id,
-            arch_cpu: cpu.into()
+            arch_cpu: cpu.into(),
         })
     }
-
 }
 
 pub struct IosManager {
@@ -256,15 +286,14 @@ fn ensure_session(dev: *const am_device) -> Result<Session> {
         debug!("ensure session 3");
         mk_result(AMDeviceStartSession(dev))?;
         Ok(Session(dev))
-        /*
-        debug!("ensure session 4 ({:x})", rv);
-        if rv as u32 == 0xe800001d {
-            Ok(Session(::std::ptr::null()))
-        } else {
-            mk_result(rv)?;
-            Ok(Session(dev))
-        }
-        */
+        // debug!("ensure session 4 ({:x})", rv);
+        // if rv as u32 == 0xe800001d {
+        // Ok(Session(::std::ptr::null()))
+        // } else {
+        // mk_result(rv)?;
+        // Ok(Session(dev))
+        // }
+        //
     }
 }
 
@@ -413,10 +442,16 @@ fn launch_lldb<P: AsRef<path::Path>, P2: AsRef<path::Path>>(dev: *const am_devic
 pub fn run_remote<P: AsRef<path::Path>>(dev: *const am_device,
                                         lldb_proxy: &str,
                                         app_path: P,
-                                        bundle_id: &str,
-                                        args:&str)
+                                        args: &str)
                                         -> Result<()> {
     let _session = ensure_session(dev)?;
+
+    let plist_file = fs::File::open(app_path.as_ref().join("Info.plist"))?;
+    let plist = ::plist::Plist::read(plist_file)?;
+    let bundle_id = plist.as_dictionary()
+        .and_then(|btreemap| btreemap.get("CFBundleIdentifier"))
+        .and_then(|bi| bi.as_string())
+        .expect("failed to read CFBundleIdentifier");
 
     let options = [(CFString::from_static_string("ReturnAttributes"),
                     CFArray::from_CFTypes(&[CFString::from_static_string("CFBundleIdentifier")
