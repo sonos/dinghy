@@ -15,8 +15,24 @@ libraries on more platforms. We want to get Rust everywhere right ?
 Depending on what is your target (iOS or Android) and your workstation, setting
 up Dinghy can be more or less easy. See the setup sections for that.
 
+If you've never used cross compiling before, you'll probaby want to pick 
+a toolchain or two...
+
+```
+rustup target install aarch64-apple-ios
+rustup target install armv7-apple-ios
+rustup target install arm-linux-androideabi
+```
+
+Then, let's install dinghy...
+
 ```
 cargo install dinghy
+```
+
+Do the setup (see below), then you can try:
+
+```
 cargo dinghy test
 cargo dinghy bench
 ```
