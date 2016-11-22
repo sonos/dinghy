@@ -170,7 +170,9 @@ enum Value {
 }
 
 fn mk_result(rv: i32) -> Result<()> {
-    if rv != 0 {
+    if rv as usize == 0xe80000e2 {
+        Err(format!("error: Device is locked. ({:x})", rv))?
+    } else if rv != 0 {
         Err(format!("error: {:x}", rv))?
     } else {
         Ok(())
