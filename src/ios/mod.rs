@@ -75,9 +75,9 @@ impl Device for IosDevice {
             .pop()
             .ok_or("no signing identity found")?;
         let app_id = signing.name.split(" ").last().ok_or("no app id ?")?;
-        let name = app.file_name();
+        let name = app.file_name().expect("root ?");
         let parent = app.parent().expect("no parents? too sad...");
-        let loc = parent.join("dinghy").join("name");
+        let loc = parent.join("dinghy").join(name);
         let app = xcode::wrap_as_app(&*target, "main", app, app_id, loc)?;
         xcode::sign_app(&app, &signing)?;
         Ok(app)

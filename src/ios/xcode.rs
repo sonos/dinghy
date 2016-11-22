@@ -5,7 +5,7 @@ use errors::*;
 use super::{SignatureSettings, SigningIdentity};
 
 pub fn wrap_as_app<P1, P2>(target: &str,
-                           name: &str,
+                           _name: &str,
                            executable: P1,
                            app_bundle_id: &str,
                            app_path: P2)
