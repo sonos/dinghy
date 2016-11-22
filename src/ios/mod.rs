@@ -85,7 +85,7 @@ impl Device for IosDevice {
     fn install_app(&self, app: &path::Path) -> Result<()> {
         install_app(self.ptr, app)
     }
-    fn run_app(&self, app_path: &path::Path, args: &str) -> Result<()> {
+    fn run_app(&self, app_path: &path::Path, args: &[&str]) -> Result<()> {
         let lldb_proxy = self.start_remote_lldb()?;
         run_remote(self.ptr, &lldb_proxy, app_path, args)
     }
@@ -395,7 +395,7 @@ fn launch_lldb<P: AsRef<path::Path>, P2: AsRef<path::Path>>(dev: *const am_devic
                                                             proxy: &str,
                                                             local: P,
                                                             remote: P2,
-                                                            args: &str)
+                                                            args: &[&str])
                                                             -> Result<()> {
     use std::process::Command;
     use std::io::Write;
@@ -431,7 +431,7 @@ fn launch_lldb<P: AsRef<path::Path>, P2: AsRef<path::Path>>(dev: *const am_devic
         writeln!(script,
                  "set_remote_path {}",
                  remote.as_ref().to_str().unwrap())?;
-        writeln!(script, "run {}", args)?;
+        writeln!(script, "run {}", args.join(" "))?;
         writeln!(script, "quit")?;
     }
 
@@ -442,7 +442,7 @@ fn launch_lldb<P: AsRef<path::Path>, P2: AsRef<path::Path>>(dev: *const am_devic
 pub fn run_remote<P: AsRef<path::Path>>(dev: *const am_device,
                                         lldb_proxy: &str,
                                         app_path: P,
-                                        args: &str)
+                                        args: &[&str])
                                         -> Result<()> {
     let _session = ensure_session(dev)?;
 

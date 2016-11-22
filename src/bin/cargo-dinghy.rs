@@ -67,7 +67,7 @@ fn run(matches: clap::ArgMatches) -> Result<()> {
             let bin = dinghy::build::compile_bin(&*target)?.pop().expect("no executable");
             let app = d.make_app(&*bin, Some(&*target))?;
             d.install_app(&app.as_ref())?;
-            d.run_app(app.as_ref(), "")?;
+            d.run_app(app.as_ref(), &[])?;
             Ok(())
         }
         ("test", Some(_matches)) => {
@@ -75,7 +75,7 @@ fn run(matches: clap::ArgMatches) -> Result<()> {
             for t in tests {
                 let app = d.make_app(&t.1, Some(&*target))?;
                 d.install_app(&app.as_ref())?;
-                d.run_app(app.as_ref(), "")?;
+                d.run_app(app.as_ref(), &[])?;
             }
             Ok(())
         }
@@ -84,7 +84,7 @@ fn run(matches: clap::ArgMatches) -> Result<()> {
             for t in tests {
                 let app = d.make_app(&t.1, Some(&*target))?;
                 d.install_app(&app.as_ref())?;
-                d.run_app(app.as_ref(), "--bench")?;
+                d.run_app(app.as_ref(), &["--bench"])?;
             }
             Ok(())
         }

@@ -8,7 +8,7 @@ use errors::*;
 
 use cargo::util::important_paths::find_root_manifest_for_wd;
 
-pub fn create_shim<P: AsRef<path::Path>>(root: P, device_target: &str) -> Result<()> {
+pub fn create_shim<P: AsRef<path::Path>>(root: P, device_target: &str, shell:&str) -> Result<()> {
     let target_path = root.as_ref().join("target").join(device_target);
     fs::create_dir_all(&target_path)?;
     let shim = target_path.join("linker");
@@ -17,10 +17,8 @@ pub fn create_shim<P: AsRef<path::Path>>(root: P, device_target: &str) -> Result
     }
     let mut linker_shim = fs::File::create(&shim)?;
     writeln!(linker_shim, "#!/bin/sh")?;
-    writeln!(linker_shim,
-             "cc -isysroot \
-              /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS10.\
-              platform/Developer/SDKs/iPhoneOS10.0.sdk \"$@\"")?;
+    linker_shim.write_all(shell.as_bytes())?;
+    writeln!(linker_shim, "\n")?;
     fs::set_permissions(shim, PermissionsExt::from_mode(0o777))?;
     Ok(())
 }
@@ -29,9 +27,24 @@ fn ensure_shim(device_target: &str) -> Result<()> {
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
     let root = wd_path.parent().ok_or("building at / ?")?;
     let target_path = root.join("target").join(device_target);
-    create_shim(&root, &device_target)?;
-    env::set_var("CARGO_TARGET_ARMV7_APPLE_IOS_LINKER",
-                 target_path.join("linker"));
+    if device_target.ends_with("-apple-ios") {
+        create_shim(&root, device_target,
+             "cc -isysroot \
+              /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS10.\
+              platform/Developer/SDKs/iPhoneOS10.0.sdk \"$@\"")?;
+        let var_name = format!("CARGO_TARGET_{}_LINKER", device_target.replace("-","_").to_uppercase());
+        env::set_var(var_name, target_path.join("linker"));
+    } else if device_target == "arm-linux-androideabi" {
+        create_shim(&root, device_target, r#"
+        ANDROID_NDK_HOME=$HOME/Library/Android/sdk/ndk-bundle
+        $ANDROID_NDK_HOME/toolchains/arm-linux-androideabi-4.9/prebuilt/darwin-x86_64/bin/arm-linux-androideabi-gcc \
+                --sysroot $ANDROID_NDK_HOME/platforms/android-18/arch-arm \
+                "$@" "#)?;
+        let var_name = "CARGO_TARGET_ARM_LINUX_ANDROIDEABI_LINKER";
+        env::set_var(var_name, target_path.join("linker"));
+    } else {
+        Err(format!("unsupported target {}", device_target))?
+    }
     Ok(())
 }
 

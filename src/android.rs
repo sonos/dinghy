@@ -39,16 +39,17 @@ impl Device for AndroidDevice {
     fn make_app(&self, app: &path::Path, target:Option<&str>) -> Result<path::PathBuf> {
         Ok(app.into())
     }
-    /*
-    fn sign_app(&self, app: &path::Path, settings: &SignatureSettings) -> Result<()> {
-        unimplemented!()
-    }
-    */
     fn install_app(&self, app: &path::Path) -> Result<()> {
-        unimplemented!()
+        let name = app.file_name().expect("app should be a file in android mode");
+        let target_name = path::PathBuf::from("/data/local/tmp").join(name);
+        Command::new("adb").arg("-s").arg(&*self.id).arg("push").arg(app).arg(&*target_name).status()?;
+        Ok(())
     }
-    fn run_app(&self, app_path: &path::Path, args: &str) -> Result<()> {
-        unimplemented!()
+    fn run_app(&self, app_path: &path::Path, args: &[&str]) -> Result<()> {
+        let name = app_path.file_name().expect("app should be a file in android mode");
+        let target_name = path::PathBuf::from("/data/local/tmp").join(name);
+        Command::new("adb").arg("-s").arg(&*self.id).arg("shell").arg(&*target_name).args(args).status()?;
+        Ok(())
     }
 }
 

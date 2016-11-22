@@ -41,7 +41,7 @@ pub trait Device: std::fmt::Debug {
 
     fn make_app(&self, app: &path::Path, target:Option<&str>) -> Result<path::PathBuf>;
     fn install_app(&self, path: &path::Path) -> Result<()>;
-    fn run_app(&self, app: &path::Path, args: &str) -> Result<()>;
+    fn run_app(&self, app: &path::Path, args: &[&str]) -> Result<()>;
 }
 
 pub struct Dinghy {
