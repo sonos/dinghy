@@ -24,18 +24,14 @@ rustup target install armv7-apple-ios
 rustup target install arm-linux-androideabi
 ```
 
-Then, let's install dinghy...
+Let's install dinghy...
 
 ```
 cargo install dinghy
 ```
 
-Do the device setup (see below), and then you will be able to try:
-
-```
-cargo dinghy test
-cargo dinghy bench
-```
+And... stop here. Unfortunately, there is a bit of stuff to do by hand before
+the fun stuff come.
 
 ## Android setup
 
@@ -68,6 +64,7 @@ your phone.
 
 ### Creating a certificate
 
+* Plug-in your iPhone (or the device you want to run test on).
 * Fire up XCode, and /create a new XCode project/.
 * Pick /iOS/, /Single view application/.
 * Options box:
@@ -79,9 +76,9 @@ your phone.
 * Save it somewhere.
 * You should get the dreadful projects settings. The only thing that is
     relevant is the "Signing" bit.
-    * Plug-in your iPhone (or the device you want to run test on).
-    * XCode should "repair" your project by obtaining a code-signing
-        certificate for your phone.
+    * If you see your Team there, and nothing red or yellows shows up, then
+        you're OK. In some cases, you have to push the "repair" button to
+        actually obtain a certificate from Apple.
 
 If you're using a Apple ID free account, you will need to come back once a
 week to refresh the certificate (aka "repair"). Paying account generate
@@ -148,6 +145,13 @@ Phew.
 
 * there is a bug somewhere, probably in the standard library, that prevents
     command line to be received by the executable.
+
+## Enjoy
+
+Now, you can go to your favourite Rust project. For a first try, I suggest you
+consider something without too many exotic external dependencies. 
+
+Then... instead of doing `cargo test`, try `cargo dinghy test`.
 
 # License
 
