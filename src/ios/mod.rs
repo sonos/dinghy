@@ -338,20 +338,20 @@ fn start_lldb_proxy(fd: c_int) -> Result<u16> {
             for stream in proxy.incoming() {
                 let mut stream = stream.expect("Failure while accepting connection");
                 stream.set_nonblocking(true)?;
-                let mut buffer = [0; 1024];
+                let mut buffer = [0; 16384];
                 loop {
-                    if let Ok(n) = stream.read(&mut buffer) {
-                        if n == 0 {
-                            break;
-                        }
-                        device.write_all(&buffer[0..n])?;
-                    } else if let Ok(n) = device.read(&mut buffer) {
+                    if let Ok(n) = device.read(&mut buffer) {
                         if n == 0 {
                             break;
                         }
                         stream.write_all(&buffer[0..n])?;
+                    } else if let Ok(n) = stream.read(&mut buffer) {
+                        if n == 0 {
+                            break;
+                        }
+                        device.write_all(&buffer[0..n])?;
                     } else {
-                        thread::sleep(Duration::from_millis(10));
+                        thread::sleep(Duration::new(0, 100));
                     }
                 }
             }
