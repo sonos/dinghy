@@ -43,7 +43,7 @@ fn main() {
 }
 
 fn run(matches: clap::ArgMatches) -> Result<()> {
-    let dinghy = dinghy::Dinghy::default();
+    let dinghy = dinghy::Dinghy::probe()?;
     thread::sleep(Duration::from_millis(100));
     let mut devices = dinghy.devices()?.into_iter().filter(|d|
         match matches.value_of("DEVICE") {
@@ -89,9 +89,6 @@ fn run(matches: clap::ArgMatches) -> Result<()> {
             Ok(())
         }
         ("lldbproxy", Some(_matches)) => {
-            let dinghy = dinghy::Dinghy::default();
-            thread::sleep(Duration::from_millis(100));
-            let d = dinghy.devices().unwrap().pop().ok_or("No phone found")?;
             let lldb = d.start_remote_lldb()?;
             println!("lldb running at: {}", lldb);
             loop {

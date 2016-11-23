@@ -120,8 +120,8 @@ pub struct IosManager {
     devices: sync::Arc<sync::Mutex<Vec<IosDevice>>>,
 }
 
-impl Default for IosManager {
-    fn default() -> IosManager {
+impl IosManager {
+    pub fn new() -> Result<Option<IosManager>> {
         let devices = sync::Arc::new(sync::Mutex::new(vec![]));
 
         let devices_to_take_away = Box::new(devices.clone());
@@ -146,9 +146,9 @@ impl Default for IosManager {
                 .map(|mut devices| devices.push(IosDevice::from(device).unwrap()));
         }
 
-        IosManager {
+        Ok(Some(IosManager {
             devices: devices,
-        }
+        }))
     }
 }
 

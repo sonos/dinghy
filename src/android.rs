@@ -36,19 +36,29 @@ impl Device for AndroidDevice {
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
-    fn make_app(&self, app: &path::Path, _target:Option<&str>) -> Result<path::PathBuf> {
+    fn make_app(&self, app: &path::Path, _target: Option<&str>) -> Result<path::PathBuf> {
         Ok(app.into())
     }
     fn install_app(&self, app: &path::Path) -> Result<()> {
         let name = app.file_name().expect("app should be a file in android mode");
         let target_name = path::PathBuf::from("/data/local/tmp").join(name);
-        Command::new("adb").arg("-s").arg(&*self.id).arg("push").arg(app).arg(&*target_name).status()?;
+        Command::new("adb").arg("-s")
+            .arg(&*self.id)
+            .arg("push")
+            .arg(app)
+            .arg(&*target_name)
+            .status()?;
         Ok(())
     }
     fn run_app(&self, app_path: &path::Path, args: &[&str]) -> Result<()> {
         let name = app_path.file_name().expect("app should be a file in android mode");
         let target_name = path::PathBuf::from("/data/local/tmp").join(name);
-        Command::new("adb").arg("-s").arg(&*self.id).arg("shell").arg(&*target_name).args(args).status()?;
+        Command::new("adb").arg("-s")
+            .arg(&*self.id)
+            .arg("shell")
+            .arg(&*target_name)
+            .args(args)
+            .status()?;
         Ok(())
     }
 }
@@ -73,9 +83,15 @@ impl PlatformManager for AndroidManager {
 
 impl AndroidManager {
     pub fn probe() -> Option<AndroidManager> {
-        match Command::new("adb").arg("devices").status() {
-            Ok(_) => Some(AndroidManager {}),
-            Err(_) => None
+        match Command::new("adb").arg("devices").output() {
+            Ok(_) => {
+                info!("adb found in path, android enabled");
+                Some(AndroidManager {})
+            }
+            Err(_) => {
+                info!("adb not found in path, android disabled");
+                None
+            }
         }
 
     }
