@@ -9,7 +9,7 @@ keywords = [
 ]
 
 [dependencies]
-mobiledevice-sys = { path = "mobiledevice-sys" }
+mobiledevice-sys = { path = "mobiledevice-sys", version = "0.1"}
 core-foundation = "*"
 core-foundation-sys = "*"
 error-chain = "*"
