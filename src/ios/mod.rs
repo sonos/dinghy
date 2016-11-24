@@ -1,4 +1,4 @@
-use std::{fs, mem, path, ptr, sync, thread};
+use std::{fs, mem, path, ptr, process, sync, thread};
 use std::collections::HashMap;
 use std::time::Duration;
 use errors::*;
@@ -68,16 +68,18 @@ impl Device for IosDevice {
         debug!("start lldb");
         Ok(format!("localhost:{}", proxy))
     }
-    fn make_app(&self, app: &path::Path, target:Option<&str>) -> Result<path::PathBuf> {
-        let target = target.map(|s| s.to_string()).unwrap_or(self.target().into());
+    fn make_app(&self, exe: &path::Path) -> Result<path::PathBuf> {
         let signing = xcode::look_for_signature_settings(&*self.id)?
             .pop()
             .ok_or("no signing identity found")?;
         let app_id = signing.name.split(" ").last().ok_or("no app id ?")?;
-        let name = app.file_name().expect("root ?");
-        let parent = app.parent().expect("no parents? too sad...");
+        let name = exe.file_name().expect("root ?");
+        let parent = exe.parent().expect("no parents? too sad...");
         let loc = parent.join("dinghy").join(name);
-        let app = xcode::wrap_as_app(&*target, "main", app, app_id, loc)?;
+        let magic = process::Command::new("file").arg(exe.to_str().ok_or("path conversion to string")?).output()?;
+        let magic = String::from_utf8(magic.stdout)?;
+        let target = magic.split(" ").last().ok_or("empty magic")?;
+        let app = xcode::wrap_as_app(target, name.to_str().ok_or("conversion to string")?, exe, app_id, loc)?;
         xcode::sign_app(&app, &signing)?;
         Ok(app)
     }
@@ -168,7 +170,7 @@ enum Value {
 }
 
 fn mk_result(rv: i32) -> Result<()> {
-    if rv as usize == 0xe80000e2 {
+    if rv as u32 == 0xe80000e2 {
         Err(format!("error: Device is locked. ({:x})", rv))?
     } else if rv != 0 {
         Err(format!("error: {:x}", rv))?

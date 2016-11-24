@@ -36,7 +36,7 @@ impl Device for AndroidDevice {
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
-    fn make_app(&self, app: &path::Path, _target: Option<&str>) -> Result<path::PathBuf> {
+    fn make_app(&self, app: &path::Path) -> Result<path::PathBuf> {
         Ok(app.into())
     }
     fn install_app(&self, app: &path::Path) -> Result<()> {

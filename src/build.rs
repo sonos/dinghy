@@ -23,7 +23,7 @@ pub fn create_shim<P: AsRef<path::Path>>(root: P, device_target: &str, shell:&st
     Ok(())
 }
 
-fn ensure_shim(device_target: &str) -> Result<()> {
+pub fn ensure_shim(device_target: &str) -> Result<()> {
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
     let root = wd_path.parent().ok_or("building at / ?")?;
     let target_path = root.join("target").join(device_target);
