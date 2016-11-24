@@ -10,7 +10,6 @@ extern crate plist;
 extern crate regex;
 extern crate tempdir;
 
-extern crate mobiledevice_sys;
 
 #[cfg(target_os="macos")]
 pub mod ios;

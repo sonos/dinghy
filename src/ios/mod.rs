@@ -14,7 +14,8 @@ use core_foundation::number::CFNumber;
 use core_foundation::boolean::CFBoolean;
 use core_foundation_sys::number::kCFBooleanTrue;
 
-use mobiledevice_sys::*;
+mod mobiledevice_sys;
+use self::mobiledevice_sys::*;
 use ::{Device, PlatformManager };
 
 mod xcode;

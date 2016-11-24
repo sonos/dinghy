@@ -7,9 +7,9 @@ description = "Painless tests on mobile devices"
 keywords = [
     "tests", "mobile", "ios", "android"
 ]
+build="build.rs"
 
 [dependencies]
-mobiledevice-sys = { path = "mobiledevice-sys", version = "0.1"}
 core-foundation = "*"
 core-foundation-sys = "*"
 error-chain = "*"
