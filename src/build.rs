@@ -35,8 +35,17 @@ pub fn ensure_shim(device_target: &str) -> Result<()> {
         let var_name = format!("CARGO_TARGET_{}_LINKER", device_target.replace("-","_").to_uppercase());
         env::set_var(var_name, target_path.join("linker"));
     } else if device_target == "arm-linux-androideabi" {
+        if let Err(_) = env::var("ANDROID_NDK_HOME") {
+            if let Ok(home) = env::var("HOME") {
+                let mac_place = format!("{}/Library/Android/sdk/ndk-bundle", home);
+                if fs::metadata(&mac_place)?.is_dir() {
+                    env::set_var("ANDROID_NDK_HOME", &mac_place)
+                }
+            } else {
+                Err("please consider definit ANDROID_SDK_HOME")?
+            }
+        }
         create_shim(&root, device_target, r#"
-        ANDROID_NDK_HOME=$HOME/Library/Android/sdk/ndk-bundle
         $ANDROID_NDK_HOME/toolchains/arm-linux-androideabi-4.9/prebuilt/darwin-x86_64/bin/arm-linux-androideabi-gcc \
                 --sysroot $ANDROID_NDK_HOME/platforms/android-18/arch-arm \
                 "$@" "#)?;
