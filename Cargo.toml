@@ -2,7 +2,7 @@
 name = "dinghy"
 version = "0.1.0"
 authors = ["Mathieu Poumeyrol <mathieu.poumeyol@snips.ai>"]
-license = ""
+license = "MIT/Apache-2.0"
 description = "Painless tests on mobile devices"
 keywords = [
     "tests", "mobile", "ios", "android"
