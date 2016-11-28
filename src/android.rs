@@ -70,7 +70,7 @@ impl PlatformManager for AndroidManager {
     fn devices(&self) -> Result<Vec<Box<Device>>> {
         let result = Command::new("adb").arg("devices").output()?;
         let mut devices = vec![];
-        let device_regex = ::regex::Regex::new("^([0-9a-f]+)\tdevice$")?;
+        let device_regex = ::regex::Regex::new(r#"^(\w+)\tdevice\r?$"#)?;
         for line in String::from_utf8(result.stdout)?.split("\n").skip(1) {
             if let Some(caps) = device_regex.captures(line) {
                 let d = AndroidDevice::from_id(&caps[1])?;
