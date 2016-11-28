@@ -41,7 +41,7 @@ impl Device for AndroidDevice {
     }
     fn install_app(&self, app: &path::Path) -> Result<()> {
         let name = app.file_name().expect("app should be a file in android mode");
-        let target_name = path::PathBuf::from("/data/local/tmp").join(name);
+        let target_name = format!("/data/local/tmp/{}", name.to_str().unwrap_or("dinghy"));
         Command::new("adb").arg("-s")
             .arg(&*self.id)
             .arg("push")
@@ -52,7 +52,7 @@ impl Device for AndroidDevice {
     }
     fn run_app(&self, app_path: &path::Path, args: &[&str]) -> Result<()> {
         let name = app_path.file_name().expect("app should be a file in android mode");
-        let target_name = path::PathBuf::from("/data/local/tmp").join(name);
+        let target_name = format!("/data/local/tmp/{}", name.to_str().unwrap_or("dinghy"));
         Command::new("adb").arg("-s")
             .arg(&*self.id)
             .arg("shell")
