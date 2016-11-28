@@ -10,8 +10,6 @@ keywords = [
 build="build.rs"
 
 [dependencies]
-core-foundation = "0.2"
-core-foundation-sys = "0.2"
 error-chain = "0.5"
 libc="0.2"
 tempfile = "2.1"
@@ -22,3 +20,7 @@ clap = "2.18"
 cargo = "0.14"
 plist = "0.0.14"
 regex = "0.1"
+
+[target.'cfg(target_os="macos")'.dependencies]
+core-foundation = "0.2"
+core-foundation-sys = "0.2"

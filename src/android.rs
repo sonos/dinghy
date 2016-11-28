@@ -41,18 +41,25 @@ impl Device for AndroidDevice {
     }
     fn install_app(&self, app: &path::Path) -> Result<()> {
         let name = app.file_name().expect("app should be a file in android mode");
-        let target_name = path::PathBuf::from("/data/local/tmp").join(name);
+        let target_name = format!("/data/local/tmp/{}", name.to_str().unwrap_or("dinghy"));
         Command::new("adb").arg("-s")
             .arg(&*self.id)
             .arg("push")
             .arg(app)
             .arg(&*target_name)
             .status()?;
+        Command::new("adb").arg("-s")
+            .arg(&*self.id)
+            .arg("shell")
+            .arg("chmod")
+            .arg("775")
+            .arg(&*target_name)
+            .status()?;
         Ok(())
     }
     fn run_app(&self, app_path: &path::Path, args: &[&str]) -> Result<()> {
         let name = app_path.file_name().expect("app should be a file in android mode");
-        let target_name = path::PathBuf::from("/data/local/tmp").join(name);
+        let target_name = format!("/data/local/tmp/{}", name.to_str().unwrap_or("dinghy"));
         Command::new("adb").arg("-s")
             .arg(&*self.id)
             .arg("shell")
@@ -70,7 +77,7 @@ impl PlatformManager for AndroidManager {
     fn devices(&self) -> Result<Vec<Box<Device>>> {
         let result = Command::new("adb").arg("devices").output()?;
         let mut devices = vec![];
-        let device_regex = ::regex::Regex::new("^([0-9a-f]+)\tdevice$")?;
+        let device_regex = ::regex::Regex::new(r#"^(\w+)\tdevice\r?$"#)?;
         for line in String::from_utf8(result.stdout)?.split("\n").skip(1) {
             if let Some(caps) = device_regex.captures(line) {
                 let d = AndroidDevice::from_id(&caps[1])?;

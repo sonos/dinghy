@@ -1,5 +1,6 @@
 use std::{env, fs, path};
 use std::io::Write;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
 use cargo;
@@ -8,6 +9,7 @@ use errors::*;
 
 use cargo::util::important_paths::find_root_manifest_for_wd;
 
+#[cfg(target_os="macos")]
 pub fn create_shim<P: AsRef<path::Path>>(root: P, device_target: &str, shell:&str) -> Result<()> {
     let target_path = root.as_ref().join("target").join(device_target);
     fs::create_dir_all(&target_path)?;
@@ -23,6 +25,18 @@ pub fn create_shim<P: AsRef<path::Path>>(root: P, device_target: &str, shell:&st
     Ok(())
 }
 
+#[cfg(target_os="windows")]
+pub fn create_shim<P: AsRef<path::Path>>(root: P, device_target: &str, shell:&str) -> Result<()> {
+    let target_path = root.as_ref().join("target").join(device_target);
+    fs::create_dir_all(&target_path)?;
+    let shim = target_path.join("linker.bat");
+    let mut linker_shim = fs::File::create(&shim)?;
+    linker_shim.write_all(shell.as_bytes())?;
+    writeln!(linker_shim, "\n")?;
+    Ok(())
+}
+
+#[cfg(target_os="macos")]
 pub fn ensure_shim(device_target: &str) -> Result<()> {
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
     let root = wd_path.parent().ok_or("building at / ?")?;
@@ -53,6 +67,30 @@ pub fn ensure_shim(device_target: &str) -> Result<()> {
         env::set_var(var_name, target_path.join("linker"));
     } else {
         Err(format!("unsupported target {}", device_target))?
+    }
+    Ok(())
+}
+
+#[cfg(target_os="windows")]
+pub fn ensure_shim(device_target: &str) -> Result<()> {
+    let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
+    let root = wd_path.parent().ok_or("building at / ?")?;
+    let target_path = root.join("target").join(device_target);
+    match device_target {
+        "arm-linux-androideabi" => {
+            let home = env::var("ANDROID_NDK_HOME")
+                .map_err(|_| "environment variable ANDROID_SDK_HOME is required")?;
+
+            let cmd = format!(r#"{home}\toolchains\arm-linux-androideabi-4.9\prebuilt\windows\bin\arm-linux-androideabi-gcc --sysroot {home}\platforms\android-18\arch-arm %* "#,
+                home = home);
+
+            create_shim(&root, device_target, &cmd)?;
+            let var_name = "CARGO_TARGET_ARM_LINUX_ANDROIDEABI_LINKER";
+            env::set_var(var_name, target_path.join("linker.bat"));
+        },
+        _ => {
+            Err(format!("unsupported target {}", device_target))?
+        }
     }
     Ok(())
 }
