@@ -48,6 +48,13 @@ impl Device for AndroidDevice {
             .arg(app)
             .arg(&*target_name)
             .status()?;
+        Command::new("adb").arg("-s")
+            .arg(&*self.id)
+            .arg("shell")
+            .arg("chmod")
+            .arg("775")
+            .arg(&*target_name)
+            .status()?;
         Ok(())
     }
     fn run_app(&self, app_path: &path::Path, args: &[&str]) -> Result<()> {
