@@ -1,5 +1,7 @@
 extern crate cargo;
+#[cfg(target_os="macos")]
 extern crate core_foundation;
+#[cfg(target_os="macos")]
 extern crate core_foundation_sys;
 #[macro_use]
 extern crate error_chain;
