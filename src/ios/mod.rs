@@ -31,6 +31,7 @@ pub struct IosDevice {
 #[derive(Debug,Clone)]
 pub struct SignatureSettings {
     pub identity: SigningIdentity,
+    pub file: String,
     pub entitlements: String,
     pub name: String,
     pub profile: String,
@@ -173,6 +174,10 @@ enum Value {
 fn mk_result(rv: i32) -> Result<()> {
     if rv as u32 == 0xe80000e2 {
         Err(format!("error: Device is locked. ({:x})", rv))?
+    } else if rv as u32 == 0xe8008015 {
+        Err("error: 0xe8008015, A valid provisioning profile for this executable was not found.")?
+    } else if rv as u32 == 0xe8008016 {
+        Err("error: 0xe8008016, The executable was signed with invalid entitlements.")?
     } else if rv != 0 {
         Err(format!("error: {:x}", rv))?
     } else {

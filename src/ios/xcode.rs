@@ -37,10 +37,11 @@ pub fn wrap_as_app<P1, P2>(target: &str,
 }
 
 pub fn sign_app<P: AsRef<path::Path>>(app: P, settings: &SignatureSettings) -> Result<()> {
-    info!("Will sign {:?} with team: {} using key: {}",
+    info!("Will sign {:?} with team: {} using key: {} and profile: {}",
           app.as_ref(),
           settings.identity.team,
-          settings.identity.name);
+          settings.identity.name,
+          settings.file);
 
     let entitlements =
         app.as_ref().parent().ok_or("not building in root")?.join("entitlements.xcent");
@@ -148,6 +149,7 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
             .join("\n");
         settings.push(SignatureSettings {
             entitlements: entitlements,
+            file: file.path().to_str().ok_or("filename should be utf8")?.into(),
             name: name.into(),
             identity: identity.clone(),
             profile: file.path().to_str().unwrap().into(),
