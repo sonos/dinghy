@@ -56,7 +56,7 @@ pub fn ensure_shim(device_target: &str) -> Result<()> {
                     env::set_var("ANDROID_NDK_HOME", &mac_place)
                 }
             } else {
-                Err("please consider definit ANDROID_SDK_HOME")?
+                Err("environment variable ANDROID_NDK_HOME is required")?
             }
         }
         create_shim(&root, device_target, r#"
@@ -79,7 +79,7 @@ pub fn ensure_shim(device_target: &str) -> Result<()> {
     match device_target {
         "arm-linux-androideabi" => {
             let home = env::var("ANDROID_NDK_HOME")
-                .map_err(|_| "environment variable ANDROID_SDK_HOME is required")?;
+                .map_err(|_| "environment variable ANDROID_NDK_HOME is required")?;
 
             let cmd = format!(r#"{home}\toolchains\arm-linux-androideabi-4.9\prebuilt\windows\bin\arm-linux-androideabi-gcc --sysroot {home}\platforms\android-18\arch-arm %* "#,
                 home = home);
