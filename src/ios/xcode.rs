@@ -122,7 +122,8 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
         let name = dict.get("Name").ok_or(format!("No name in profile {:?}", file.path()))?;
         let name = name.as_string()
             .ok_or(format!("Name should have been a string in {:?}", file.path()))?;
-        if !name.ends_with("Dinghy") {
+        if !name.ends_with("Dinghy") && !name.ends_with(" *") {
+            debug!("  app in profile does not match ({})", name);
             continue;
         }
         // TODO: check date in future
@@ -150,7 +151,7 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
         settings.push(SignatureSettings {
             entitlements: entitlements,
             file: file.path().to_str().ok_or("filename should be utf8")?.into(),
-            name: name.into(),
+            name: if name == "XC Wildcard" { "org.zoy.Dinghy".into() }  else { name.into() },
             identity: identity.clone(),
             profile: file.path().to_str().unwrap().into(),
         });
