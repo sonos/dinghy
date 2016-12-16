@@ -32,6 +32,11 @@ fn main() {
                         .long("target")
                         .takes_value(true)
                         .help("target triple (rust conventions)"))
+                    .arg(::clap::Arg::with_name("VERBOSE")
+                        .short("v")
+                        .long("verbose")
+                        .multiple(true)
+                        .help("Use verbose output"))
                     .arg(::clap::Arg::with_name("LIB").long("lib").help("only the library"))
                     .arg(::clap::Arg::with_name("BIN")
                         .long("bin")
@@ -68,6 +73,11 @@ fn main() {
                         .long("target")
                         .takes_value(true)
                         .help("target triple (rust conventions)"))
+                    .arg(::clap::Arg::with_name("VERBOSE")
+                        .short("v")
+                        .long("verbose")
+                        .multiple(true)
+                        .help("Use verbose output"))
                     .arg(::clap::Arg::with_name("BIN")
                         .long("bin")
                         .takes_value(true)
@@ -97,6 +107,11 @@ fn main() {
                         .long("target")
                         .takes_value(true)
                         .help("target triple (rust conventions)"))
+                    .arg(::clap::Arg::with_name("VERBOSE")
+                        .short("v")
+                        .long("verbose")
+                        .multiple(true)
+                        .help("Use verbose output"))
                     .arg(::clap::Arg::with_name("LIB").long("lib").help("only the library"))
                     .arg(::clap::Arg::with_name("BIN")
                         .long("bin")
@@ -132,6 +147,11 @@ fn main() {
                         .long("target")
                         .takes_value(true)
                         .help("target triple (rust conventions)"))
+                    .arg(::clap::Arg::with_name("VERBOSE")
+                        .short("v")
+                        .long("verbose")
+                        .multiple(true)
+                        .help("Use verbose output"))
                     .arg(::clap::Arg::with_name("BIN")
                         .long("bin")
                         .takes_value(true)
@@ -236,7 +256,7 @@ fn prepare_runnable(device: &dinghy::Device,
         matches.value_of("FEATURES").unwrap_or("").split(" ").map(|s| s.into()).collect();
     let target = matches.value_of("TARGET").map(|s| s.into()).unwrap_or(device.target());
     dinghy::build::ensure_shim(&*target)?;
-    cfg.configure(0, None, &None, false, false)?;
+    cfg.configure(matches.occurrences_of("VERBOSE") as u32, None, &None, false, false)?;
     let wd = cargo::core::Workspace::new(&wd_path, &cfg)?;
     let bins = matches.values_of("BIN").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec!());
     let tests = matches.values_of("TEST").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec!());

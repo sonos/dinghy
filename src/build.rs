@@ -1,4 +1,4 @@
-use std::{env, fs, path};
+use std::{env, fs, path, process};
 use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -42,10 +42,9 @@ pub fn ensure_shim(device_target: &str) -> Result<()> {
     let root = wd_path.parent().ok_or("building at / ?")?;
     let target_path = root.join("target").join(device_target);
     if device_target.ends_with("-apple-ios") {
-        create_shim(&root, device_target,
-             "cc -isysroot \
-              /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS10.\
-              platform/Developer/SDKs/iPhoneOS10.0.sdk \"$@\"")?;
+        let xcrun = process::Command::new("xcrun").args(&["--sdk","iphoneos","--show-sdk-path"]).output()?;
+        let sdk_path = String::from_utf8(xcrun.stdout)?;
+        create_shim(&root, device_target, &*format!(r#"cc -isysroot {} "$@""#, &*sdk_path.trim_right()))?;
         let var_name = format!("CARGO_TARGET_{}_LINKER", device_target.replace("-","_").to_uppercase());
         env::set_var(var_name, target_path.join("linker"));
     } else if device_target == "arm-linux-androideabi" {

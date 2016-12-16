@@ -1,11 +1,13 @@
 [package]
 name = "dinghy"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["Mathieu Poumeyrol <mathieu.poumeyol@snips.ai>"]
 license = "MIT/Apache-2.0"
 description = "Painless tests on mobile devices"
+homepage = "https://medium.com/snips-ai/dinghy-painless-rust-tests-and-benches-on-ios-and-android-c9f94f81d305#.c2sx7two8"
+repository = "https://github.com/snipsco/dinghy"
 keywords = [
-    "tests", "mobile", "ios", "android"
+    "tests", "mobile", "ios", "android", "cargo"
 ]
 build="build.rs"
 
