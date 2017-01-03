@@ -229,9 +229,10 @@ fn xcode_dev_path() -> Result<path::PathBuf> {
     Ok(String::from_utf8(command.stdout)?.trim().into())
 }
 
-fn device_support_path(dev: *const am_device) -> Result<Option<path::PathBuf>> {
+fn device_support_path(dev: *const am_device) -> Result<path::PathBuf> {
     let prefix = xcode_dev_path()?.join("Platforms/iPhoneOS.platform/DeviceSupport");
     let os_version = device_read_value(dev, "ProductVersion")?.ok_or("Could not get OS version")?;
+    debug!("Looking for device support directory in {:?} for iOS version {:?}", prefix, os_version);
     let two_token_version: String = if let Value::String(v) = os_version {
         v.split(".").take(2).collect::<Vec<_>>().join(".").into()
     } else {
@@ -243,17 +244,17 @@ fn device_support_path(dev: *const am_device) -> Result<Option<path::PathBuf>> {
             .into_string()
             .map_err(|d| format!("Could not parse {:?}", d))?;
         if last.starts_with(&two_token_version) {
-            return Ok(Some(prefix.join(directory.path())));
+            return Ok(prefix.join(directory.path()));
         }
     }
-    Ok(None)
+    Err(format!("No device support directory for iOS version {} in {:?}. Time for an XCode update?", two_token_version, prefix))?
 }
 
 fn mount_developper_image(dev: *const am_device) -> Result<()> {
     use std::io::Read;
     unsafe {
         let _session = ensure_session(dev);
-        let ds_path = device_support_path(dev)?.ok_or("No device support found in xcode")?;
+        let ds_path = device_support_path(dev)?;
         let image_path = ds_path.join("DeveloperDiskImage.dmg");
         let sig_image_path = ds_path.join("DeveloperDiskImage.dmg.signature");
         let mut sig: Vec<u8> = vec![];
@@ -413,7 +414,6 @@ fn launch_lldb<P: AsRef<path::Path>, P2: AsRef<path::Path>>(dev: *const am_devic
     let lldb_script_filename = tmppath.join("lldb-script");
     let sysroot = device_support_path(dev)
         ?
-        .ok_or("no sysroot ?")?
         .to_str()
         .ok_or("could not read sysroot")?
         .to_owned();
