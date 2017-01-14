@@ -84,9 +84,24 @@ extern "C" {
                                 unknown: *const c_int)
                                 -> c_int;
 
-    pub fn AMDeviceLookupApplications(device: *const am_device, options: CFDictionaryRef, result: CFDictionaryRef) -> c_int;
+    pub fn AMDeviceLookupApplications(device: *const am_device,
+                                      options: CFDictionaryRef,
+                                      result: CFDictionaryRef)
+                                      -> c_int;
 
     pub fn AMDeviceCopyDeviceIdentifier(device: *const am_device) -> *const c_void;
-    pub fn AMDeviceSecureInstallApplication(zero: c_int, device: *const am_device, url: CFURLRef , options:CFDictionaryRef, callback: *const c_void, cbarg: *const c_void) -> c_int;
-    pub fn AMDeviceSecureTransferPath(zero: c_int, device: *const am_device, url: CFURLRef , options:CFDictionaryRef, callback: *const c_void, cbarg: *const c_void) -> c_int;
+    pub fn AMDeviceSecureInstallApplication(zero: c_int,
+                                            device: *const am_device,
+                                            url: CFURLRef,
+                                            options: CFDictionaryRef,
+                                            callback: *const c_void,
+                                            cbarg: *const c_void)
+                                            -> c_int;
+    pub fn AMDeviceSecureTransferPath(zero: c_int,
+                                      device: *const am_device,
+                                      url: CFURLRef,
+                                      options: CFDictionaryRef,
+                                      callback: *const c_void,
+                                      cbarg: *const c_void)
+                                      -> c_int;
 }

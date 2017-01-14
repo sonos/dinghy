@@ -5,5 +5,6 @@ error_chain!{
         Box<::cargo::CargoError>, CargoError;
         ::plist::Error, PlistError;
         ::regex::Error, RegexError;
+        ::json::Error, JsonError;
     }
 }

@@ -151,7 +151,11 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
         settings.push(SignatureSettings {
             entitlements: entitlements,
             file: file.path().to_str().ok_or("filename should be utf8")?.into(),
-            name: if name.ends_with(" *") { "org.zoy.kali.Dinghy".into() }  else { name.into() },
+            name: if name.ends_with(" *") {
+                "org.zoy.kali.Dinghy".into()
+            } else {
+                name.into()
+            },
             identity: identity.clone(),
             profile: file.path().to_str().unwrap().into(),
         });

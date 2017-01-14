@@ -42,7 +42,11 @@ pub fn ensure_shim(device_target: &str) -> Result<()> {
     let root = wd_path.parent().ok_or("building at / ?")?;
     let target_path = root.join("target").join(device_target);
     if device_target.ends_with("-apple-ios") {
-        let xcrun = process::Command::new("xcrun").args(&["--sdk","iphoneos","--show-sdk-path"]).output()?;
+        let xcrun = if device_target.starts_with("x86") {
+            process::Command::new("xcrun").args(&["--sdk","iphonesimulator","--show-sdk-path"]).output()?
+        } else {
+            process::Command::new("xcrun").args(&["--sdk","iphoneos","--show-sdk-path"]).output()?
+        };
         let sdk_path = String::from_utf8(xcrun.stdout)?;
         create_shim(&root, device_target, &*format!(r#"cc -isysroot {} "$@""#, &*sdk_path.trim_right()))?;
         let var_name = format!("CARGO_TARGET_{}_LINKER", device_target.replace("-","_").to_uppercase());

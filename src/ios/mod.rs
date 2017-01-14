@@ -16,9 +16,10 @@ use core_foundation_sys::number::kCFBooleanTrue;
 
 mod mobiledevice_sys;
 use self::mobiledevice_sys::*;
-use ::{Device, PlatformManager };
+use ::{Device, PlatformManager};
 
 mod xcode;
+
 
 #[derive(Clone,Debug)]
 pub struct IosDevice {
@@ -44,7 +45,14 @@ pub struct SigningIdentity {
     pub team: String,
 }
 
+#[derive(Clone,Debug)]
+pub struct IosSimDevice {
+    id: String,
+    name: String,
+}
+
 unsafe impl Send for IosDevice {}
+
 
 impl Device for IosDevice {
     fn name(&self) -> &str {
@@ -78,10 +86,16 @@ impl Device for IosDevice {
         let name = exe.file_name().expect("root ?");
         let parent = exe.parent().expect("no parents? too sad...");
         let loc = parent.join("dinghy").join(name);
-        let magic = process::Command::new("file").arg(exe.to_str().ok_or("path conversion to string")?).output()?;
+        let magic =
+            process::Command::new("file").arg(exe.to_str().ok_or("path conversion to string")?)
+                .output()?;
         let magic = String::from_utf8(magic.stdout)?;
         let target = magic.split(" ").last().ok_or("empty magic")?;
-        let app = xcode::wrap_as_app(target, name.to_str().ok_or("conversion to string")?, exe, app_id, loc)?;
+        let app = xcode::wrap_as_app(target,
+                                     name.to_str().ok_or("conversion to string")?,
+                                     exe,
+                                     app_id,
+                                     loc)?;
         xcode::sign_app(&app, &signing)?;
         Ok(app)
     }
@@ -105,18 +119,66 @@ impl IosDevice {
             Some(Value::String(ref v)) if v == "arm64" => "aarch64",
             _ => "armv7",
         };
-        let id =
-            if let Value::String(id) = rustify(unsafe { AMDeviceCopyDeviceIdentifier(ptr) })? {
-                id
-            } else {
-                Err("unexpected id format")?
-            };
+        let id = if let Value::String(id) =
+            rustify(unsafe { AMDeviceCopyDeviceIdentifier(ptr) })? {
+            id
+        } else {
+            Err("unexpected id format")?
+        };
         Ok(IosDevice {
             ptr: ptr,
             name: name,
             id: id,
             arch_cpu: cpu.into(),
         })
+    }
+}
+
+impl Device for IosSimDevice {
+    fn name(&self) -> &str {
+        &*self.name
+    }
+    fn id(&self) -> &str {
+        &*self.id
+    }
+    fn target_arch(&self) -> &'static str {
+        "x86_64"
+    }
+    fn target_vendor(&self) -> &'static str {
+        "apple"
+    }
+    fn target_os(&self) -> &'static str {
+        "ios"
+    }
+    fn start_remote_lldb(&self) -> Result<String> {
+        unimplemented!()
+    }
+    fn make_app(&self, exe: &path::Path) -> Result<path::PathBuf> {
+        let name = exe.file_name().expect("root ?");
+        let parent = exe.parent().expect("no parents? too sad...");
+        let loc = parent.join("dinghy").join(name);
+        let magic = process::Command::new("file").arg(exe.to_str().ok_or("path conversion to string")?).output()?;
+        let magic = String::from_utf8(magic.stdout)?;
+        let target = magic.split(" ").last().ok_or("empty magic")?;
+        let app = xcode::wrap_as_app(target, name.to_str().ok_or("conversion to string")?, exe, "Dinghy", loc)?;
+        Ok(app)
+    }
+    fn install_app(&self, app: &path::Path) -> Result<()> {
+        let stat = process::Command::new("xcrun").args(&["simctl", "uninstall", &self.id, "Dinghy"]).status()?;
+        let stat = process::Command::new("xcrun").args(&["simctl", "install", &self.id, app.to_str().ok_or("conversion to string")?]).status()?;
+        if stat.success() {
+            Ok(())
+        } else {
+            Err("failed to install")?
+        }
+    }
+    fn run_app(&self, app_path: &path::Path, args: &[&str]) -> Result<()> {
+        let stat = process::Command::new("xcrun").args(&["simctl", "launch", "--console", &self.id, "Dinghy"]).args(args).status()?;
+        if stat.success() {
+            Ok(())
+        } else {
+            Err(format!("{:?} returned error {} ", app_path, stat.code().unwrap_or(-1)))?
+        }
     }
 }
 
@@ -150,16 +212,30 @@ impl IosManager {
                 .map(|mut devices| devices.push(IosDevice::from(device).unwrap()));
         }
 
-        Ok(Some(IosManager {
-            devices: devices,
-        }))
+        Ok(Some(IosManager { devices: devices }))
     }
 }
 
 impl PlatformManager for IosManager {
     fn devices(&self) -> Result<Vec<Box<Device>>> {
+        let sims_list =
+            ::std::process::Command::new("xcrun").args(&["simctl", "list", "--json", "devices"])
+                .output()?;
+        let sims_list = String::from_utf8(sims_list.stdout)?;
+        let sims_list = ::json::parse(&*sims_list)?;
+        let mut sims:Vec<Box<Device>> = vec![];
+        for (ref k, ref v) in sims_list["devices"].entries() {
+            for ref sim in v.members() {
+                if sim["state"] == "Booted" {
+                    sims.push(Box::new(IosSimDevice {
+                        name: sim["name"].as_str().ok_or("unexpected simulator list format (missing name)")?.to_string(),
+                        id: sim["udid"].as_str().ok_or("unexpected simulator list format (missing udid)")?.to_string(),
+                    }))
+                }
+            }
+        }
         let devices = self.devices.lock().map_err(|_| "poisoned lock")?;
-        Ok(devices.iter().map(|d| Box::new(d.clone()) as Box<Device>).collect())
+        Ok(devices.iter().map(|d| Box::new(d.clone()) as Box<Device>).chain(sims.into_iter()).collect())
     }
 }
 
@@ -232,7 +308,9 @@ fn xcode_dev_path() -> Result<path::PathBuf> {
 fn device_support_path(dev: *const am_device) -> Result<path::PathBuf> {
     let prefix = xcode_dev_path()?.join("Platforms/iPhoneOS.platform/DeviceSupport");
     let os_version = device_read_value(dev, "ProductVersion")?.ok_or("Could not get OS version")?;
-    debug!("Looking for device support directory in {:?} for iOS version {:?}", prefix, os_version);
+    debug!("Looking for device support directory in {:?} for iOS version {:?}",
+           prefix,
+           os_version);
     let two_token_version: String = if let Value::String(v) = os_version {
         v.split(".").take(2).collect::<Vec<_>>().join(".").into()
     } else {
@@ -247,7 +325,10 @@ fn device_support_path(dev: *const am_device) -> Result<path::PathBuf> {
             return Ok(prefix.join(directory.path()));
         }
     }
-    Err(format!("No device support directory for iOS version {} in {:?}. Time for an XCode update?", two_token_version, prefix))?
+    Err(format!("No device support directory for iOS version {} in {:?}. Time for an XCode \
+                 update?",
+                two_token_version,
+                prefix))?
 }
 
 fn mount_developper_image(dev: *const am_device) -> Result<()> {
@@ -479,14 +560,16 @@ pub fn run_remote<P: AsRef<path::Path>>(dev: *const am_device,
                 apps.get(::std::mem::transmute(CFString::new(bundle_id).as_concrete_TypeRef()))
             ))
         };
-    let remote: String = if let Ok(Value::String(remote)) = unsafe {
-        rustify(app_info.get(::std::mem::transmute(CFString::from_static_string("Path")
-            .as_concrete_TypeRef())))
-    } {
-        remote
-    } else {
-        Err("Invalid info")?
-    };
+    let remote: String =
+        if let Ok(Value::String(remote)) =
+            unsafe {
+                rustify(app_info.get(::std::mem::transmute(CFString::from_static_string("Path")
+                    .as_concrete_TypeRef())))
+            } {
+            remote
+        } else {
+            Err("Invalid info")?
+        };
     launch_lldb(dev, lldb_proxy, app_path, remote, args)?;
     Ok(())
 }
