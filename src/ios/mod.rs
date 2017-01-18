@@ -49,6 +49,7 @@ pub struct SigningIdentity {
 pub struct IosSimDevice {
     id: String,
     name: String,
+    os: String,
 }
 
 unsafe impl Send for IosDevice {}
@@ -164,7 +165,7 @@ impl Device for IosSimDevice {
         Ok(app)
     }
     fn install_app(&self, app: &path::Path) -> Result<()> {
-        let stat = process::Command::new("xcrun").args(&["simctl", "uninstall", &self.id, "Dinghy"]).status()?;
+        let _ = process::Command::new("xcrun").args(&["simctl", "uninstall", &self.id, "Dinghy"]).status()?;
         let stat = process::Command::new("xcrun").args(&["simctl", "install", &self.id, app.to_str().ok_or("conversion to string")?]).status()?;
         if stat.success() {
             Ok(())
@@ -173,12 +174,8 @@ impl Device for IosSimDevice {
         }
     }
     fn run_app(&self, app_path: &path::Path, args: &[&str]) -> Result<()> {
-        let stat = process::Command::new("xcrun").args(&["simctl", "launch", "--console", &self.id, "Dinghy"]).args(args).status()?;
-        if stat.success() {
-            Ok(())
-        } else {
-            Err(format!("{:?} returned error {} ", app_path, stat.code().unwrap_or(-1)))?
-        }
+        let install_path = String::from_utf8(process::Command::new("xcrun").args(&["simctl", "get_app_container", &self.id, "Dinghy"]).output()?.stdout)?;
+        launch_lldb_simulator(&self, &*install_path, args)
     }
 }
 
@@ -230,6 +227,7 @@ impl PlatformManager for IosManager {
                     sims.push(Box::new(IosSimDevice {
                         name: sim["name"].as_str().ok_or("unexpected simulator list format (missing name)")?.to_string(),
                         id: sim["udid"].as_str().ok_or("unexpected simulator list format (missing udid)")?.to_string(),
+                        os: k.split(" ").last().unwrap().to_string(),
                     }))
                 }
             }
@@ -306,16 +304,20 @@ fn xcode_dev_path() -> Result<path::PathBuf> {
 }
 
 fn device_support_path(dev: *const am_device) -> Result<path::PathBuf> {
-    let prefix = xcode_dev_path()?.join("Platforms/iPhoneOS.platform/DeviceSupport");
     let os_version = device_read_value(dev, "ProductVersion")?.ok_or("Could not get OS version")?;
+    if let Value::String(v) = os_version {
+        platform_support_path("iPhoneOS.platform", &*v)
+    } else {
+        Err(format!("expected ProductVersion to be a String, found {:?}", os_version))?
+    }
+}
+
+fn platform_support_path(platform:&str, os_version:&str) -> Result<path::PathBuf> {
+    let prefix = xcode_dev_path()?.join("Platforms").join(platform).join("DeviceSupport");
     debug!("Looking for device support directory in {:?} for iOS version {:?}",
            prefix,
            os_version);
-    let two_token_version: String = if let Value::String(v) = os_version {
-        v.split(".").take(2).collect::<Vec<_>>().join(".").into()
-    } else {
-        Err("ProductVersion should have be a string")?
-    };
+    let two_token_version: String = os_version.split(".").take(2).collect::<Vec<_>>().join(".").into();
     for directory in fs::read_dir(&prefix)? {
         let directory = directory?;
         let last = directory.file_name()
@@ -481,7 +483,7 @@ fn start_lldb_proxy(fd: c_int) -> Result<u16> {
     Ok(addr.port())
 }
 
-fn launch_lldb<P: AsRef<path::Path>, P2: AsRef<path::Path>>(dev: *const am_device,
+fn launch_lldb_device<P: AsRef<path::Path>, P2: AsRef<path::Path>>(dev: *const am_device,
                                                             proxy: &str,
                                                             local: P,
                                                             remote: P2,
@@ -528,6 +530,26 @@ fn launch_lldb<P: AsRef<path::Path>, P2: AsRef<path::Path>>(dev: *const am_devic
     Ok(())
 }
 
+fn launch_lldb_simulator(dev: &IosSimDevice, installed: &str, args: &[&str]) -> Result<()> {
+    use std::process::Command;
+    use std::io::Write;
+    let dir = ::tempdir::TempDir::new("mobiledevice-rs-lldb")?;
+    let tmppath = dir.path();
+    let lldb_script_filename = tmppath.join("lldb-script");
+    {
+        let mut script = fs::File::create(&lldb_script_filename)?;
+        writeln!(script, "platform select ios-simulator")?;
+        writeln!(script, "platform connect {}", dev.id)?;
+        writeln!(script, "target create {}", installed)?;
+        writeln!(script, "run {}", args.join(" "))?;
+        writeln!(script, "quit")?;
+    }
+
+    Command::new("xcrun").arg("lldb").arg("-Q").arg("-s").arg(lldb_script_filename).status()?;
+    Ok(())
+}
+
+
 pub fn run_remote<P: AsRef<path::Path>>(dev: *const am_device,
                                         lldb_proxy: &str,
                                         app_path: P,
@@ -570,7 +592,7 @@ pub fn run_remote<P: AsRef<path::Path>>(dev: *const am_device,
         } else {
             Err("Invalid info")?
         };
-    launch_lldb(dev, lldb_proxy, app_path, remote, args)?;
+    launch_lldb_device(dev, lldb_proxy, app_path, remote, args)?;
     Ok(())
 }
 
