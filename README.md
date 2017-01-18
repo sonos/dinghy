@@ -19,9 +19,16 @@ If you've never used cross compiling before, you'll probaby want to pick
 a toolchain or two...
 
 ```
+# a few ios devices
 rustup target install aarch64-apple-ios
 rustup target install armv7-apple-ios
 rustup target install arm-linux-androideabi
+
+# a suitable ios simulator
+rustup target install x86_64-apple-ios
+
+# android arm devices
+arm-linux-androideabi
 ```
 
 Let's install dinghy...
@@ -35,7 +42,14 @@ the fun stuff come.
 
 ## Android setup
 
-TODO (but if you're on a mac, chances are it already works).
+You'll need the usual ANDROID_NDK_HOME, and `adb` somewhere in your path.
+Also your phone must have developer options enabled.
+
+## iOS simulator setup
+
+If you are on a mac, just start a simulator instance. Dinghy will detect it and
+pick it. If you're a mac/iOS developper, it's nice to try that before diving
+into the more convoluted iOS device setup that follows.
 
 ## iOS setup
 
@@ -141,11 +155,6 @@ Dinghy will actually scan this directory to find one that it can use (this is
 where the app name being "Dinghy" plays a role).
 
 Phew.
-
-### command line arguments on aarch64
-
-* there is a bug somewhere, probably in the standard library, that prevents
-    command line to be received by the executable.
 
 ## Enjoy
 
