@@ -173,7 +173,7 @@ impl Device for IosSimDevice {
             Err("failed to install")?
         }
     }
-    fn run_app(&self, app_path: &path::Path, args: &[&str]) -> Result<()> {
+    fn run_app(&self, _app_path: &path::Path, args: &[&str]) -> Result<()> {
         let install_path = String::from_utf8(process::Command::new("xcrun").args(&["simctl", "get_app_container", &self.id, "Dinghy"]).output()?.stdout)?;
         launch_lldb_simulator(&self, &*install_path, args)
     }
@@ -516,18 +516,22 @@ fn launch_lldb_device<P: AsRef<path::Path>, P2: AsRef<path::Path>>(dev: *const a
         writeln!(script,
                  "command script add -f helpers.connect_command connect")?;
         writeln!(script,
-                 "command script add -s synchronous -f helpers.run_command run")?;
+                 "command script add -s synchronous -f helpers.start start")?;
 
         writeln!(script, "connect connect://{}", proxy)?;
         writeln!(script,
                  "set_remote_path {}",
                  remote.as_ref().to_str().unwrap())?;
-        writeln!(script, "run {}", args.join(" "))?;
+        writeln!(script, "start {}", args.join(" "))?;
         writeln!(script, "quit")?;
     }
 
-    Command::new("lldb").arg("-Q").arg("-s").arg(lldb_script_filename).status()?;
-    Ok(())
+    let stat = Command::new("lldb").arg("-Q").arg("-s").arg(lldb_script_filename).status()?;
+    if stat.success() {
+        Ok(())
+    } else {
+        Err(format!("LLDB returned error code {:?}", stat.code()))?
+    }
 }
 
 fn launch_lldb_simulator(dev: &IosSimDevice, installed: &str, args: &[&str]) -> Result<()> {
@@ -537,16 +541,28 @@ fn launch_lldb_simulator(dev: &IosSimDevice, installed: &str, args: &[&str]) -> 
     let tmppath = dir.path();
     let lldb_script_filename = tmppath.join("lldb-script");
     {
+        let python_lldb_support = tmppath.join("helpers.py");
+        fs::File::create(&python_lldb_support)?.write_all(include_bytes!("helpers.py"))?;
         let mut script = fs::File::create(&lldb_script_filename)?;
         writeln!(script, "platform select ios-simulator")?;
-        writeln!(script, "platform connect {}", dev.id)?;
         writeln!(script, "target create {}", installed)?;
-        writeln!(script, "run {}", args.join(" "))?;
+        writeln!(script, "script pass")?;
+        writeln!(script, "command script import {:?}", python_lldb_support)?;
+        writeln!(script,
+                 "command script add -s synchronous -f helpers.start start")?;
+        writeln!(script,
+                 "command script add -f helpers.connect_command connect")?;
+        writeln!(script, "connect connect://{}", dev.id)?;
+        writeln!(script, "start {}", args.join(" "))?;
         writeln!(script, "quit")?;
     }
 
-    Command::new("xcrun").arg("lldb").arg("-Q").arg("-s").arg(lldb_script_filename).status()?;
-    Ok(())
+    let stat = Command::new("xcrun").arg("lldb").arg("-Q").arg("-s").arg(lldb_script_filename).status()?;
+    if stat.success() {
+        Ok(())
+    } else {
+        Err(format!("LLDB returned error code {:?}", stat.code()))?
+    }
 }
 
 

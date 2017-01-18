@@ -1,10 +1,10 @@
+import os
 import lldb
 import shlex
 
 def connect_command(debugger, command, result, internal_dict):
     connect_url = command
     error = lldb.SBError()
-
     process = lldb.target.ConnectRemote(lldb.target.GetDebugger().GetListener(), connect_url, None, error)
 
 def set_remote_path(debugger, command, result, internal_dict):
@@ -12,20 +12,15 @@ def set_remote_path(debugger, command, result, internal_dict):
     error = lldb.SBError()
     lldb.target.modules[0].SetPlatformFileSpec(lldb.SBFileSpec(device_app))
 
-def run_command(debugger, command, result, internal_dict):
-    args = command.split('--',1)
-    args_arr = []
-    if len(args) > 1:
-        args_arr = shlex.split(args[1])
-    else:
-        args_arr = shlex.split('')
+def start(debugger, command, result, internal_dict):
     error = lldb.SBError()
-    lldb.target.Launch(lldb.SBLaunchInfo(args_arr), error)
+    proc = lldb.target.Launch(lldb.SBLaunchInfo(shlex.split(command)), error)
     lockedstr = ': Locked'
     if lockedstr in str(error):
        print('\nDevice Locked\n')
        os._exit(254)
-    else:
+    elif not error.Success():
        print(str(error))
-
+    if proc.exit_state != 0:
+       os._exit(proc.exit_state)
 
