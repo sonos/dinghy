@@ -10,6 +10,7 @@ keywords = [
     "tests", "mobile", "ios", "android", "cargo"
 ]
 build="build.rs"
+categories = [ "development-tools::cargo-plugins", "development-tools::testing" , "development-tools::profiling" ]
 
 [dependencies]
 error-chain = "0.5"
