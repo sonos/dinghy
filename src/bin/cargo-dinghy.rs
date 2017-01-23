@@ -261,7 +261,7 @@ fn prepare_runnable(device: &dinghy::Device,
     let bins = matches.values_of("BIN").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec!());
     let tests = matches.values_of("TEST").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec!());
     let examples = matches.values_of("EXAMPLE").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec!());
-    let benches = matches.values_of("BENCHES").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec!());
+    let benches = matches.values_of("BENCH").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec!());
     let filter = cargo::ops::CompileFilter::new(matches.is_present("LIB"), &bins, &tests, &examples, &benches);
     let options = cargo::ops::CompileOptions {
         config: &cfg,
