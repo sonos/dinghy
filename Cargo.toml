@@ -12,6 +12,9 @@ keywords = [
 build="build.rs"
 categories = [ "development-tools::cargo-plugins", "development-tools::testing" , "development-tools::profiling" ]
 
+[badges]
+travis-ci = { repository = "snipsco/dinghy" }
+
 [dependencies]
 error-chain = "0.5"
 libc="0.2"
