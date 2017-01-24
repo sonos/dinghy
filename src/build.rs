@@ -9,7 +9,7 @@ use errors::*;
 
 use cargo::util::important_paths::find_root_manifest_for_wd;
 
-#[cfg(target_os="macos")]
+#[cfg(not(target_os="windows"))]
 pub fn create_shim<P: AsRef<path::Path>>(root: P, device_target: &str, shell:&str) -> Result<()> {
     let target_path = root.as_ref().join("target").join(device_target);
     fs::create_dir_all(&target_path)?;
@@ -36,7 +36,7 @@ pub fn create_shim<P: AsRef<path::Path>>(root: P, device_target: &str, shell:&st
     Ok(())
 }
 
-#[cfg(target_os="macos")]
+#[cfg(not(target_os="windows"))]
 pub fn ensure_shim(device_target: &str) -> Result<()> {
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
     let root = wd_path.parent().ok_or("building at / ?")?;
