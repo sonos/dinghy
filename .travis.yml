@@ -1,9 +1,12 @@
-language: rust
 sudo: false
+
+install: curl https://sh.rustup.rs -sSf | sh -s -- -y
 
 matrix:
   include:
     - os: osx
+      osx_image: xcode8.2
     - os: linux
       dist: trusty
 
+script: sh .travis.sh
