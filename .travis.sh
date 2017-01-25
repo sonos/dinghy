@@ -7,6 +7,7 @@ if [ `uname` = Darwin ]
 then
     (xcrun simctl list devices | grep Booted) || xcrun simctl boot "iPhone 6"
     rustup target install aarch64-apple-ios
+    brew install openssl
 fi
 
 cargo build --verbose
