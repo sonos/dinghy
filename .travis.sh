@@ -6,7 +6,7 @@ export PATH=$PATH:$HOME/.cargo/bin
 if [ `uname` = Darwin ]
 then
     (xcrun simctl list devices | grep Booted) || xcrun simctl boot "iPhone 6"
-    rustup target install aarch64-apple-ios
+    rustup target install x86_64-apple-ios
     export OPENSSL_INCLUDE_DIR=`brew --prefix openssl`/include
     export OPENSSL_LIB_DIR=`brew --prefix openssl`/lib
 fi
