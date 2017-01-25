@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+export PATH=$PATH:$HOME/.cargo/bin
+
 if [ `uname` = Darwin ]
 then
     (xcrun simctl list devices | grep Booted) || xcrun simctl boot "iPhone 6"
