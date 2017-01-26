@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+curl https://sh.rustup.rs -sSf | sh -s -- -y
+
 export PATH=$PATH:$HOME/.cargo/bin
 RUST_VERSION=${RUST_VERSION:=stable}
 

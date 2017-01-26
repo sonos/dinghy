@@ -6,8 +6,6 @@ android:
     - android-18
     - extra
 
-install: curl https://sh.rustup.rs -sSf | sh -s -- -y
-
 matrix:
   include:
     - os: osx
