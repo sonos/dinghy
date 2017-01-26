@@ -43,6 +43,9 @@ pub trait Device: std::fmt::Debug {
                 self.target_vendor(),
                 self.target_os())
     }
+    fn can_run(&self, target:&str) -> bool {
+        target == self.target()
+    }
     fn start_remote_lldb(&self) -> Result<String>;
 
     fn make_app(&self, app: &path::Path) -> Result<path::PathBuf>;

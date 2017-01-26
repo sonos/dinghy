@@ -229,7 +229,11 @@ fn run(matches: clap::ArgMatches) -> Result<()> {
 }
 
 fn prepare_and_run(d: &dinghy::Device, subcommand: &str, matches: &clap::ArgMatches) -> Result<()> {
-    let runnable = prepare_runnable(d, subcommand, matches)?;
+    let target = matches.value_of("TARGET").map(|s| s.into()).unwrap_or(d.target());
+    if !d.can_run(&*target) {
+        Err(format!("device {:?} can not run target {}", d, target))?;
+    }
+    let runnable = prepare_runnable(&*target, subcommand, matches)?;
     let args = matches.values_of("ARGS").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec!());
     for t in runnable {
         let app = d.make_app(&t.1)?;
@@ -241,7 +245,7 @@ fn prepare_and_run(d: &dinghy::Device, subcommand: &str, matches: &clap::ArgMatc
     Ok(())
 }
 
-fn prepare_runnable(device: &dinghy::Device,
+fn prepare_runnable(target: &str,
                     subcommand: &str,
                     matches: &clap::ArgMatches)
                     -> Result<Vec<(String, path::PathBuf)>> {
@@ -254,7 +258,6 @@ fn prepare_runnable(device: &dinghy::Device,
     };
     let features: Vec<String> =
         matches.value_of("FEATURES").unwrap_or("").split(" ").map(|s| s.into()).collect();
-    let target = matches.value_of("TARGET").map(|s| s.into()).unwrap_or(device.target());
     dinghy::build::ensure_shim(&*target)?;
     cfg.configure(matches.occurrences_of("VERBOSE") as u32, None, &None, false, false)?;
     let wd = cargo::core::Workspace::new(&wd_path, &cfg)?;

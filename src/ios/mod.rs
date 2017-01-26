@@ -71,6 +71,21 @@ impl Device for IosDevice {
     fn target_os(&self) -> &'static str {
         "ios"
     }
+    fn can_run(&self, target:&str) -> bool {
+        if !target.ends_with("-apple-ios") {
+            return false;
+        }
+        if target == self.target() {
+            return true;
+        }
+        if target == "armv7-apple-ios" && (self.arch_cpu == "armv7s" || self.arch_cpu == "aarch64") {
+            return true;
+        }
+        if target == "armv7s-apple-ios" && (self.arch_cpu == "aarch64") {
+            return true;
+        }
+        return false;
+    }
     fn start_remote_lldb(&self) -> Result<String> {
         let _ = ensure_session(self.ptr);
         let fd = start_remote_debug_server(self.ptr)?;
