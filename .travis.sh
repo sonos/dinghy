@@ -4,7 +4,7 @@ set -e
 export PATH=$PATH:$HOME/.cargo/bin
 RUST_VERSION=${RUST_VERSION:=stable}
 
-rustup install $(RUST_VERSION)
+rustup install $RUST_VERSION
 rustup override set $RUST_VERSION
 
 if [ `uname` = Darwin ]
