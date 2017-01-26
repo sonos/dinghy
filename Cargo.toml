@@ -27,6 +27,7 @@ cargo = "0.14"
 plist = "0.0.14"
 regex = "0.1"
 json = "0.11"
+ignore = "0.1"
 
 [target.'cfg(target_os="macos")'.dependencies]
 core-foundation = "0.2"

@@ -6,5 +6,6 @@ error_chain!{
         ::plist::Error, PlistError;
         ::regex::Error, RegexError;
         ::json::Error, JsonError;
+        ::ignore::Error, IgnoreError;
     }
 }

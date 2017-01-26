@@ -5,6 +5,7 @@ extern crate core_foundation;
 extern crate core_foundation_sys;
 #[macro_use]
 extern crate error_chain;
+extern crate ignore;
 #[macro_use]
 extern crate json;
 extern crate libc;
