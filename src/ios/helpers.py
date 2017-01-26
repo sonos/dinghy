@@ -16,11 +16,19 @@ def start(debugger, command, result, internal_dict):
     error = lldb.SBError()
     proc = lldb.target.Launch(lldb.SBLaunchInfo(shlex.split(command)), error)
     lockedstr = ': Locked'
+    if proc.GetState() != lldb.eStateExited:
+        print("process left in lldb state: %s"%(debugger.StateAsCString(proc.GetState())))
     if lockedstr in str(error):
-       print('\nDevice Locked\n')
-       os._exit(254)
+        print('\nDevice Locked\n')
+        os._exit(254)
+    elif proc.GetState() == lldb.eStateStopped:
+        thread = proc.GetSelectedThread();
+        print(thread)
+        for frame in thread:
+            print("  %s"%(frame))
+        os._exit(-1)
     elif not error.Success():
-       print(str(error))
+        print(str(error))
     if proc.exit_state != 0:
-       os._exit(proc.exit_state)
+        os._exit(proc.exit_state)
 
