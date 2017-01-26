@@ -1,4 +1,5 @@
 sudo: false
+language: C
 
 install: curl https://sh.rustup.rs -sSf | sh -s -- -y
 
@@ -6,7 +7,14 @@ matrix:
   include:
     - os: osx
       osx_image: xcode8.2
-    - os: linux
+    - env: RUST_VERSION=stable
+      os: linux
+      dist: trusty
+    - env: RUST_VERSION=beta
+      os: linux
+      dist: trusty
+    - env: RUST_VERSION=nightly
+      os: linux
       dist: trusty
 
 script: sh .travis.sh
