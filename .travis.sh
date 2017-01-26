@@ -18,14 +18,6 @@ then
     export OPENSSL_LIB_DIR=`brew --prefix openssl`/lib
 fi
 
-if [ "$RUST_VERSION" = "stable" ]
-then
-    echo no | android create avd --force -n test -t android-22 --abi armeabi-v7a
-    emulator -avd test -no-audio -no-window &
-    android-wait-for-emulator
-    adb shell input keyevent 82 &
-fi
-
 cargo build --verbose
 cargo test --verbose
 
