@@ -267,6 +267,8 @@ fn mk_result(rv: i32) -> Result<()> {
         Err("error: 0xe8008015, A valid provisioning profile for this executable was not found.")?
     } else if rv as u32 == 0xe8008016 {
         Err("error: 0xe8008016, The executable was signed with invalid entitlements.")?
+    } else if rv as u32 == 0xe8008022 {
+        Err("error: 0xe8000022, kAMDInvalidServiceError. (This one is relatively hard to diagnose. Try erasing the Dinghy app from the phone, rebooting the device, the computer, check for ios and xcode updates.)")?
     } else if rv != 0 {
         Err(format!("error: {:x}", rv))?
     } else {
