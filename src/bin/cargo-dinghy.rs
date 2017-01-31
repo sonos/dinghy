@@ -28,6 +28,10 @@ fn main() {
                     .help("device hint"))
                 .subcommand(::clap::SubCommand::with_name("devices"))
                 .subcommand(::clap::SubCommand::with_name("test")
+                    .arg(::clap::Arg::with_name("DEBUGGER")
+                        .long("debugger")
+                        .takes_value(false)
+                        .help("just start debugger"))
                     .arg(::clap::Arg::with_name("TARGET")
                         .long("target")
                         .takes_value(true)
@@ -69,6 +73,10 @@ fn main() {
                         .help("Do not build the `default` feature"))
                     .arg(::clap::Arg::with_name("ARGS").multiple(true).help("test arguments")))
                 .subcommand(::clap::SubCommand::with_name("run")
+                    .arg(::clap::Arg::with_name("DEBUGGER")
+                        .long("debugger")
+                        .takes_value(false)
+                        .help("just start debugger"))
                     .arg(::clap::Arg::with_name("TARGET")
                         .long("target")
                         .takes_value(true)
@@ -103,6 +111,10 @@ fn main() {
                         .help("Do not build the `default` feature"))
                     .arg(::clap::Arg::with_name("ARGS").multiple(true).help("test arguments")))
                 .subcommand(::clap::SubCommand::with_name("bench")
+                    .arg(::clap::Arg::with_name("DEBUGGER")
+                        .long("debugger")
+                        .takes_value(false)
+                        .help("just start debugger"))
                     .arg(::clap::Arg::with_name("TARGET")
                         .long("target")
                         .takes_value(true)
@@ -234,12 +246,20 @@ fn prepare_and_run(d: &dinghy::Device, subcommand: &str, matches: &clap::ArgMatc
         Err(format!("device {:?} can not run target {}", d, target))?;
     }
     let runnable = prepare_runnable(&*target, subcommand, matches)?;
-    let args = matches.values_of("ARGS").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec!());
+    let args =
+        matches.values_of("ARGS").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
     for t in runnable {
         let app = d.make_app(&t.1)?;
         if subcommand != "build" {
             d.install_app(&app.as_ref())?;
-            d.run_app(app.as_ref(), &*args.iter().map(|s| &s[..]).collect::<Vec<_>>())?;
+            if matches.is_present("DEBUGGER") {
+                println!("DEBUGGER");
+                d.debug_app(app.as_ref(),
+                             &*args.iter().map(|s| &s[..]).collect::<Vec<_>>())?;
+            } else {
+                d.run_app(app.as_ref(),
+                             &*args.iter().map(|s| &s[..]).collect::<Vec<_>>())?;
+            }
         }
     }
     Ok(())
@@ -259,13 +279,26 @@ fn prepare_runnable(target: &str,
     let features: Vec<String> =
         matches.value_of("FEATURES").unwrap_or("").split(" ").map(|s| s.into()).collect();
     dinghy::build::ensure_shim(&*target)?;
-    cfg.configure(matches.occurrences_of("VERBOSE") as u32, None, &None, false, false)?;
+    cfg.configure(matches.occurrences_of("VERBOSE") as u32,
+                   None,
+                   &None,
+                   false,
+                   false)?;
     let wd = cargo::core::Workspace::new(&wd_path, &cfg)?;
-    let bins = matches.values_of("BIN").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec!());
-    let tests = matches.values_of("TEST").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec!());
-    let examples = matches.values_of("EXAMPLE").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec!());
-    let benches = matches.values_of("BENCH").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec!());
-    let filter = cargo::ops::CompileFilter::new(matches.is_present("LIB"), &bins, &tests, &examples, &benches);
+    let bins =
+        matches.values_of("BIN").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
+    let tests =
+        matches.values_of("TEST").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
+    let examples = matches.values_of("EXAMPLE")
+        .map(|vs| vs.map(|s| s.to_string()).collect())
+        .unwrap_or(vec![]);
+    let benches =
+        matches.values_of("BENCH").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
+    let filter = cargo::ops::CompileFilter::new(matches.is_present("LIB"),
+                                                &bins,
+                                                &tests,
+                                                &examples,
+                                                &benches);
     let options = cargo::ops::CompileOptions {
         config: &cfg,
         jobs: None,
@@ -283,7 +316,11 @@ fn prepare_runnable(target: &str,
     };
     let compilation = cargo::ops::compile(&wd, &options)?;
     if subcommand == "run" {
-        Ok(compilation.binaries.iter().take(1).map(|t| ("main".into(), t.clone())).collect::<Vec<_>>())
+        Ok(compilation.binaries
+            .iter()
+            .take(1)
+            .map(|t| ("main".into(), t.clone()))
+            .collect::<Vec<_>>())
     } else {
         Ok(compilation.tests.iter().map(|t| (t.1.clone(), t.2.clone())).collect::<Vec<_>>())
     }

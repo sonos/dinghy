@@ -7,7 +7,8 @@
 Send `cargo test` or `cargo bench` to your phone. Painlessly.
 
 It is not a way to build portable apps, merely a way to run simple piece of
-code and grab their output.
+code and grab their output. On iOS, it also allows to run lldb and debug
+interactively the executable.
 
 The purpose here is to make it easier for teams to unit-test and bench their
 libraries on more platforms. We want to get Rust everywhere right ?

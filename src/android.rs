@@ -68,6 +68,9 @@ impl Device for AndroidDevice {
             .status()?;
         Ok(())
     }
+    fn debug_app(&self, _app_path: &path::Path, _args: &[&str]) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 pub struct AndroidManager {
