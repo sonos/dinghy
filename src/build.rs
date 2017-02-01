@@ -62,16 +62,30 @@ pub fn ensure_shim(device_target: &str) -> Result<()> {
                 Err("environment variable ANDROID_NDK_HOME is required")?
             }
         }
-        create_shim(&root, device_target, r#"
-        $ANDROID_NDK_HOME/toolchains/arm-linux-androideabi-4.9/prebuilt/darwin-x86_64/bin/arm-linux-androideabi-gcc \
-                --sysroot $ANDROID_NDK_HOME/platforms/android-18/arch-arm \
-                "$@" "#)?;
+        create_shim(&root, device_target, shell())?;
         let var_name = "CARGO_TARGET_ARM_LINUX_ANDROIDEABI_LINKER";
         env::set_var(var_name, target_path.join("linker"));
     } else {
         Err(format!("unsupported target {}", device_target))?
     }
     Ok(())
+}
+
+#[cfg(target_os="macos")]
+fn shell() -> &'static str {
+    r#"
+        $ANDROID_NDK_HOME/toolchains/arm-linux-androideabi-4.9/prebuilt/darwin-x86_64/bin/arm-linux-androideabi-gcc \
+                --sysroot $ANDROID_NDK_HOME/platforms/android-18/arch-arm \
+                "$@" "#
+}
+
+
+#[cfg(target_os="linux")]
+fn shell() -> &'static str {
+    r#"
+        $ANDROID_NDK_HOME/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi-gcc \
+                --sysroot $ANDROID_NDK_HOME/platforms/android-18/arch-arm \
+                "$@" "#
 }
 
 #[cfg(target_os="windows")]
