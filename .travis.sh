@@ -28,7 +28,7 @@ echo "## last failure was expected ##"
 
 if [ `uname` = Darwin ]
 then
-    ../target/debug/cargo-dinghy dinghy test -- works
+    ../target/debug/cargo-dinghy dinghy test -- pass
     ! ../target/debug/cargo-dinghy dinghy test -- fails
     echo "## last failure was expected ##"
 fi
