@@ -24,14 +24,8 @@ impl Device for AndroidDevice {
     fn id(&self) -> &str {
         &*self.id
     }
-    fn target_arch(&self) -> &'static str {
-        "arm"
-    }
-    fn target_vendor(&self) -> &'static str {
-        "linux"
-    }
-    fn target_os(&self) -> &'static str {
-        "androideabi"
+    fn target(&self) -> String {
+        "arm-linux-androideabi".to_string()
     }
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()

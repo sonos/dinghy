@@ -6,20 +6,23 @@ extern crate core_foundation_sys;
 #[macro_use]
 extern crate error_chain;
 extern crate ignore;
-#[macro_use]
 extern crate json;
 extern crate libc;
 #[macro_use]
 extern crate log;
 extern crate plist;
 extern crate regex;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 extern crate tempdir;
-
+extern crate toml;
 
 #[cfg(target_os="macos")]
 pub mod ios;
 
 pub mod android;
+pub mod ssh;
 pub mod build;
 pub mod errors;
 
@@ -34,15 +37,7 @@ pub trait PlatformManager {
 pub trait Device: std::fmt::Debug {
     fn name(&self) -> &str;
     fn id(&self) -> &str;
-    fn target_arch(&self) -> &str;
-    fn target_vendor(&self) -> &str;
-    fn target_os(&self) -> &str;
-    fn target(&self) -> String {
-        format!("{}-{}-{}",
-                self.target_arch(),
-                self.target_vendor(),
-                self.target_os())
-    }
+    fn target(&self) -> String;
     fn can_run(&self, target:&str) -> bool {
         target == self.target()
     }
@@ -66,6 +61,9 @@ impl Dinghy {
         }
         if let Some(android) = android::AndroidManager::probe() {
             managers.push(Box::new(android) as Box<PlatformManager>)
+        }
+        if let Some(config) = ssh::SshDeviceManager::probe() {
+            managers.push(Box::new(config) as Box<PlatformManager>)
         }
         Ok(Dinghy {
             managers: managers

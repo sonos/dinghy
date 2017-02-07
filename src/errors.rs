@@ -7,5 +7,6 @@ error_chain!{
         ::regex::Error, RegexError;
         ::json::Error, JsonError;
         ::ignore::Error, IgnoreError;
+        ::toml::DecodeError, TomlDecodeError;
     }
 }

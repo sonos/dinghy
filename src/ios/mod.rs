@@ -62,14 +62,8 @@ impl Device for IosDevice {
     fn id(&self) -> &str {
         &*self.id
     }
-    fn target_arch(&self) -> &'static str {
-        &*self.arch_cpu
-    }
-    fn target_vendor(&self) -> &'static str {
-        "apple"
-    }
-    fn target_os(&self) -> &'static str {
-        "ios"
+    fn target(&self) -> String {
+        format!("{}-apple-ios", self.arch_cpu)
     }
     fn can_run(&self, target:&str) -> bool {
         if !target.ends_with("-apple-ios") {
@@ -161,14 +155,8 @@ impl Device for IosSimDevice {
     fn id(&self) -> &str {
         &*self.id
     }
-    fn target_arch(&self) -> &'static str {
-        "x86_64"
-    }
-    fn target_vendor(&self) -> &'static str {
-        "apple"
-    }
-    fn target_os(&self) -> &'static str {
-        "ios"
+    fn target(&self) -> String {
+        "x86_64-apple-ios".to_string()
     }
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()

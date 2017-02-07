@@ -9,48 +9,73 @@ use errors::*;
 
 use cargo::util::important_paths::find_root_manifest_for_wd;
 
+pub fn setup_linker(device_target: &str) -> Result<()> {
+    let cfg = cargo::util::config::Config::default()?;
+    if let Some(linker) = cfg.get_string(&*format!("target.{}.linker", device_target))? {
+        debug!("Config specifies linker {:?} in {}",
+               linker.val,
+               linker.definition);
+        return Ok(());
+    }
+    let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
+    let root = wd_path.parent().ok_or("building at / ?")?;
+    let target_path = root.join("target").join(device_target);
+    if let Some(linker) = guess_linker(device_target)? {
+        let shim = create_shim(&root, device_target, &*linker)?;
+        let var_name = format!("CARGO_TARGET_{}_LINKER",
+                               device_target.replace("-", "_").to_uppercase());
+        env::set_var(var_name, shim);
+        return Ok(());
+    }
+    warn!("No linker set or guessed for target {}. See http://doc.crates.io/config.html .",
+          device_target);
+    Ok(())
+}
+
 #[cfg(not(target_os="windows"))]
-pub fn create_shim<P: AsRef<path::Path>>(root: P, device_target: &str, shell:&str) -> Result<()> {
+fn create_shim<P: AsRef<path::Path>>(root: P,
+                                     device_target: &str,
+                                     shell: &str)
+                                     -> Result<path::PathBuf> {
     let target_path = root.as_ref().join("target").join(device_target);
     fs::create_dir_all(&target_path)?;
     let shim = target_path.join("linker");
     if shim.exists() {
-        return Ok(());
+        return Ok(shim);
     }
     let mut linker_shim = fs::File::create(&shim)?;
     writeln!(linker_shim, "#!/bin/sh")?;
     linker_shim.write_all(shell.as_bytes())?;
     writeln!(linker_shim, "\n")?;
-    fs::set_permissions(shim, PermissionsExt::from_mode(0o777))?;
-    Ok(())
+    fs::set_permissions(&shim, PermissionsExt::from_mode(0o777))?;
+    Ok(shim)
 }
 
 #[cfg(target_os="windows")]
-pub fn create_shim<P: AsRef<path::Path>>(root: P, device_target: &str, shell:&str) -> Result<()> {
+fn create_shim<P: AsRef<path::Path>>(root: P,
+                                     device_target: &str,
+                                     shell: &str)
+                                     -> Result<path::PathBuf> {
     let target_path = root.as_ref().join("target").join(device_target);
     fs::create_dir_all(&target_path)?;
     let shim = target_path.join("linker.bat");
     let mut linker_shim = fs::File::create(&shim)?;
     linker_shim.write_all(shell.as_bytes())?;
     writeln!(linker_shim, "\n")?;
-    Ok(())
+    Ok(shim)
 }
 
 #[cfg(not(target_os="windows"))]
-pub fn ensure_shim(device_target: &str) -> Result<()> {
-    let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
-    let root = wd_path.parent().ok_or("building at / ?")?;
-    let target_path = root.join("target").join(device_target);
+fn guess_linker(device_target: &str) -> Result<Option<String>> {
     if device_target.ends_with("-apple-ios") {
         let xcrun = if device_target.starts_with("x86") {
-            process::Command::new("xcrun").args(&["--sdk","iphonesimulator","--show-sdk-path"]).output()?
+            process::Command::new("xcrun").args(&["--sdk", "iphonesimulator", "--show-sdk-path"])
+                .output()?
         } else {
-            process::Command::new("xcrun").args(&["--sdk","iphoneos","--show-sdk-path"]).output()?
+            process::Command::new("xcrun").args(&["--sdk", "iphoneos", "--show-sdk-path"]).output()?
         };
         let sdk_path = String::from_utf8(xcrun.stdout)?;
-        create_shim(&root, device_target, &*format!(r#"cc -isysroot {} "$@""#, &*sdk_path.trim_right()))?;
-        let var_name = format!("CARGO_TARGET_{}_LINKER", device_target.replace("-","_").to_uppercase());
-        env::set_var(var_name, target_path.join("linker"));
+        Ok(Some(format!(r#"cc -isysroot {} "$@""#, &*sdk_path.trim_right())))
     } else if device_target == "arm-linux-androideabi" {
         if let Err(_) = env::var("ANDROID_NDK_HOME") {
             if let Ok(home) = env::var("HOME") {
@@ -59,37 +84,26 @@ pub fn ensure_shim(device_target: &str) -> Result<()> {
                     env::set_var("ANDROID_NDK_HOME", &mac_place)
                 }
             } else {
-                Err("environment variable ANDROID_NDK_HOME is required")?
+                warn!("Android target detected, but could not find (or guess) ANDROID_NDK_HOME. \
+                       You may need to set it up.");
+                return Ok(None);
             }
         }
-        create_shim(&root, device_target, shell())?;
-        let var_name = "CARGO_TARGET_ARM_LINUX_ANDROIDEABI_LINKER";
-        env::set_var(var_name, target_path.join("linker"));
+        let prebuild_android_toolchains_dir = path::PathBuf::from(env::var("ANDROID_NDK_HOME").unwrap())
+            .join("toolchains/arm-linux-androideabi-4.9/prebuilt");
+        let prebuilt = fs::read_dir(prebuild_android_toolchains_dir)?
+            .next()
+            .ok_or("No prebuilt toolchain in your android setup")??;
+        Ok(Some(format!(r#"$ANDROID_NDK_HOME/toolchains/arm-linux-androideabi-4.9/prebuilt/{:?}/bin/arm-linux-androideabi-gcc \
+                --sysroot $ANDROID_NDK_HOME/platforms/android-18/arch-arm \
+                "$@" "#, prebuilt.file_name())))
     } else {
-        Err(format!("unsupported target {}", device_target))?
+        Ok(None)
     }
-    Ok(())
-}
-
-#[cfg(target_os="macos")]
-fn shell() -> &'static str {
-    r#"
-        $ANDROID_NDK_HOME/toolchains/arm-linux-androideabi-4.9/prebuilt/darwin-x86_64/bin/arm-linux-androideabi-gcc \
-                --sysroot $ANDROID_NDK_HOME/platforms/android-18/arch-arm \
-                "$@" "#
-}
-
-
-#[cfg(target_os="linux")]
-fn shell() -> &'static str {
-    r#"
-        $ANDROID_NDK_HOME/toolchains/arm-linux-androideabi-4.9/prebuilt/linux-x86_64/bin/arm-linux-androideabi-gcc \
-                --sysroot $ANDROID_NDK_HOME/platforms/android-18/arch-arm \
-                "$@" "#
 }
 
 #[cfg(target_os="windows")]
-pub fn ensure_shim(device_target: &str) -> Result<()> {
+fn guess_linker(device_target: &str) -> Result<Option<String>> {
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
     let root = wd_path.parent().ok_or("building at / ?")?;
     let target_path = root.join("target").join(device_target);
@@ -98,22 +112,15 @@ pub fn ensure_shim(device_target: &str) -> Result<()> {
             let home = env::var("ANDROID_NDK_HOME")
                 .map_err(|_| "environment variable ANDROID_NDK_HOME is required")?;
 
-            let cmd = format!(r#"{home}\toolchains\arm-linux-androideabi-4.9\prebuilt\windows\bin\arm-linux-androideabi-gcc --sysroot {home}\platforms\android-18\arch-arm %* "#,
-                home = home);
-
-            create_shim(&root, device_target, &cmd)?;
-            let var_name = "CARGO_TARGET_ARM_LINUX_ANDROIDEABI_LINKER";
-            env::set_var(var_name, target_path.join("linker.bat"));
+            Ok(Some(format!(r#"{home}\toolchains\arm-linux-androideabi-4.9\prebuilt\windows\bin\arm-linux-androideabi-gcc --sysroot {home}\platforms\android-18\arch-arm %* "#,
+                home = home)))
         },
-        _ => {
-            Err(format!("unsupported target {}", device_target))?
-        }
+        _ => Ok(None)
     }
-    Ok(())
 }
 
 pub fn compile_tests(device_target: &str) -> Result<Vec<(String, path::PathBuf)>> {
-    ensure_shim(device_target)?;
+    setup_linker(device_target)?;
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
     let cfg = cargo::util::config::Config::default()?;
     cfg.configure(0, None, &None, false, false)?;
@@ -138,7 +145,7 @@ pub fn compile_tests(device_target: &str) -> Result<Vec<(String, path::PathBuf)>
 }
 
 pub fn compile_benches(device_target: &str) -> Result<Vec<(String, path::PathBuf)>> {
-    ensure_shim(device_target)?;
+    setup_linker(device_target)?;
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
     let cfg = cargo::util::config::Config::default()?;
     cfg.configure(0, None, &None, false, false)?;
@@ -163,7 +170,7 @@ pub fn compile_benches(device_target: &str) -> Result<Vec<(String, path::PathBuf
 }
 
 pub fn compile_bin(device_target: &str) -> Result<Vec<path::PathBuf>> {
-    ensure_shim(device_target)?;
+    setup_linker(device_target)?;
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
     let cfg = cargo::util::config::Config::default()?;
     cfg.configure(0, None, &None, false, false)?;
