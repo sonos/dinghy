@@ -1,4 +1,4 @@
-use std::{fs, path};
+use std::path;
 use std::process::Command;
 
 use errors::*;

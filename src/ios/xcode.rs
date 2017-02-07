@@ -2,7 +2,6 @@ use std::{env, fs, io, path, process};
 use std::io::Write;
 
 use errors::*;
-use ignore;
 use super::{SignatureSettings, SigningIdentity};
 
 pub fn wrap_as_app<P1, P2>(target: &str,

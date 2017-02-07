@@ -23,8 +23,10 @@ pub mod ios;
 
 pub mod android;
 pub mod ssh;
-pub mod build;
 pub mod errors;
+
+mod linker;
+pub use linker::setup_linker;
 
 use std::{ fs, path };
 

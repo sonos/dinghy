@@ -6,14 +6,12 @@ mod tests {
     mod pass {
         use std::path;
 
-        #[cfg(any(target_os = "ios", target_os="android"))]
         pub fn src_path() -> path::PathBuf {
-            ::std::env::current_exe().unwrap().parent().unwrap().join("src")
-        }
-
-        #[cfg(not(any(target_os = "ios", target_os="android")))]
-        pub fn src_path() -> path::PathBuf {
-            path::PathBuf::from(".")
+            if cfg!(any(target_os = "ios", target_os="android")) || ::std::env::var("DINGHY").is_ok() {
+                ::std::env::current_exe().unwrap().parent().unwrap().join("src")
+            } else {
+                path::PathBuf::from(".")
+            }
         }
 
         #[test]

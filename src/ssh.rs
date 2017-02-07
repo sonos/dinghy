@@ -1,4 +1,4 @@
-use std::{ collections, fs, path };
+use std::{ collections, fs, path, process };
 use errors::*;
 use ::{Device, PlatformManager};
 
@@ -12,13 +12,14 @@ struct Configuration {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct SshDeviceConfiguration {
     hostname: String,
+    username: String,
     target: String,
 }
 
 #[derive(Clone,Debug)]
 pub struct SshDevice {
     id: String,
-    config: SshDeviceConfiguration
+    config: SshDeviceConfiguration,
 }
 
 impl Device for SshDevice {
@@ -38,10 +39,36 @@ impl Device for SshDevice {
         ::make_linux_app(exe)
     }
     fn install_app(&self, app: &path::Path) -> Result<()> {
-        unimplemented!();
+        let user_at_host = format!("{}@{}", self.config.username, self.config.hostname);
+        let _stat = process::Command::new("ssh").args(&[&*user_at_host, "rm", "-rf", "/tmp/dinghy"]).status()?;
+        let stat = process::Command::new("ssh").args(&[&*user_at_host, "mkdir", "/tmp/dinghy"]).status()?;
+        if !stat.success() {
+            Err("error creating /tmp/dinghy")?
+        }
+        let target_path = format!("/tmp/dinghy/{:?}", app.file_name().unwrap());
+        let stat = process::Command::new("scp")
+            .arg("-rC")
+            .arg(app.to_str().unwrap())
+            .arg(&*format!("{}:{}", user_at_host, &*target_path))
+            .status()?;
+        if !stat.success() {
+            Err("error installing app")?
+        }
+        Ok(())
     }
     fn run_app(&self, app_path: &path::Path, args: &[&str]) -> Result<()> {
-        unimplemented!();
+        let user_at_host = format!("{}@{}", self.config.username, self.config.hostname);
+        let app_name = app_path.file_name().unwrap();
+        let path = path::PathBuf::from("/tmp/dinghy").join(app_name);
+        let exe = path.join(&app_name);
+        let stat = process::Command::new("ssh")
+            .arg(user_at_host)
+            .arg(&*format!("DINGHY=1 {}", &exe.to_str().unwrap()))
+            .args(args).status()?;
+        if !stat.success() {
+            Err("test fail.")?
+        }
+        Ok(())
     }
     fn debug_app(&self, _app_path: &path::Path, _args: &[&str]) -> Result<()> {
         unimplemented!()
