@@ -35,18 +35,7 @@ pub fn wrap_as_app<P1, P2>(target: &str,
              target.split("-").next().unwrap())?;
     writeln!(plist, r#"</dict></plist>"#)?;
 
-    let src = app_path.join("src");
-    fs::create_dir_all(&src)?;
-    for entry in ignore::WalkBuilder::new(".").build() {
-        let entry = entry?;
-        let metadata = entry.metadata()?;
-        if metadata.is_dir() {
-            fs::create_dir_all(src.join(entry.path()))?;
-        } else {
-            fs::copy(entry.path(), src.join(entry.path()))?;
-        }
-    }
-
+    ::rec_copy(".", app_path.join("src"))?;
     Ok(app_path)
 }
 

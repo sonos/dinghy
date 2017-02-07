@@ -26,7 +26,7 @@ pub mod ssh;
 pub mod build;
 pub mod errors;
 
-use std::path;
+use std::{ fs, path };
 
 use errors::*;
 
@@ -93,4 +93,20 @@ pub mod ios {
             Ok((None))
         }
     }
+}
+
+fn rec_copy<P1: AsRef<path::Path>,P2: AsRef<path::Path>>(src:P1, dst:P2) -> Result<()> {
+    let src = src.as_ref();
+    let dst = dst.as_ref();
+    fs::create_dir_all(&dst)?;
+    for entry in ignore::WalkBuilder::new(src).build() {
+        let entry = entry?;
+        let metadata = entry.metadata()?;
+        if metadata.is_dir() {
+            fs::create_dir_all(dst.join(entry.path()))?;
+        } else {
+            fs::copy(entry.path(), dst.join(entry.path()))?;
+        }
+    }
+    Ok(())
 }
