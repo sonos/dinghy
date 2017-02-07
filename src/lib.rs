@@ -95,6 +95,15 @@ pub mod ios {
     }
 }
 
+fn make_linux_app(exe: &path::Path) -> Result<path::PathBuf> {
+    let app_name = exe.file_name().unwrap();
+    let app_path = exe.parent().unwrap().join("dinghy").join(app_name);
+    fs::create_dir_all(&app_path)?;
+    fs::copy(&exe, app_path.join(app_name))?;
+    ::rec_copy(".", app_path.join("src"))?;
+    Ok(app_path.into())
+}
+
 fn rec_copy<P1: AsRef<path::Path>,P2: AsRef<path::Path>>(src:P1, dst:P2) -> Result<()> {
     let src = src.as_ref();
     let dst = dst.as_ref();

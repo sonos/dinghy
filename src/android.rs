@@ -31,13 +31,7 @@ impl Device for AndroidDevice {
         unimplemented!()
     }
     fn make_app(&self, exe: &path::Path) -> Result<path::PathBuf> {
-        println!("exe: {:?}", exe);
-        let app_name = exe.file_name().unwrap();
-        let app_path = exe.parent().unwrap().join("dinghy").join(app_name);
-        fs::create_dir_all(&app_path)?;
-        fs::copy(&exe, app_path.join(app_name))?;
-        ::rec_copy(".", app_path.join("src"))?;
-        Ok(app_path.into())
+        ::make_linux_app(exe)
     }
     fn install_app(&self, app: &path::Path) -> Result<()> {
         let name = app.file_name().expect("app should be a file in android mode");
@@ -51,6 +45,7 @@ impl Device for AndroidDevice {
         if !stat.success() {
             Err("failure in android install")?;
         }
+        // required when pushing from windows
         let stat = Command::new("adb")
             .args(&["-s", &*self.id, "shell", "chmod", "755", &*target_path])
             .status()?;
@@ -68,6 +63,7 @@ impl Device for AndroidDevice {
             .arg(&*target_name)
             .args(args)
             .status()?;
+        // FIXME: consider switching to fb-adb to get error status
         if !stat.success() {
             Err("failure in android run")?;
         }

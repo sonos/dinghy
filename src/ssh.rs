@@ -34,8 +34,8 @@ impl Device for SshDevice {
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
-    fn make_app(&self, app: &path::Path) -> Result<path::PathBuf> {
-        Ok(app.into())
+    fn make_app(&self, exe: &path::Path) -> Result<path::PathBuf> {
+        ::make_linux_app(exe)
     }
     fn install_app(&self, app: &path::Path) -> Result<()> {
         unimplemented!();
