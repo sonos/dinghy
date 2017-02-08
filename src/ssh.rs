@@ -86,15 +86,18 @@ impl SshDeviceManager {
 
 impl PlatformManager for SshDeviceManager {
     fn devices(&self) -> Result<Vec<Box<Device>>> {
-        let file = "config.toml";
-        let mut data = String::new();
-        let mut fd = fs::File::open(file)?;
-        fd.read_to_string(&mut data)?;
-        let mut parser = ::toml::Parser::new(&*data);
-        let value = parser.parse().unwrap();
-        let mut decoder = ::toml::Decoder::new(::toml::Value::Table(value));
-        let config:Configuration = ::serde::Deserialize::deserialize(&mut decoder)?;
-        let devices = config.ssh_devices.into_iter().map(|(k,d)| Box::new(SshDevice { id:k, config: d }) as _).collect();
+        let mut devices = vec!();
+        for file in [ ".dinghy.toml" ] {
+            let file = "config.toml";
+            let mut data = String::new();
+            let mut fd = fs::File::open(file)?;
+            fd.read_to_string(&mut data)?;
+            let mut parser = ::toml::Parser::new(&*data);
+            let value = parser.parse().unwrap();
+            let mut decoder = ::toml::Decoder::new(::toml::Value::Table(value));
+            let config:Configuration = ::serde::Deserialize::deserialize(&mut decoder)?;
+            devices.extend(config.ssh_devices.into_iter().map(|(k,d)| Box::new(SshDevice { id:k, config: d }) as _));
+        }
         Ok(devices)
     }
 }

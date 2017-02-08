@@ -24,13 +24,14 @@ cargo test --verbose
 set -x
 
 cd test-app
-cargo test -- works
-! cargo test -- fails
+cargo test pass
+! cargo test fails
 echo "## last failure was expected ##"
 
 
 if [ `uname` = Darwin ]
 then
+    tree ../target
     ../target/debug/cargo-dinghy dinghy test pass
     ! ../target/debug/cargo-dinghy dinghy test fails
     echo "## last failure was expected ##"
