@@ -20,6 +20,7 @@ extern crate toml;
 
 #[cfg(target_os="macos")]
 pub mod ios;
+pub mod config;
 
 pub mod android;
 pub mod ssh;
@@ -100,10 +101,35 @@ pub mod ios {
 fn make_linux_app(exe: &path::Path) -> Result<path::PathBuf> {
     let app_name = exe.file_name().unwrap();
     let app_path = exe.parent().unwrap().join("dinghy").join(app_name);
-    fs::create_dir_all(&app_path)?;
+    debug!("Making bundle {:?} for {:?}", app_path, exe);
+    let _ = fs::remove_dir_all(&app_path);
+    fs::create_dir_all(app_path.join("src"))?;
     fs::copy(&exe, app_path.join(app_name))?;
+    debug!("Copying src to bundle");
     ::rec_copy(".", app_path.join("src"))?;
+    debug!("Copying test_data to bundle");
+    ::copy_test_data(&app_path)?;
     Ok(app_path.into())
+}
+
+fn copy_test_data<P: AsRef<path::Path>>(app_path: P) -> Result<()> {
+    let app_path = app_path.as_ref();
+    fs::create_dir_all(app_path.join("test_data"))?;
+    let conf = config::config()?;
+    for (k,v) in conf.test_data {
+        if path::Path::new(&v).exists() {
+            let metadata = path::Path::new(&v).metadata()?;
+            let dst = app_path.join("test_data").join(k);
+            if metadata.is_dir() {
+                ::rec_copy(v, dst)?;
+            } else {
+                fs::copy(v, dst)?;
+            }
+        } else {
+            warn!("configuration required test_data `{}` from `{}` but it could not be found", k, v);
+        }
+    }
+    Ok(())
 }
 
 fn rec_copy<P1: AsRef<path::Path>,P2: AsRef<path::Path>>(src:P1, dst:P2) -> Result<()> {
@@ -114,9 +140,9 @@ fn rec_copy<P1: AsRef<path::Path>,P2: AsRef<path::Path>>(src:P1, dst:P2) -> Resu
         let entry = entry?;
         let metadata = entry.metadata()?;
         if metadata.is_dir() {
-            fs::create_dir_all(dst.join(entry.path()))?;
+            fs::create_dir_all(dst.join(entry.path().strip_prefix(src)?))?;
         } else {
-            fs::copy(entry.path(), dst.join(entry.path()))?;
+            fs::copy(entry.path(), dst.join(entry.path().strip_prefix(src)?))?;
         }
     }
     Ok(())
