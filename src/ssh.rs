@@ -87,8 +87,10 @@ impl SshDeviceManager {
 impl PlatformManager for SshDeviceManager {
     fn devices(&self) -> Result<Vec<Box<Device>>> {
         let mut devices = vec!();
-        for file in [ ".dinghy.toml" ] {
-            let file = "config.toml";
+        for file in &[ ".dinghy.toml" ] {
+            if !path::Path::new(file).exists() {
+                continue
+            }
             let mut data = String::new();
             let mut fd = fs::File::open(file)?;
             fd.read_to_string(&mut data)?;
