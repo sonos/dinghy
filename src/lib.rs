@@ -102,7 +102,6 @@ fn make_linux_app(exe: &path::Path) -> Result<path::PathBuf> {
     let app_name = exe.file_name().unwrap();
     let app_path = exe.parent().unwrap().join("dinghy").join(app_name);
     debug!("Making bundle {:?} for {:?}", app_path, exe);
-    let _ = fs::remove_dir_all(&app_path);
     fs::create_dir_all(app_path.join("src"))?;
     fs::copy(&exe, app_path.join(app_name))?;
     debug!("Copying src to bundle");
@@ -139,10 +138,21 @@ fn rec_copy<P1: AsRef<path::Path>,P2: AsRef<path::Path>>(src:P1, dst:P2) -> Resu
     for entry in ignore::WalkBuilder::new(src).build() {
         let entry = entry?;
         let metadata = entry.metadata()?;
+        let target = dst.join(entry.path().strip_prefix(src)?);
         if metadata.is_dir() {
-            fs::create_dir_all(dst.join(entry.path().strip_prefix(src)?))?;
+            if target.exists() && !target.is_dir() {
+                fs::remove_dir_all(&target)?;
+            }&
+            fs::create_dir_all(&target)?;
         } else {
-            fs::copy(entry.path(), dst.join(entry.path().strip_prefix(src)?))?;
+            if target.exists() && !target.is_file() {
+                fs::remove_dir_all(&target)?;
+            }
+            if !target.exists()
+                || target.metadata()?.len() != entry.metadata()?.len()
+                || target.metadata()?.modified()? < entry.metadata()?.modified()? {
+                fs::copy(entry.path(), &target)?;
+            }
         }
     }
     Ok(())
