@@ -36,9 +36,9 @@ impl Device for SshDevice {
             Err("error creating /tmp/dinghy")?
         }
         let target_path = format!("/tmp/dinghy/{:?}", app.file_name().unwrap());
-        let stat = process::Command::new("scp").arg("-rC")
-            .arg(app.to_str().unwrap())
-            .arg(&*format!("{}:{}", user_at_host, &*target_path))
+        let stat = process::Command::new("rsync").arg("-a")
+            .arg(&*format!("{}/", app.to_str().unwrap()))
+            .arg(&*format!("{}:{}/", user_at_host, &*target_path))
             .status()?;
         if !stat.success() {
             Err("error installing app")?
