@@ -28,13 +28,8 @@ impl Device for SshDevice {
     }
     fn install_app(&self, app: &path::Path) -> Result<()> {
         let user_at_host = format!("{}@{}", self.config.username, self.config.hostname);
-        let _stat = process::Command::new("ssh").args(&[&*user_at_host, "rm", "-rf", "/tmp/dinghy"])
-            .status()?;
-        let stat = process::Command::new("ssh").args(&[&*user_at_host, "mkdir", "/tmp/dinghy"])
-            .status()?;
-        if !stat.success() {
-            Err("error creating /tmp/dinghy")?
-        }
+        let _stat = process::Command::new("ssh").args(&[&*user_at_host, "mkdir", "/tmp/dinghy"])
+            .status();
         let target_path = format!("/tmp/dinghy/{:?}", app.file_name().unwrap());
         let stat = process::Command::new("rsync").arg("-a")
             .arg(&*format!("{}/", app.to_str().unwrap()))
