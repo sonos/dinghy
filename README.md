@@ -13,6 +13,9 @@ interactively the executable.
 The purpose here is to make it easier for teams to unit-test and bench their
 libraries on more platforms. We want to get Rust everywhere right ?
 
+Dinghy also supports compilation for, and execution on remote devices accessible
+through ssh.
+
 ## Getting started
 
 Depending on what is your target (iOS or Android) and your workstation, setting
@@ -31,7 +34,10 @@ rustup target install arm-linux-androideabi
 rustup target install x86_64-apple-ios
 
 # android arm devices
-arm-linux-androideabi
+rustup target install arm-linux-androideabi
+
+# for a Raspberry Pi 2
+rustup target install armv7-unknown-linux-gnueabihf
 ```
 
 Let's install dinghy...
@@ -46,7 +52,7 @@ the fun stuff come.
 ## Android setup
 
 You'll need the usual ANDROID_NDK_HOME, and `adb` somewhere in your path.
-Also your phone must have developer options enabled.
+Also, your phone must have developer options enabled.
 
 ## iOS simulator setup
 
@@ -158,6 +164,125 @@ Dinghy will actually scan this directory to find one that it can use (this is
 where the app name being "Dinghy" plays a role).
 
 Phew.
+
+## Ssh setup
+
+Ssh setup is useful if you want to target small-ish devices that can host an
+operating system but are too slow to iterate over Rust compilation/test cycles
+comfortably. Think... something like a Raspberry Pi or a NAS, or an old x86 box
+in your garage.
+
+We will need some configuration bits here. So let's create a `.dinghy.toml` in
+your home directory:
+
+```
+[ssh_devices]
+"raspi2" = { hostname = "10.1.2.3", username="pi", target="armv7-unknown-linux-gnueabihf" }
+```
+
+You must make sure that the ssh connection works without asking for a password
+for the user/host combination. 
+
+You will also probably have to set up a toolchain: rustc needs a working linker
+to be able to generate executable. On my case, for using on a RaspberryPi, I
+added these two lines in `~/.cargo/config`:
+
+```
+[target.armv7-unknown-linux-gnueabihf]
+linker = "/Users/kali/dev/armv7-rpi2-linux-gnueabihf/bin/armv7-rpi2-linux-gnueabihf-gcc"
+```
+
+The reason why we did not have to do that in the iOS and Android case is... there
+exists more or less standards ways to find out where the linker is. Most people
+targetting iOS will use XCode, and most people targetting Android will have a
+standard toolchain with a matching ANDROID_NDK_HOME. Here, we are on our own to
+get and setup the toolchain.
+
+But once this is done, well, it works the same.
+
+## Sending sources files to the devices
+
+Some tests are relying on the presence of files at relative places to be able
+to proceed. But we can not always control where we will be executing from (we
+can not always do `cd someplace` before running the tests).
+
+So, the tests are "bundled" in the following way:
+
+* root dinghy test directory
+    * test_executable
+    * src/ mirrors the not-ignorable files from your sources
+    * test_datais contains configurable data to be sent to the device
+        * some_file
+        * some_dir
+
+So let's say your integration test is in `tests/test_1.rs` and uses `tests/data_1.txt`.
+It will be copied into `src/tests/data_1.txt`.
+
+To open your test file easily, you can cut and paste the following helper
+function:
+
+```rust
+pub fn src_path() -> path::PathBuf {
+    if cfg!(any(target_os = "ios", target_os = "android")) ||
+       ::std::env::var("DINGHY").is_ok() {
+        ::std::env::current_exe().unwrap().parent().unwrap().join("src")
+    } else {
+        path::PathBuf::from(".")
+    }
+}
+```
+
+Then in your test, use it accordingly.
+
+
+```rust
+    let data = src_path().join("tests/data_1.txt");
+```
+
+## Sending more files to the devices
+
+Now let's assume you have out-of-repository files to send over. You can do that
+by adding it in `.dinghy.toml` (you'll probably want this one in the project
+directory, or just above it if the data is shared among several cargo projects).
+
+```toml
+[test_data]
+the_data = "../data-2017-02-05"
+conf_file = "/etc/some/file"
+```
+
+The keys are the name under which to look for files below "test_data" in the
+bundles, and the values are what to be copied (from your development workstation).
+
+Once again, you'll need to go through an helper in your code. Something like
+that should do:
+
+```rust
+pub fn test_data_path() -> Option<path::PathBuf> {
+    if cfg!(any(target_os = "ios", target_os = "android")) ||
+       ::std::env::var("DINGHY").is_ok() {
+        Some(::std::env::current_exe().unwrap().parent().unwrap().join("test_data"))
+    } else {
+        None
+    }
+}
+```
+
+And use it like that:
+
+```rust
+let the_data = match test_data_path() {
+    Some(p) => p.join("the_data"),
+    None => path::PathBuf::from("../data-2017-02-05"),
+}
+
+let the_conf_file = match test_data_path() {
+    Some(p) => p.join("conf_file"),
+    None => path::PathBuf::from("/etc/some/file"),
+```
+
+We are playing with the idea of making some kind of `dinghy-rt`lib that you
+could use as a `dev-dependency` to help with these.
 
 ## Enjoy
 
