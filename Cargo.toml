@@ -23,11 +23,14 @@ tempdir = "0.3"
 log="0.3"
 env_logger="0.3"
 clap = "2.18"
-cargo = "0.14"
+cargo = "0.16"
 plist = "0.0.14"
 regex = "0.1"
 json = "0.11"
 ignore = "0.1"
+serde = "0.8"
+serde_derive = "0.8"
+toml = { version = "0.2", features = [ "serde" ] }
 
 [target.'cfg(target_os="macos")'.dependencies]
 core-foundation = "0.2"

@@ -6,24 +6,30 @@ extern crate core_foundation_sys;
 #[macro_use]
 extern crate error_chain;
 extern crate ignore;
-#[macro_use]
 extern crate json;
 extern crate libc;
 #[macro_use]
 extern crate log;
 extern crate plist;
 extern crate regex;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 extern crate tempdir;
-
+extern crate toml;
 
 #[cfg(target_os="macos")]
 pub mod ios;
+pub mod config;
 
 pub mod android;
-pub mod build;
+pub mod ssh;
 pub mod errors;
 
-use std::path;
+mod linker;
+pub use linker::setup_linker;
+
+use std::{ fs, path };
 
 use errors::*;
 
@@ -34,15 +40,7 @@ pub trait PlatformManager {
 pub trait Device: std::fmt::Debug {
     fn name(&self) -> &str;
     fn id(&self) -> &str;
-    fn target_arch(&self) -> &str;
-    fn target_vendor(&self) -> &str;
-    fn target_os(&self) -> &str;
-    fn target(&self) -> String {
-        format!("{}-{}-{}",
-                self.target_arch(),
-                self.target_vendor(),
-                self.target_os())
-    }
+    fn target(&self) -> String;
     fn can_run(&self, target:&str) -> bool {
         target == self.target()
     }
@@ -66,6 +64,9 @@ impl Dinghy {
         }
         if let Some(android) = android::AndroidManager::probe() {
             managers.push(Box::new(android) as Box<PlatformManager>)
+        }
+        if let Some(config) = ssh::SshDeviceManager::probe() {
+            managers.push(Box::new(config) as Box<PlatformManager>)
         }
         Ok(Dinghy {
             managers: managers
@@ -95,4 +96,64 @@ pub mod ios {
             Ok((None))
         }
     }
+}
+
+fn make_linux_app(exe: &path::Path) -> Result<path::PathBuf> {
+    let app_name = exe.file_name().unwrap();
+    let app_path = exe.parent().unwrap().join("dinghy").join(app_name);
+    debug!("Making bundle {:?} for {:?}", app_path, exe);
+    fs::create_dir_all(app_path.join("src"))?;
+    fs::copy(&exe, app_path.join(app_name))?;
+    debug!("Copying src to bundle");
+    ::rec_copy(".", app_path.join("src"))?;
+    debug!("Copying test_data to bundle");
+    ::copy_test_data(&app_path)?;
+    Ok(app_path.into())
+}
+
+fn copy_test_data<P: AsRef<path::Path>>(app_path: P) -> Result<()> {
+    let app_path = app_path.as_ref();
+    fs::create_dir_all(app_path.join("test_data"))?;
+    let conf = config::config()?;
+    for (k,v) in conf.test_data {
+        if path::Path::new(&v).exists() {
+            let metadata = path::Path::new(&v).metadata()?;
+            let dst = app_path.join("test_data").join(k);
+            if metadata.is_dir() {
+                ::rec_copy(v, dst)?;
+            } else {
+                fs::copy(v, dst)?;
+            }
+        } else {
+            warn!("configuration required test_data `{}` from `{}` but it could not be found", k, v);
+        }
+    }
+    Ok(())
+}
+
+fn rec_copy<P1: AsRef<path::Path>,P2: AsRef<path::Path>>(src:P1, dst:P2) -> Result<()> {
+    let src = src.as_ref();
+    let dst = dst.as_ref();
+    fs::create_dir_all(&dst)?;
+    for entry in ignore::WalkBuilder::new(src).build() {
+        let entry = entry?;
+        let metadata = entry.metadata()?;
+        let target = dst.join(entry.path().strip_prefix(src)?);
+        if metadata.is_dir() {
+            if target.exists() && !target.is_dir() {
+                fs::remove_dir_all(&target)?;
+            }&
+            fs::create_dir_all(&target)?;
+        } else {
+            if target.exists() && !target.is_file() {
+                fs::remove_dir_all(&target)?;
+            }
+            if !target.exists()
+                || target.metadata()?.len() != entry.metadata()?.len()
+                || target.metadata()?.modified()? < entry.metadata()?.modified()? {
+                fs::copy(entry.path(), &target)?;
+            }
+        }
+    }
+    Ok(())
 }
