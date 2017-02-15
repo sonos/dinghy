@@ -18,7 +18,7 @@ impl Device for SshDevice {
         &*self.id
     }
     fn target(&self) -> String {
-        "armv7-unknown-linux-gnueabihf".to_string()
+        self.config.target.to_string()
     }
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
