@@ -38,7 +38,9 @@ impl Device for AndroidDevice {
     }
     fn install_app(&self, app: &path::Path) -> Result<()> {
         let name = app.file_name().expect("app should be a file in android mode");
-        let target_path = format!("/data/local/tmp/{}", name.to_str().unwrap_or("dinghy"));
+        let exec_name = name.to_str().unwrap_or("dinghy");
+        let target_path = format!("/data/local/tmp/{}", exec_name);
+        let target_exec = format!("{}/{}", target_path, exec_name);
         let _stat = Command::new("adb")
             .args(&["-s", &*self.id, "shell", "rm", "-rf", &*target_path])
             .status()?;
@@ -50,7 +52,7 @@ impl Device for AndroidDevice {
         }
         // required when pushing from windows
         let stat = Command::new("adb")
-            .args(&["-s", &*self.id, "shell", "chmod", "755", &*target_path])
+            .args(&["-s", &*self.id, "shell", "chmod", "755", &*target_exec])
             .status()?;
         if !stat.success() {
             Err("failure in android install")?;
