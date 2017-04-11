@@ -27,6 +27,11 @@ fn main() {
                     .help("device hint"))
                 .subcommand(::clap::SubCommand::with_name("devices"))
                 .subcommand(::clap::SubCommand::with_name("test")
+                    .arg(::clap::Arg::with_name("SPEC")
+                         .short("p")
+                         .long("package")
+                         .takes_value(true)
+                         .help("Package to run tests for"))
                     .arg(::clap::Arg::with_name("DEBUGGER")
                         .long("debugger")
                         .takes_value(false)
@@ -110,6 +115,11 @@ fn main() {
                         .help("Do not build the `default` feature"))
                     .arg(::clap::Arg::with_name("ARGS").multiple(true).help("test arguments")))
                 .subcommand(::clap::SubCommand::with_name("bench")
+                    .arg(::clap::Arg::with_name("SPEC")
+                         .short("p")
+                         .long("package")
+                         .takes_value(true)
+                         .help("Package to run benchmarks for"))
                     .arg(::clap::Arg::with_name("DEBUGGER")
                         .long("debugger")
                         .takes_value(false)
@@ -154,6 +164,11 @@ fn main() {
                         .help("Do not build the `default` feature"))
                     .arg(::clap::Arg::with_name("ARGS").multiple(true).help("test arguments")))
                 .subcommand(::clap::SubCommand::with_name("build")
+                    .arg(::clap::Arg::with_name("SPEC")
+                         .short("p")
+                         .long("package")
+                         .takes_value(true)
+                         .help("Package to build"))
                     .arg(::clap::Arg::with_name("TARGET")
                         .long("target")
                         .takes_value(true)
@@ -299,6 +314,14 @@ fn prepare_runnable(target: &str,
                                                 &tests,
                                                 &examples,
                                                 &benches);
+    let given_specs =
+        matches.values_of("SPEC").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
+    let spec = if !given_specs.is_empty() {
+        cargo::ops::Packages::Packages(&given_specs)
+    } else {
+        cargo::ops::Packages::All
+    };
+
     let options = cargo::ops::CompileOptions {
         config: &cfg,
         jobs: None,
@@ -306,7 +329,7 @@ fn prepare_runnable(target: &str,
         features: &*features,
         all_features: matches.is_present("ALL_FEATURES"),
         no_default_features: matches.is_present("NO_DEFAULT_FEATURES"),
-        spec: cargo::ops::Packages::All,
+        spec: spec,
         filter: filter,
         release: subcommand == "bench" || matches.is_present("RELEASE"),
         mode: mode,
