@@ -28,10 +28,10 @@ fn main() {
                 .subcommand(::clap::SubCommand::with_name("devices"))
                 .subcommand(::clap::SubCommand::with_name("test")
                     .arg(::clap::Arg::with_name("SPEC")
-                         .short("p")
-                         .long("package")
-                         .takes_value(true)
-                         .help("Package to run tests for"))
+                        .short("p")
+                        .long("package")
+                        .takes_value(true)
+                        .help("Package to run tests for"))
                     .arg(::clap::Arg::with_name("DEBUGGER")
                         .long("debugger")
                         .takes_value(false)
@@ -116,10 +116,10 @@ fn main() {
                     .arg(::clap::Arg::with_name("ARGS").multiple(true).help("test arguments")))
                 .subcommand(::clap::SubCommand::with_name("bench")
                     .arg(::clap::Arg::with_name("SPEC")
-                         .short("p")
-                         .long("package")
-                         .takes_value(true)
-                         .help("Package to run benchmarks for"))
+                        .short("p")
+                        .long("package")
+                        .takes_value(true)
+                        .help("Package to run benchmarks for"))
                     .arg(::clap::Arg::with_name("DEBUGGER")
                         .long("debugger")
                         .takes_value(false)
@@ -165,10 +165,10 @@ fn main() {
                     .arg(::clap::Arg::with_name("ARGS").multiple(true).help("test arguments")))
                 .subcommand(::clap::SubCommand::with_name("build")
                     .arg(::clap::Arg::with_name("SPEC")
-                         .short("p")
-                         .long("package")
-                         .takes_value(true)
-                         .help("Package to build"))
+                        .short("p")
+                        .long("package")
+                        .takes_value(true)
+                        .help("Package to build"))
                     .arg(::clap::Arg::with_name("TARGET")
                         .long("target")
                         .takes_value(true)
@@ -254,6 +254,13 @@ fn run(matches: clap::ArgMatches) -> Result<()> {
     }
 }
 
+#[derive(Debug)]
+struct Runnable {
+    name: String,
+    exe: path::PathBuf,
+    source: path::PathBuf,
+}
+
 fn prepare_and_run(d: &dinghy::Device, subcommand: &str, matches: &clap::ArgMatches) -> Result<()> {
     let target = matches.value_of("TARGET").map(|s| s.into()).unwrap_or(d.target());
     if !d.can_run(&*target) {
@@ -264,13 +271,14 @@ fn prepare_and_run(d: &dinghy::Device, subcommand: &str, matches: &clap::ArgMatc
     let args =
         matches.values_of("ARGS").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
     for t in runnable {
-        let app = d.make_app(&t.1)?;
+        let app = d.make_app(&t.source, &t.exe)?;
+        println!("{:?} -> {:?}", t, app);
         if subcommand != "build" {
             d.install_app(&app.as_ref())?;
             if matches.is_present("DEBUGGER") {
                 println!("DEBUGGER");
                 d.debug_app(app.as_ref(),
-                             &*args.iter().map(|s| &s[..]).collect::<Vec<_>>())?;
+                               &*args.iter().map(|s| &s[..]).collect::<Vec<_>>())?;
             } else {
                 d.run_app(app.as_ref(),
                              &*args.iter().map(|s| &s[..]).collect::<Vec<_>>())?;
@@ -280,10 +288,11 @@ fn prepare_and_run(d: &dinghy::Device, subcommand: &str, matches: &clap::ArgMatc
     Ok(())
 }
 
+
 fn prepare_runnable(target: &str,
                     subcommand: &str,
                     matches: &clap::ArgMatches)
-                    -> Result<Vec<(String, path::PathBuf)>> {
+                    -> Result<Vec<Runnable>> {
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
     let cfg = cargo::util::config::Config::default()?;
     let mode = match subcommand {
@@ -340,11 +349,26 @@ fn prepare_runnable(target: &str,
     let compilation = cargo::ops::compile(&wd, &options)?;
     if subcommand == "run" {
         Ok(compilation.binaries
-            .iter()
+            .into_iter()
             .take(1)
-            .map(|t| ("main".into(), t.clone()))
+            .map(|t| {
+                Runnable {
+                    name: "main".into(),
+                    exe: t,
+                    source: path::PathBuf::from("."),
+                }
+            })
             .collect::<Vec<_>>())
     } else {
-        Ok(compilation.tests.iter().map(|t| (t.1.clone(), t.2.clone())).collect::<Vec<_>>())
+        Ok(compilation.tests
+            .into_iter()
+            .map(|(pkg, name, exe)| {
+                Runnable {
+                    name: name,
+                    source: pkg.root().to_path_buf(),
+                    exe: exe,
+                }
+            })
+            .collect::<Vec<_>>())
     }
 }

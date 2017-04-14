@@ -4,14 +4,16 @@ use std::io::Write;
 use errors::*;
 use super::{SignatureSettings, SigningIdentity};
 
-pub fn wrap_as_app<P1, P2>(target: &str,
+pub fn wrap_as_app<P1, P2, P3>(target: &str,
                            _name: &str,
-                           executable: P1,
+                           source: P1,
+                           executable: P2,
                            app_bundle_id: &str,
-                           app_path: P2)
+                           app_path: P3)
                            -> Result<path::PathBuf>
     where P1: AsRef<path::Path>,
-          P2: AsRef<path::Path>
+          P2: AsRef<path::Path>,
+          P3: AsRef<path::Path>,
 {
     let app_name = app_bundle_id.split(".").last().unwrap();
     let app_path = app_path.as_ref().join(format!("{}.app", app_name));
@@ -34,8 +36,8 @@ pub fn wrap_as_app<P1, P2>(target: &str,
              target.split("-").next().unwrap())?;
     writeln!(plist, r#"</dict></plist>"#)?;
 
-    ::rec_copy(".", app_path.join("src"))?;
-    ::copy_test_data(&app_path)?;
+    ::rec_copy(&source, app_path.join("src"))?;
+    ::copy_test_data(source, &app_path)?;
     Ok(app_path)
 }
 

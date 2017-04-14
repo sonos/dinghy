@@ -88,7 +88,7 @@ impl Device for IosDevice {
         debug!("start lldb");
         Ok(format!("localhost:{}", proxy))
     }
-    fn make_app(&self, exe: &path::Path) -> Result<path::PathBuf> {
+    fn make_app(&self, source:&path::Path, exe: &path::Path) -> Result<path::PathBuf> {
         let signing = xcode::look_for_signature_settings(&*self.id)?
             .pop()
             .ok_or("no signing identity found")?;
@@ -103,6 +103,7 @@ impl Device for IosDevice {
         let target = magic.split(" ").last().ok_or("empty magic")?;
         let app = xcode::wrap_as_app(target,
                                      name.to_str().ok_or("conversion to string")?,
+                                     source,
                                      exe,
                                      app_id,
                                      loc)?;
@@ -161,14 +162,14 @@ impl Device for IosSimDevice {
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
-    fn make_app(&self, exe: &path::Path) -> Result<path::PathBuf> {
+    fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
         let name = exe.file_name().expect("root ?");
         let parent = exe.parent().expect("no parents? too sad...");
         let loc = parent.join("dinghy").join(name);
         let magic = process::Command::new("file").arg(exe.to_str().ok_or("path conversion to string")?).output()?;
         let magic = String::from_utf8(magic.stdout)?;
         let target = magic.split(" ").last().ok_or("empty magic")?;
-        let app = xcode::wrap_as_app(target, name.to_str().ok_or("conversion to string")?, exe, "Dinghy", loc)?;
+        let app = xcode::wrap_as_app(target, name.to_str().ok_or("conversion to string")?, source, exe, "Dinghy", loc)?;
         Ok(app)
     }
     fn install_app(&self, app: &path::Path) -> Result<()> {

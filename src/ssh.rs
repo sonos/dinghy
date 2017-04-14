@@ -23,8 +23,8 @@ impl Device for SshDevice {
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
-    fn make_app(&self, exe: &path::Path) -> Result<path::PathBuf> {
-        ::make_linux_app(exe)
+    fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
+        ::make_linux_app(source, exe)
     }
     fn install_app(&self, app: &path::Path) -> Result<()> {
         let user_at_host = format!("{}@{}", self.config.username, self.config.hostname);
@@ -72,7 +72,7 @@ impl SshDeviceManager {
 
 impl PlatformManager for SshDeviceManager {
     fn devices(&self) -> Result<Vec<Box<Device>>> {
-        Ok(::config::config()?
+        Ok(::config::config(::std::env::current_dir().unwrap())?
             .ssh_devices
             .iter()
             .map(|(k, d)| {

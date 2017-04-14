@@ -46,7 +46,7 @@ pub trait Device: std::fmt::Debug {
     }
     fn start_remote_lldb(&self) -> Result<String>;
 
-    fn make_app(&self, app: &path::Path) -> Result<path::PathBuf>;
+    fn make_app(&self, source: &path::Path, app: &path::Path) -> Result<path::PathBuf>;
     fn install_app(&self, path: &path::Path) -> Result<()>;
     fn run_app(&self, app: &path::Path, args: &[&str]) -> Result<()>;
     fn debug_app(&self, app: &path::Path, args: &[&str]) -> Result<()>;
@@ -98,34 +98,37 @@ pub mod ios {
     }
 }
 
-fn make_linux_app(exe: &path::Path) -> Result<path::PathBuf> {
+fn make_linux_app(root: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
     let app_name = exe.file_name().unwrap();
     let app_path = exe.parent().unwrap().join("dinghy").join(app_name);
     debug!("Making bundle {:?} for {:?}", app_path, exe);
     fs::create_dir_all(app_path.join("src"))?;
     fs::copy(&exe, app_path.join(app_name))?;
     debug!("Copying src to bundle");
-    ::rec_copy(".", app_path.join("src"))?;
+    ::rec_copy(root, app_path.join("src"))?;
     debug!("Copying test_data to bundle");
-    ::copy_test_data(&app_path)?;
+    ::copy_test_data(root, &app_path)?;
     Ok(app_path.into())
 }
 
-fn copy_test_data<P: AsRef<path::Path>>(app_path: P) -> Result<()> {
+fn copy_test_data<S: AsRef<path::Path>, T: AsRef<path::Path>>(root: S, app_path: T) -> Result<()> {
     let app_path = app_path.as_ref();
     fs::create_dir_all(app_path.join("test_data"))?;
-    let conf = config::config()?;
-    for (k,v) in conf.test_data {
-        if path::Path::new(&v).exists() {
-            let metadata = path::Path::new(&v).metadata()?;
-            let dst = app_path.join("test_data").join(k);
+    let conf = config::config(root.as_ref())?;
+    for td in conf.test_data {
+        let root = path::PathBuf::from("/");
+        let file = td.base.parent().unwrap_or(&root).join(&td.source);
+        if path::Path::new(&file).exists() {
+            let metadata = file.metadata()?;
+            let dst = app_path.join("test_data").join(td.target);
             if metadata.is_dir() {
-                ::rec_copy(v, dst)?;
+                ::rec_copy(file, dst)?;
             } else {
-                fs::copy(v, dst)?;
+                fs::copy(file
+                         , dst)?;
             }
         } else {
-            warn!("configuration required test_data `{}` from `{}` but it could not be found", k, v);
+            warn!("configuration required test_data `{:?}` but it could not be found", td);
         }
     }
     Ok(())
