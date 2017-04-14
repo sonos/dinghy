@@ -3,7 +3,7 @@ use std::{collections, fs, path };
 
 use errors::*;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct TestData {
     pub base: path::PathBuf,
     pub source: String,
