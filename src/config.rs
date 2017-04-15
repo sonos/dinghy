@@ -62,6 +62,10 @@ pub fn config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
         files_to_try.push(d.join(".dinghy.toml"));
         d = d.parent().unwrap();
     }
+    files_to_try.push(d.join(".dinghy.toml"));
+    if let Some(home) = ::std::env::home_dir() {
+        files_to_try.push(home.join(".dinghy.html"))
+    }
     for file in files_to_try {
         if path::Path::new(&file).exists() {
             info!("Loading configuration from {:?}", file);

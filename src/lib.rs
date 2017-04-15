@@ -99,7 +99,7 @@ pub mod ios {
 }
 
 fn make_linux_app(root: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
-    let app_name = exe.file_name().unwrap();
+    let app_name = "dinghy";
     let app_path = exe.parent().unwrap().join("dinghy").join(app_name);
     debug!("Making bundle {:?} for {:?}", app_path, exe);
     fs::create_dir_all(app_path.join("src"))?;
