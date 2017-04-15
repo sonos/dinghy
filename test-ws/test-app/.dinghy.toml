@@ -1,0 +1,3 @@
+[test_data]
+dinghy_source = "../.."
+dinghy_license = "../../LICENSE"

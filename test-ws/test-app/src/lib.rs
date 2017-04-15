@@ -37,12 +37,12 @@ mod tests {
             println!("test_data path: {:?}", test_data_path());
             let license = test_data_path()
                 .map(|p| p.join("dinghy_source"))
-                .unwrap_or(path::PathBuf::from(".."))
+                .unwrap_or(path::PathBuf::from("../.."))
                 .join("LICENSE");
             assert!(license.exists(), "File from dinghy_source not found: {:?}", license);
             let license = test_data_path()
                 .map(|p| p.join("dinghy_license"))
-                .unwrap_or(path::PathBuf::from("../LICENSE"));
+                .unwrap_or(path::PathBuf::from("../../LICENSE"));
             assert!(license.exists(), "File dinghy_license not found: {:?}", license);
         }
 

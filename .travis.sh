@@ -21,15 +21,26 @@ fi
 cargo build --verbose
 cargo test --verbose
 
-cd test-app
+cd test-ws/test-app
 cargo test pass
 ! cargo test fails
 echo "## last failure was expected ##"
 
+if [ `uname` = Darwin ]
+then
+    ../../target/debug/cargo-dinghy dinghy test pass
+    ! ../../target/debug/cargo-dinghy dinghy test fails
+    echo "## last failure was expected ##"
+fi
+
+cd ..
+cargo test -p test-app pass
+! cargo test -p test-app fails
+echo "## last failure was expected ##"
 
 if [ `uname` = Darwin ]
 then
-    ../target/debug/cargo-dinghy dinghy test pass
-    ! ../target/debug/cargo-dinghy dinghy test fails
+    ../target/debug/cargo-dinghy dinghy test -p test-app pass
+    ! ../target/debug/cargo-dinghy dinghy test -p test-app fails
     echo "## last failure was expected ##"
 fi
