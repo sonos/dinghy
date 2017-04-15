@@ -1,5 +1,0 @@
-[foo]
-bar = 12
-
-[target.armv7-unknown-linux-gnueabihf]
-linker = "/Users/kali/dev/armv7-rpi2-linux-gnueabihf/bin/armv7-rpi2-linux-gnueabihf-gcc"

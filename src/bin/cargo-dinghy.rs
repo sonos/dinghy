@@ -272,7 +272,6 @@ fn prepare_and_run(d: &dinghy::Device, subcommand: &str, matches: &clap::ArgMatc
         matches.values_of("ARGS").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
     for t in runnable {
         let app = d.make_app(&t.source, &t.exe)?;
-        println!("{:?} -> {:?}", t, app);
         if subcommand != "build" {
             d.install_app(&app.as_ref())?;
             if matches.is_present("DEBUGGER") {
