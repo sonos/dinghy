@@ -1,4 +1,5 @@
 extern crate cargo;
+#[macro_use]
 extern crate clap;
 extern crate dinghy;
 extern crate env_logger;
@@ -21,6 +22,7 @@ fn main() {
 
     let matches = {
             ::clap::App::new("dinghy")
+                .version(crate_version!())
                 .arg(::clap::Arg::with_name("DEVICE")
                     .long("device")
                     .takes_value(true)
