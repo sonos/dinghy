@@ -40,7 +40,13 @@ impl Device for AndroidDevice {
         &*self.id
     }
     fn target(&self) -> String {
-        self.supported_targets.get(0).unwrap_or(&"").to_string()
+        // Prefer arm-linux-androideabi if valid because it's Tier 1
+        self.supported_targets.iter()
+            .filter(|&s| s == &"arm-linux-androideabi")
+            .next()
+            .or_else(|| self.supported_targets.get(0))
+            .unwrap_or(&"")
+            .to_string()
     }
     fn can_run(&self, target: &str) -> bool {
         self.supported_targets.iter().any(|&t| t == target)
