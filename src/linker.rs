@@ -103,18 +103,36 @@ fn guess_linker(device_target: &str) -> Result<Option<String>> {
 
 #[cfg(target_os="windows")]
 fn guess_linker(device_target: &str) -> Result<Option<String>> {
-    let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
-    let root = wd_path.parent().ok_or("building at / ?")?;
-    let target_path = root.join("target").join(device_target);
-    match device_target {
-        "arm-linux-androideabi" => {
-            let home = env::var("ANDROID_NDK_HOME")
+    if device_target.contains("-linux-android") {
+        let (toolchain, arch) = match device_target {
+            "armv7-linux-androideabi" => ("arm-linux-androideabi", "arm"),
+            "aarch64-linux-android" => (device_target, "arm64"),
+            _ => (device_target, "arm"),
+        };
+        let home = env::var("ANDROID_NDK_HOME")
                 .map_err(|_| "environment variable ANDROID_NDK_HOME is required")?;
+        let api = env::var("ANDROID_API")
+                .unwrap_or("android-18".into());
 
-            Ok(Some(format!(r#"{home}\toolchains\arm-linux-androideabi-4.9\prebuilt\windows\bin\arm-linux-androideabi-gcc --sysroot {home}\platforms\android-18\arch-arm %* "#,
-                home = home)))
-        },
-        _ => Ok(None)
+        let prebuilt_dir = format!(r"{home}\toolchains\{toolchain}-4.9\prebuilt",
+            home = home, toolchain = toolchain);
+        if !::std::path::Path::new(&prebuilt_dir).exists() {
+            return Err(Error::from(format!("Could not find prebuilt android toolchain at:\n{:?}", prebuilt_dir)));
+        }
+
+        let mut toolchain_bin = prebuilt_dir.clone() + r"\windows-x86_64\bin";
+        if !::std::path::Path::new(&toolchain_bin).exists() {
+            toolchain_bin = prebuilt_dir + r"\windows\bin";
+        }
+
+        Ok(Some(format!(r"{toolchain_bin}\{toolchain}-gcc --sysroot {home}\platforms\{api}\arch-{arch} %* ",
+            toolchain_bin = toolchain_bin,
+            toolchain = toolchain,
+            home = home,
+            api = api,
+            arch = arch)))
+    } else {
+        Ok(None)
     }
 }
 

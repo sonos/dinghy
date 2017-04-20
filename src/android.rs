@@ -28,7 +28,8 @@ impl Device for AndroidDevice {
         "arm-linux-androideabi".to_string()
     }
     fn can_run(&self, target: &str) -> bool {
-        target.ends_with("-linux-androideabi")
+        target.ends_with("-linux-androideabi") ||
+        target.ends_with("-linux-android")
     }
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
