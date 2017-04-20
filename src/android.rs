@@ -7,12 +7,27 @@ use ::{Device, PlatformManager};
 #[derive(Debug,Clone)]
 pub struct AndroidDevice {
     id: String,
+    supported_targets: Vec<&'static str>,
 }
-
 
 impl AndroidDevice {
     fn from_id(id: &str) -> Result<AndroidDevice> {
-        let device = AndroidDevice { id: id.into() };
+        let getprop_output = Command::new("adb").args(&["-s", id,
+            "shell", "getprop", "ro.product.cpu.abilist"])
+            .output()?;
+        let abilist = String::from_utf8(getprop_output.stdout)?;
+        let supported_targets = abilist.trim().split(",").filter_map(|abi| {
+            Some(
+                match abi {
+                "arm64-v8a" => "aarch64-linux-android",
+                "armeabi-v7a" => "armv7-linux-androideabi",
+                "armeabi" => "arm-linux-androideabi",
+                "x86" => "i686-linux-android",
+                _ => return None,
+            })
+        }).collect::<Vec<_>>();
+
+        let device = AndroidDevice { id: id.into(), supported_targets: supported_targets };
         Ok(device)
     }
 }
@@ -25,11 +40,10 @@ impl Device for AndroidDevice {
         &*self.id
     }
     fn target(&self) -> String {
-        "arm-linux-androideabi".to_string()
+        self.supported_targets.get(0).unwrap_or(&"").to_string()
     }
     fn can_run(&self, target: &str) -> bool {
-        target.ends_with("-linux-androideabi") ||
-        target.ends_with("-linux-android")
+        self.supported_targets.iter().any(|&t| t == target)
     }
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
@@ -126,6 +140,7 @@ impl PlatformManager for AndroidManager {
         for line in String::from_utf8(result.stdout)?.split("\n").skip(1) {
             if let Some(caps) = device_regex.captures(line) {
                 let d = AndroidDevice::from_id(&caps[1])?;
+                debug!("Discovered Android device {:?}", d);
                 devices.push(Box::new(d) as Box<Device>);
             }
         }
