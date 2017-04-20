@@ -104,10 +104,11 @@ fn guess_linker(device_target: &str) -> Result<Option<String>> {
 #[cfg(target_os="windows")]
 fn guess_linker(device_target: &str) -> Result<Option<String>> {
     if device_target.contains("-linux-android") {
-        let (toolchain, arch) = match device_target {
-            "armv7-linux-androideabi" => ("arm-linux-androideabi", "arm"),
-            "aarch64-linux-android" => (device_target, "arm64"),
-            _ => (device_target, "arm"),
+        let (toolchain, gcc, arch) = match device_target {
+            "armv7-linux-androideabi" => ("arm-linux-androideabi", "arm-linux-androideabi", "arm"),
+            "aarch64-linux-android" => (device_target, device_target, "arm64"),            
+            "i686-linux-android" => ("x86", device_target, "x86"),
+            _ => (device_target, device_target, "arm"),
         };
         let home = env::var("ANDROID_NDK_HOME")
                 .map_err(|_| "environment variable ANDROID_NDK_HOME is required")?;
@@ -125,9 +126,9 @@ fn guess_linker(device_target: &str) -> Result<Option<String>> {
             toolchain_bin = prebuilt_dir + r"\windows\bin";
         }
 
-        Ok(Some(format!(r"{toolchain_bin}\{toolchain}-gcc --sysroot {home}\platforms\{api}\arch-{arch} %* ",
+        Ok(Some(format!(r"{toolchain_bin}\{gcc}-gcc --sysroot {home}\platforms\{api}\arch-{arch} %* ",
             toolchain_bin = toolchain_bin,
-            toolchain = toolchain,
+            gcc = gcc,
             home = home,
             api = api,
             arch = arch)))
