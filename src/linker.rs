@@ -39,9 +39,6 @@ fn create_shim<P: AsRef<path::Path>>(root: P,
     let target_path = root.as_ref().join("target").join(device_target);
     fs::create_dir_all(&target_path)?;
     let shim = target_path.join("linker");
-    if shim.exists() {
-        return Ok(shim);
-    }
     let mut linker_shim = fs::File::create(&shim)?;
     writeln!(linker_shim, "#!/bin/sh")?;
     linker_shim.write_all(shell.as_bytes())?;
