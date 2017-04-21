@@ -75,7 +75,7 @@ fn guess_linker(device_target: &str) -> Result<Option<String>> {
         };
         let sdk_path = String::from_utf8(xcrun.stdout)?;
         Ok(Some(format!(r#"cc -isysroot {} "$@""#, &*sdk_path.trim_right())))
-    } else if device_target == "arm-linux-androideabi" {
+    } else if device_target.contains("-linux-android") {
         if let Err(_) = env::var("ANDROID_NDK_HOME") {
             if let Ok(home) = env::var("HOME") {
                 let mac_place = format!("{}/Library/Android/sdk/ndk-bundle", home);
@@ -88,14 +88,36 @@ fn guess_linker(device_target: &str) -> Result<Option<String>> {
                 return Ok(None);
             }
         }
-        let prebuild_android_toolchains_dir = path::PathBuf::from(env::var("ANDROID_NDK_HOME").unwrap())
-            .join("toolchains/arm-linux-androideabi-4.9/prebuilt");
-        let prebuilt = fs::read_dir(prebuild_android_toolchains_dir)?
+
+        let (toolchain, gcc, arch) = match device_target {
+            "armv7-linux-androideabi" => ("arm-linux-androideabi", "arm-linux-androideabi", "arm"),
+            "aarch64-linux-android" => (device_target, device_target, "arm64"),
+            "i686-linux-android" => ("x86", device_target, "x86"),
+            _ => (device_target, device_target, "arm"),
+        };
+
+        let home = env::var("ANDROID_NDK_HOME")
+                .map_err(|_| "environment variable ANDROID_NDK_HOME is required")?;
+                
+        let api = env::var("ANDROID_API")
+                .unwrap_or("android-18".into());
+
+        let prebuilt_dir = format!(r"{home}/toolchains/{toolchain}-4.9/prebuilt",
+            home = home, toolchain = toolchain);
+
+        let prebuilt = fs::read_dir(path::Path::new(&prebuilt_dir))?
             .next()
             .ok_or("No prebuilt toolchain in your android setup")??;
-        Ok(Some(format!(r#"$ANDROID_NDK_HOME/toolchains/arm-linux-androideabi-4.9/prebuilt/{:?}/bin/arm-linux-androideabi-gcc \
-                --sysroot $ANDROID_NDK_HOME/platforms/android-18/arch-arm \
-                "$@" "#, prebuilt.file_name())))
+
+        Ok(Some(format!(r#"{prebuilt_dir}/{prebuilt:?}/bin/{gcc}-gcc \
+            --sysroot {home}/platforms/{api}/arch-{arch} \
+            "$@" "#,
+            prebuilt_dir = prebuilt_dir,
+            prebuilt = prebuilt.file_name(),
+            gcc = gcc,
+            home = home,
+            api = api,
+            arch = arch)))
     } else {
         Ok(None)
     }
@@ -106,7 +128,7 @@ fn guess_linker(device_target: &str) -> Result<Option<String>> {
     if device_target.contains("-linux-android") {
         let (toolchain, gcc, arch) = match device_target {
             "armv7-linux-androideabi" => ("arm-linux-androideabi", "arm-linux-androideabi", "arm"),
-            "aarch64-linux-android" => (device_target, device_target, "arm64"),            
+            "aarch64-linux-android" => (device_target, device_target, "arm64"),
             "i686-linux-android" => ("x86", device_target, "x86"),
             _ => (device_target, device_target, "arm"),
         };
@@ -136,4 +158,3 @@ fn guess_linker(device_target: &str) -> Result<Option<String>> {
         Ok(None)
     }
 }
-
