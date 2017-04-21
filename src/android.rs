@@ -7,12 +7,27 @@ use ::{Device, PlatformManager};
 #[derive(Debug,Clone)]
 pub struct AndroidDevice {
     id: String,
+    supported_targets: Vec<&'static str>,
 }
-
 
 impl AndroidDevice {
     fn from_id(id: &str) -> Result<AndroidDevice> {
-        let device = AndroidDevice { id: id.into() };
+        let getprop_output = Command::new("adb").args(&["-s", id,
+            "shell", "getprop", "ro.product.cpu.abilist"])
+            .output()?;
+        let abilist = String::from_utf8(getprop_output.stdout)?;
+        let supported_targets = abilist.trim().split(",").filter_map(|abi| {
+            Some(
+                match abi {
+                "arm64-v8a" => "aarch64-linux-android",
+                "armeabi-v7a" => "armv7-linux-androideabi",
+                "armeabi" => "arm-linux-androideabi",
+                "x86" => "i686-linux-android",
+                _ => return None,
+            })
+        }).collect::<Vec<_>>();
+
+        let device = AndroidDevice { id: id.into(), supported_targets: supported_targets };
         Ok(device)
     }
 }
@@ -25,48 +40,88 @@ impl Device for AndroidDevice {
         &*self.id
     }
     fn target(&self) -> String {
-        "arm-linux-androideabi".to_string()
+        // Prefer arm-linux-androideabi if valid because it's Tier 1
+        self.supported_targets.iter()
+            .filter(|&s| s == &"arm-linux-androideabi")
+            .next()
+            .or_else(|| self.supported_targets.get(0))
+            .unwrap_or(&"")
+            .to_string()
     }
     fn can_run(&self, target: &str) -> bool {
-        target.ends_with("-linux-androideabi")
+        self.supported_targets.iter().any(|&t| t == target)
     }
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
     fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
-        ::make_linux_app(source, exe)
+        use std::fs;
+        let exe_file_name = exe.file_name()
+            .expect("app should be a file in android mode");
+
+        let bundle_path = exe.parent().ok_or("no parent")?.join("dinghy");
+        let bundled_exe_path = bundle_path.join(exe_file_name);
+
+        debug!("Making bundle {:?} for {:?}", bundle_path, exe);
+        fs::create_dir_all(&bundle_path)?;
+
+        debug!("Copying exe to bundle");
+        fs::copy(&exe, &bundled_exe_path)?;
+
+        debug!("Copying src to bundle");
+        ::rec_copy(source, &bundle_path.join("src"))?;
+
+        debug!("Copying test_data to bundle");
+        ::copy_test_data(source, &bundle_path)?;
+
+        Ok(bundled_exe_path.into())
     }
-    fn install_app(&self, app: &path::Path) -> Result<()> {
-        let name = app.file_name().expect("app should be a file in android mode");
-        let exec_name = name.to_str().unwrap_or("dinghy");
-        let target_path = format!("/data/local/tmp/{}", exec_name);
-        let target_exec = format!("{}/{}", target_path, exec_name);
-        let _stat =
-            Command::new("adb").args(&["-s", &*self.id, "shell", "rm", "-rf", &*target_path])
-                .status()?;
-        let stat = Command::new("adb")
-            .args(&["-s", &*self.id, "push", app.to_str().unwrap(), &*target_path])
+    fn install_app(&self, exe: &path::Path) -> Result<()> {
+        let exe_name = exe.file_name()
+            .and_then(|p| p.to_str())
+            .expect("exe should be a file in android mode");
+        let exe_parent = exe.parent()
+            .and_then(|p| p.to_str())
+            .expect("exe must have a parent");
+
+        let target_dir = format!("/data/local/tmp/dinghy/{}", exe_name);
+        let target_exec = format!("{}/{}", target_dir, exe_name);
+
+        debug!("Clear existing files");
+        let _stat = Command::new("adb").args(&["-s", &*self.id,
+            "shell", "rm", "-rf", &*target_dir])
+            .status()?;
+
+        debug!("Push entire parent dir of exe");
+        let stat = Command::new("adb").args(&["-s", &*self.id,
+            "push", exe_parent, &*target_dir])
             .status()?;
         if !stat.success() {
             Err("failure in android install")?;
         }
-        // required when pushing from windows
-        let stat =
-            Command::new("adb").args(&["-s", &*self.id, "shell", "chmod", "755", &*target_exec])
-                .status()?;
+
+        debug!("chmod target exe");
+        let stat = Command::new("adb").args(&["-s", &*self.id,
+            "shell", "chmod", "755", &*target_exec])
+            .status()?;            
         if !stat.success() {
             Err("failure in android install")?;
         }
+
         Ok(())
     }
-    fn run_app(&self, app_path: &path::Path, args: &[&str]) -> Result<()> {
-        let name = app_path.file_name().expect("app should be a file in android mode");
-        let target_name = format!("/data/local/tmp/{name}/{name}",
-                                  name = name.to_str().unwrap_or("dinghy"));
-        let stat = Command::new("adb").arg("-s")
-            .arg(&*self.id)
+    fn run_app(&self, exe: &path::Path, args: &[&str]) -> Result<()> {
+        let exe_name = exe.file_name()
+            .and_then(|p| p.to_str())
+            .expect("exe should be a file in android mode");
+
+        let target_dir = format!("/data/local/tmp/dinghy/{}", exe_name);
+        let target_exe = format!("{}/{}", target_dir, exe_name);
+
+        let stat = Command::new("adb")
+            .arg("-s").arg(&*self.id)
             .arg("shell")
-            .arg(&*target_name)
+            .arg(&*target_exe)
             .args(args)
             .status()?;
         // FIXME: consider switching to fb-adb to get error status
@@ -91,6 +146,7 @@ impl PlatformManager for AndroidManager {
         for line in String::from_utf8(result.stdout)?.split("\n").skip(1) {
             if let Some(caps) = device_regex.captures(line) {
                 let d = AndroidDevice::from_id(&caps[1])?;
+                debug!("Discovered Android device {:?}", d);
                 devices.push(Box::new(d) as Box<Device>);
             }
         }

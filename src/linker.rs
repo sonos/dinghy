@@ -39,9 +39,6 @@ fn create_shim<P: AsRef<path::Path>>(root: P,
     let target_path = root.as_ref().join("target").join(device_target);
     fs::create_dir_all(&target_path)?;
     let shim = target_path.join("linker");
-    if shim.exists() {
-        return Ok(shim);
-    }
     let mut linker_shim = fs::File::create(&shim)?;
     writeln!(linker_shim, "#!/bin/sh")?;
     linker_shim.write_all(shell.as_bytes())?;
@@ -75,7 +72,7 @@ fn guess_linker(device_target: &str) -> Result<Option<String>> {
         };
         let sdk_path = String::from_utf8(xcrun.stdout)?;
         Ok(Some(format!(r#"cc -isysroot {} "$@""#, &*sdk_path.trim_right())))
-    } else if device_target == "arm-linux-androideabi" {
+    } else if device_target.contains("-linux-android") {
         if let Err(_) = env::var("ANDROID_NDK_HOME") {
             if let Ok(home) = env::var("HOME") {
                 let mac_place = format!("{}/Library/Android/sdk/ndk-bundle", home);
@@ -88,14 +85,32 @@ fn guess_linker(device_target: &str) -> Result<Option<String>> {
                 return Ok(None);
             }
         }
-        let prebuild_android_toolchains_dir = path::PathBuf::from(env::var("ANDROID_NDK_HOME").unwrap())
-            .join("toolchains/arm-linux-androideabi-4.9/prebuilt");
-        let prebuilt = fs::read_dir(prebuild_android_toolchains_dir)?
+
+        let (toolchain, gcc, arch) = ndk_details(device_target)?;
+
+        let home = env::var("ANDROID_NDK_HOME")
+                .map_err(|_| "environment variable ANDROID_NDK_HOME is required")?;
+                
+        let api = env::var("ANDROID_API")
+                .unwrap_or(default_api_for_arch(arch)?.into());
+
+        let prebuilt_dir = format!(r"{home}/toolchains/{toolchain}-4.9/prebuilt",
+            home = home, toolchain = toolchain);
+
+        let prebuilt = fs::read_dir(&prebuilt_dir)
+            .map_err(|e| format!("Error finding prebuilt {}: {}", prebuilt_dir, e))?
             .next()
             .ok_or("No prebuilt toolchain in your android setup")??;
-        Ok(Some(format!(r#"$ANDROID_NDK_HOME/toolchains/arm-linux-androideabi-4.9/prebuilt/{:?}/bin/arm-linux-androideabi-gcc \
-                --sysroot $ANDROID_NDK_HOME/platforms/android-18/arch-arm \
-                "$@" "#, prebuilt.file_name())))
+
+        Ok(Some(format!(r#"{prebuilt_dir}/{prebuilt:?}/bin/{gcc}-gcc \
+            --sysroot {home}/platforms/{api}/{arch} \
+            "$@" "#,
+            prebuilt_dir = prebuilt_dir,
+            prebuilt = prebuilt.file_name(),
+            gcc = gcc,
+            home = home,
+            api = api,
+            arch = arch)))
     } else {
         Ok(None)
     }
@@ -103,18 +118,56 @@ fn guess_linker(device_target: &str) -> Result<Option<String>> {
 
 #[cfg(target_os="windows")]
 fn guess_linker(device_target: &str) -> Result<Option<String>> {
-    let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
-    let root = wd_path.parent().ok_or("building at / ?")?;
-    let target_path = root.join("target").join(device_target);
-    match device_target {
-        "arm-linux-androideabi" => {
-            let home = env::var("ANDROID_NDK_HOME")
-                .map_err(|_| "environment variable ANDROID_NDK_HOME is required")?;
+    if device_target.contains("-linux-android") {
+        let (toolchain, gcc, arch) = ndk_details(device_target)?;
 
-            Ok(Some(format!(r#"{home}\toolchains\arm-linux-androideabi-4.9\prebuilt\windows\bin\arm-linux-androideabi-gcc --sysroot {home}\platforms\android-18\arch-arm %* "#,
-                home = home)))
-        },
-        _ => Ok(None)
+        let home = env::var("ANDROID_NDK_HOME")
+                .map_err(|_| "environment variable ANDROID_NDK_HOME is required")?;
+                
+        let api = env::var("ANDROID_API")
+                .unwrap_or(default_api_for_arch(arch)?.into());
+
+        let prebuilt_dir = format!(r"{home}\toolchains\{toolchain}-4.9\prebuilt",
+            home = home, toolchain = toolchain);
+        if !::std::path::Path::new(&prebuilt_dir).exists() {
+            return Err(Error::from(format!("Could not find prebuilt android toolchain at:\n{:?}", prebuilt_dir)));
+        }
+
+        let mut toolchain_bin = prebuilt_dir.clone() + r"\windows-x86_64\bin";
+        if !::std::path::Path::new(&toolchain_bin).exists() {
+            toolchain_bin = prebuilt_dir + r"\windows\bin";
+        }
+
+        Ok(Some(format!(r"{toolchain_bin}\{gcc}-gcc --sysroot {home}\platforms\{api}\{arch} %* ",
+            toolchain_bin = toolchain_bin,
+            gcc = gcc,
+            home = home,
+            api = api,
+            arch = arch)))
+    } else {
+        Ok(None)
     }
 }
 
+fn ndk_details(rust_target: &str) -> Result<(&str, &str, &str)>{
+    Ok(
+        match rust_target {
+            "armv7-linux-androideabi" => ("arm-linux-androideabi", "arm-linux-androideabi", "arch-arm"),
+            "aarch64-linux-android" => (rust_target, rust_target, "arch-arm64"),
+            "i686-linux-android" => ("x86", rust_target, "arch-x86"),
+            _ => (rust_target, rust_target, "arch-arm"),
+    })
+}
+
+fn default_api_for_arch(android_arch: &str) -> Result<&'static str> {
+    Ok(
+        match android_arch {
+        "arch-arm" => "android-18",
+        "arch-arm64" => "android-21",
+        "arch-mips" => "android-18",
+        "arch-mips64" => "android-21",
+        "arch-x86" => "android-18",
+        "arch-x86_64" => "android-21",
+        _ => return Err(Error::from(format!("Unknown android arch {}", android_arch)))
+    })
+}
