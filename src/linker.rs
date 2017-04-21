@@ -100,7 +100,8 @@ fn guess_linker(device_target: &str) -> Result<Option<String>> {
         let prebuilt_dir = format!(r"{home}/toolchains/{toolchain}-4.9/prebuilt",
             home = home, toolchain = toolchain);
 
-        let prebuilt = fs::read_dir(path::Path::new(&prebuilt_dir))?
+        let prebuilt = fs::read_dir(&prebuilt_dir)
+            .map_err(|e| format!("Error finding prebuilt {}: {}", prebuilt_dir, e))?
             .next()
             .ok_or("No prebuilt toolchain in your android setup")??;
 
