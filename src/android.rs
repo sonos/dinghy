@@ -34,39 +34,73 @@ impl Device for AndroidDevice {
         unimplemented!()
     }
     fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
-        ::make_linux_app(source, exe)
+        use std::fs;
+        let exe_file_name = exe.file_name()
+            .expect("app should be a file in android mode");
+
+        let bundle_path = exe.parent().ok_or("no parent")?.join("dinghy");
+        let bundled_exe_path = bundle_path.join(exe_file_name);
+
+        debug!("Making bundle {:?} for {:?}", bundle_path, exe);
+        fs::create_dir_all(&bundle_path)?;
+
+        debug!("Copying exe to bundle");
+        fs::copy(&exe, &bundled_exe_path)?;
+
+        debug!("Copying src to bundle");
+        ::rec_copy(source, &bundle_path.join("src"))?;
+
+        debug!("Copying test_data to bundle");
+        ::copy_test_data(source, &bundle_path)?;
+
+        Ok(bundled_exe_path.into())
     }
-    fn install_app(&self, app: &path::Path) -> Result<()> {
-        let name = app.file_name().expect("app should be a file in android mode");
-        let exec_name = name.to_str().unwrap_or("dinghy");
-        let target_path = format!("/data/local/tmp/{}", exec_name);
-        let target_exec = format!("{}/{}", target_path, exec_name);
-        let _stat =
-            Command::new("adb").args(&["-s", &*self.id, "shell", "rm", "-rf", &*target_path])
-                .status()?;
-        let stat = Command::new("adb")
-            .args(&["-s", &*self.id, "push", app.to_str().unwrap(), &*target_path])
+    fn install_app(&self, exe: &path::Path) -> Result<()> {
+        let exe_name = exe.file_name()
+            .and_then(|p| p.to_str())
+            .expect("exe should be a file in android mode");
+        let exe_parent = exe.parent()
+            .and_then(|p| p.to_str())
+            .expect("exe must have a parent");
+
+        let target_dir = format!("/data/local/tmp/dinghy/{}", exe_name);
+        let target_exec = format!("{}/{}", target_dir, exe_name);
+
+        debug!("Clear existing files");
+        let _stat = Command::new("adb").args(&["-s", &*self.id,
+            "shell", "rm", "-rf", &*target_dir])
+            .status()?;
+
+        debug!("Push entire parent dir of exe");
+        let stat = Command::new("adb").args(&["-s", &*self.id,
+            "push", exe_parent, &*target_dir])
             .status()?;
         if !stat.success() {
             Err("failure in android install")?;
         }
-        // required when pushing from windows
-        let stat =
-            Command::new("adb").args(&["-s", &*self.id, "shell", "chmod", "755", &*target_exec])
-                .status()?;
+
+        debug!("chmod target exe");
+        let stat = Command::new("adb").args(&["-s", &*self.id,
+            "shell", "chmod", "755", &*target_exec])
+            .status()?;            
         if !stat.success() {
             Err("failure in android install")?;
         }
+
         Ok(())
     }
-    fn run_app(&self, app_path: &path::Path, args: &[&str]) -> Result<()> {
-        let name = app_path.file_name().expect("app should be a file in android mode");
-        let target_name = format!("/data/local/tmp/{name}/{name}",
-                                  name = name.to_str().unwrap_or("dinghy"));
-        let stat = Command::new("adb").arg("-s")
-            .arg(&*self.id)
+    fn run_app(&self, exe: &path::Path, args: &[&str]) -> Result<()> {
+        let exe_name = exe.file_name()
+            .and_then(|p| p.to_str())
+            .expect("exe should be a file in android mode");
+
+        let target_dir = format!("/data/local/tmp/dinghy/{}", exe_name);
+        let target_exe = format!("{}/{}", target_dir, exe_name);
+
+        let stat = Command::new("adb")
+            .arg("-s").arg(&*self.id)
             .arg("shell")
-            .arg(&*target_name)
+            .arg(&*target_exe)
             .args(args)
             .status()?;
         // FIXME: consider switching to fb-adb to get error status
