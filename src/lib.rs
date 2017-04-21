@@ -141,7 +141,11 @@ fn rec_copy<P1: AsRef<path::Path>,P2: AsRef<path::Path>>(src:P1, dst:P2) -> Resu
     for entry in ignore::WalkBuilder::new(src).build() {
         let entry = entry?;
         let metadata = entry.metadata()?;
-        let target = dst.join(entry.path().strip_prefix(src)?);
+        let path = entry.path().strip_prefix(src)?;
+        if path.components().any(|comp| comp.as_ref() == "target" ) {
+            continue;
+        }
+        let target = dst.join(path);
         if metadata.is_dir() {
             if target.exists() && !target.is_dir() {
                 fs::remove_dir_all(&target)?;
