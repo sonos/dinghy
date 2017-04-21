@@ -89,12 +89,7 @@ fn guess_linker(device_target: &str) -> Result<Option<String>> {
             }
         }
 
-        let (toolchain, gcc, arch) = match device_target {
-            "armv7-linux-androideabi" => ("arm-linux-androideabi", "arm-linux-androideabi", "arch-arm"),
-            "aarch64-linux-android" => (device_target, device_target, "arch-arm64"),
-            "i686-linux-android" => ("x86", device_target, "arch-x86"),
-            _ => (device_target, device_target, "arch-arm"),
-        };
+        let (toolchain, gcc, arch) = ndk_details(device_target)?;
 
         let home = env::var("ANDROID_NDK_HOME")
                 .map_err(|_| "environment variable ANDROID_NDK_HOME is required")?;
@@ -126,14 +121,11 @@ fn guess_linker(device_target: &str) -> Result<Option<String>> {
 #[cfg(target_os="windows")]
 fn guess_linker(device_target: &str) -> Result<Option<String>> {
     if device_target.contains("-linux-android") {
-        let (toolchain, gcc, arch) = match device_target {
-            "armv7-linux-androideabi" => ("arm-linux-androideabi", "arm-linux-androideabi", "arch-arm"),
-            "aarch64-linux-android" => (device_target, device_target, "arch-arm64"),
-            "i686-linux-android" => ("x86", device_target, "arch-x86"),
-            _ => (device_target, device_target, "arch-arm"),
-        };
+        let (toolchain, gcc, arch) = ndk_details(device_target)?;
+
         let home = env::var("ANDROID_NDK_HOME")
                 .map_err(|_| "environment variable ANDROID_NDK_HOME is required")?;
+                
         let api = env::var("ANDROID_API")
                 .unwrap_or(default_api_for_arch(arch)?.into());
 
@@ -157,6 +149,16 @@ fn guess_linker(device_target: &str) -> Result<Option<String>> {
     } else {
         Ok(None)
     }
+}
+
+fn ndk_details(rust_target: &str) -> Result<(&str, &str, &str)>{
+    Ok(
+        match rust_target {
+            "armv7-linux-androideabi" => ("arm-linux-androideabi", "arm-linux-androideabi", "arch-arm"),
+            "aarch64-linux-android" => (rust_target, rust_target, "arch-arm64"),
+            "i686-linux-android" => ("x86", rust_target, "arch-x86"),
+            _ => (rust_target, rust_target, "arch-arm"),
+    })
 }
 
 fn default_api_for_arch(android_arch: &str) -> Result<&'static str> {
