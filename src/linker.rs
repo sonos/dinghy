@@ -90,17 +90,17 @@ fn guess_linker(device_target: &str) -> Result<Option<String>> {
         }
 
         let (toolchain, gcc, arch) = match device_target {
-            "armv7-linux-androideabi" => ("arm-linux-androideabi", "arm-linux-androideabi", "arm"),
-            "aarch64-linux-android" => (device_target, device_target, "arm64"),
-            "i686-linux-android" => ("x86", device_target, "x86"),
-            _ => (device_target, device_target, "arm"),
+            "armv7-linux-androideabi" => ("arm-linux-androideabi", "arm-linux-androideabi", "arch-arm"),
+            "aarch64-linux-android" => (device_target, device_target, "arch-arm64"),
+            "i686-linux-android" => ("x86", device_target, "arch-x86"),
+            _ => (device_target, device_target, "arch-arm"),
         };
 
         let home = env::var("ANDROID_NDK_HOME")
                 .map_err(|_| "environment variable ANDROID_NDK_HOME is required")?;
                 
         let api = env::var("ANDROID_API")
-                .unwrap_or("android-18".into());
+                .unwrap_or(default_api_for_arch(arch)?.into());
 
         let prebuilt_dir = format!(r"{home}/toolchains/{toolchain}-4.9/prebuilt",
             home = home, toolchain = toolchain);
@@ -110,7 +110,7 @@ fn guess_linker(device_target: &str) -> Result<Option<String>> {
             .ok_or("No prebuilt toolchain in your android setup")??;
 
         Ok(Some(format!(r#"{prebuilt_dir}/{prebuilt:?}/bin/{gcc}-gcc \
-            --sysroot {home}/platforms/{api}/arch-{arch} \
+            --sysroot {home}/platforms/{api}/{arch} \
             "$@" "#,
             prebuilt_dir = prebuilt_dir,
             prebuilt = prebuilt.file_name(),
@@ -127,15 +127,15 @@ fn guess_linker(device_target: &str) -> Result<Option<String>> {
 fn guess_linker(device_target: &str) -> Result<Option<String>> {
     if device_target.contains("-linux-android") {
         let (toolchain, gcc, arch) = match device_target {
-            "armv7-linux-androideabi" => ("arm-linux-androideabi", "arm-linux-androideabi", "arm"),
-            "aarch64-linux-android" => (device_target, device_target, "arm64"),
-            "i686-linux-android" => ("x86", device_target, "x86"),
-            _ => (device_target, device_target, "arm"),
+            "armv7-linux-androideabi" => ("arm-linux-androideabi", "arm-linux-androideabi", "arch-arm"),
+            "aarch64-linux-android" => (device_target, device_target, "arch-arm64"),
+            "i686-linux-android" => ("x86", device_target, "arch-x86"),
+            _ => (device_target, device_target, "arch-arm"),
         };
         let home = env::var("ANDROID_NDK_HOME")
                 .map_err(|_| "environment variable ANDROID_NDK_HOME is required")?;
         let api = env::var("ANDROID_API")
-                .unwrap_or("android-18".into());
+                .unwrap_or(default_api_for_arch(arch)?.into());
 
         let prebuilt_dir = format!(r"{home}\toolchains\{toolchain}-4.9\prebuilt",
             home = home, toolchain = toolchain);
@@ -148,7 +148,7 @@ fn guess_linker(device_target: &str) -> Result<Option<String>> {
             toolchain_bin = prebuilt_dir + r"\windows\bin";
         }
 
-        Ok(Some(format!(r"{toolchain_bin}\{gcc}-gcc --sysroot {home}\platforms\{api}\arch-{arch} %* ",
+        Ok(Some(format!(r"{toolchain_bin}\{gcc}-gcc --sysroot {home}\platforms\{api}\{arch} %* ",
             toolchain_bin = toolchain_bin,
             gcc = gcc,
             home = home,
@@ -157,4 +157,17 @@ fn guess_linker(device_target: &str) -> Result<Option<String>> {
     } else {
         Ok(None)
     }
+}
+
+fn default_api_for_arch(android_arch: &str) -> Result<&'static str> {
+    Ok(
+        match android_arch {
+        "arch-arm" => "android-18",
+        "arch-arm64" => "android-21",
+        "arch-mips" => "android-18",
+        "arch-mips64" => "android-21",
+        "arch-x86" => "android-18",
+        "arch-x86_64" => "android-21",
+        _ => return Err(Error::from(format!("Unknown android arch {}", android_arch)))
+    })
 }
