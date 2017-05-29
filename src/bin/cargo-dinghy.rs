@@ -42,6 +42,9 @@ fn main() {
                         .long("target")
                         .takes_value(true)
                         .help("target triple (rust conventions)"))
+                    .arg(::clap::Arg::with_name("ALL")
+                         .long("all")
+                         .help("Test all packages in the workspace"))
                     .arg(::clap::Arg::with_name("VERBOSE")
                         .short("v")
                         .long("verbose")
@@ -175,6 +178,9 @@ fn main() {
                         .long("target")
                         .takes_value(true)
                         .help("target triple (rust conventions)"))
+                    .arg(::clap::Arg::with_name("ALL")
+                         .long("all")
+                         .help("Build all packages in the workspace"))
                     .arg(::clap::Arg::with_name("VERBOSE")
                         .short("v")
                         .long("verbose")
@@ -328,8 +334,10 @@ fn prepare_runnable(target: &str,
         matches.values_of("SPEC").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
     let spec = if !given_specs.is_empty() {
         cargo::ops::Packages::Packages(&given_specs)
-    } else {
+    } else if matches.is_present("ALL") {
         cargo::ops::Packages::All
+    } else {
+        cargo::ops::Packages::Packages(&[])
     };
 
     let options = cargo::ops::CompileOptions {
