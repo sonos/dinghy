@@ -121,6 +121,7 @@ impl Device for AndroidDevice {
         let stat = Command::new("adb")
             .arg("-s").arg(&*self.id)
             .arg("shell")
+            .arg("DINGHY=1")
             .arg(&*target_exe)
             .args(args)
             .status()?;
