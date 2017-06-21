@@ -48,8 +48,9 @@ pub trait Device: std::fmt::Debug {
 
     fn make_app(&self, source: &path::Path, app: &path::Path) -> Result<path::PathBuf>;
     fn install_app(&self, path: &path::Path) -> Result<()>;
-    fn run_app(&self, app: &path::Path, args: &[&str]) -> Result<()>;
-    fn debug_app(&self, app: &path::Path, args: &[&str]) -> Result<()>;
+    fn clean_app(&self, path: &path::Path) -> Result<()>;
+    fn run_app(&self, app: &path::Path, args: &[&str], envs: &[&str]) -> Result<()>;
+    fn debug_app(&self, app: &path::Path, args: &[&str], envs: &[&str]) -> Result<()>;
 }
 
 pub struct Dinghy {
@@ -137,8 +138,11 @@ fn copy_test_data<S: AsRef<path::Path>, T: AsRef<path::Path>>(root: S, app_path:
 fn rec_copy<P1: AsRef<path::Path>,P2: AsRef<path::Path>>(src:P1, dst:P2) -> Result<()> {
     let src = src.as_ref();
     let dst = dst.as_ref();
+    let ignore_file = src.join(".dinghyignore");
     fs::create_dir_all(&dst)?;
-    for entry in ignore::WalkBuilder::new(src).build() {
+    let mut walker = ignore::WalkBuilder::new(src);
+    walker.add_ignore(ignore_file);
+    for entry in walker.build() {
         let entry = entry?;
         let metadata = entry.metadata()?;
         let path = entry.path().strip_prefix(src)?;

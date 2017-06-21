@@ -38,6 +38,10 @@ fn main() {
                         .long("debugger")
                         .takes_value(false)
                         .help("just start debugger"))
+                    .arg(::clap::Arg::with_name("CLEANUP")
+                        .long("cleanup")
+                        .takes_value(false)
+                        .help("cleanup after complete"))
                     .arg(::clap::Arg::with_name("TARGET")
                         .long("target")
                         .takes_value(true)
@@ -70,6 +74,10 @@ fn main() {
                     .arg(::clap::Arg::with_name("RELEASE")
                         .long("release")
                         .help("Build artifacts in release mode, with optimizations"))
+                    .arg(::clap::Arg::with_name("ENVS")
+                        .long("env")
+                        .takes_value(true)
+                        .help("Space-separated list of env variables to set e.g. RUST_TRACE=trace"))
                     .arg(::clap::Arg::with_name("FEATURES")
                         .long("features")
                         .takes_value(true)
@@ -86,6 +94,10 @@ fn main() {
                         .long("debugger")
                         .takes_value(false)
                         .help("just start debugger"))
+                    .arg(::clap::Arg::with_name("CLEANUP")
+                        .long("cleanup")
+                        .takes_value(false)
+                        .help("cleanup after complete"))
                     .arg(::clap::Arg::with_name("TARGET")
                         .long("target")
                         .takes_value(true)
@@ -106,6 +118,10 @@ fn main() {
                     .arg(::clap::Arg::with_name("RELEASE")
                         .long("release")
                         .help("Build artifacts in release mode, with optimizations"))
+                    .arg(::clap::Arg::with_name("ENVS")
+                        .long("env")
+                        .takes_value(true)
+                        .help("Space-separated list of env variables to set e.g. RUST_TRACE=trace"))
                     .arg(::clap::Arg::with_name("FEATURES")
                         .long("features")
                         .takes_value(true)
@@ -129,6 +145,10 @@ fn main() {
                         .long("debugger")
                         .takes_value(false)
                         .help("just start debugger"))
+                    .arg(::clap::Arg::with_name("CLEANUP")
+                        .long("cleanup")
+                        .takes_value(false)
+                        .help("cleanup after complete"))
                     .arg(::clap::Arg::with_name("TARGET")
                         .long("target")
                         .takes_value(true)
@@ -281,6 +301,8 @@ fn prepare_and_run(d: &dinghy::Device, subcommand: &str, matches: &clap::ArgMatc
     let runnable = prepare_runnable(&*target, subcommand, matches)?;
     let args =
         matches.values_of("ARGS").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
+    let envs =
+        matches.values_of("ENVS").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
     for t in runnable {
         let app = d.make_app(&t.source, &t.exe)?;
         if subcommand != "build" {
@@ -288,10 +310,15 @@ fn prepare_and_run(d: &dinghy::Device, subcommand: &str, matches: &clap::ArgMatc
             if matches.is_present("DEBUGGER") {
                 println!("DEBUGGER");
                 d.debug_app(app.as_ref(),
-                               &*args.iter().map(|s| &s[..]).collect::<Vec<_>>())?;
+                               &*args.iter().map(|s| &s[..]).collect::<Vec<_>>(),
+                               &*envs.iter().map(|s| &s[..]).collect::<Vec<_>>())?;
             } else {
                 d.run_app(app.as_ref(),
-                             &*args.iter().map(|s| &s[..]).collect::<Vec<_>>())?;
+                             &*args.iter().map(|s| &s[..]).collect::<Vec<_>>(),
+                             &*envs.iter().map(|s| &s[..]).collect::<Vec<_>>())?;
+            }
+            if matches.is_present("CLEANUP") {
+                d.clean_app(&app.as_ref())?;
             }
         }
     }
