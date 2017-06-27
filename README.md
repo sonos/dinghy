@@ -51,7 +51,8 @@ the fun stuff come.
 
 ## Android setup
 
-You'll need the usual ANDROID_NDK_HOME, and `adb` somewhere in your path.
+You'll need the usual ANDROID_NDK_HOME, and `adb` somewhere in your path. fb-ad
+will be used if its availble on the path, giving better error handling.
 Also, your phone must have developer options enabled.
 
 ## iOS simulator setup
@@ -211,12 +212,14 @@ So, the tests are "bundled" in the following way:
 * root dinghy test directory
     * test_executable
     * src/ mirrors the not-ignorable files from your sources
-    * test_datais contains configurable data to be sent to the device
+    * test_data is contains configurable data to be sent to the device
         * some_file
         * some_dir
 
 So let's say your integration test is in `tests/test_1.rs` and uses `tests/data_1.txt`.
 It will be copied into `src/tests/data_1.txt`.
+
+Anything in .gitignore or .dinghyignore will not be bundled.
 
 To open your test file easily, you can cut and paste the following helper
 function:
