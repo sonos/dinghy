@@ -121,7 +121,7 @@ impl Device for IosDevice {
         let lldb_proxy = self.start_remote_lldb()?;
         run_remote(self.ptr, &lldb_proxy, app_path, args, true)
     }
-    fn debug_app(&self, _app_path: &path::Path, _args: &[&str], _envs: &[&str]) -> Result<()> {
+    fn clean_app(&self, _exe: &path::Path) -> Result<()> {
         unimplemented!()
     }
 }
@@ -192,7 +192,7 @@ impl Device for IosSimDevice {
         let install_path = String::from_utf8(process::Command::new("xcrun").args(&["simctl", "get_app_container", &self.id, "Dinghy"]).output()?.stdout)?;
         launch_lldb_simulator(&self, &*install_path, args, true)
     }
-    fn debug_app(&self, _app_path: &path::Path, _args: &[&str], _envs: &[&str]) -> Result<()> {
+    fn clean_app(&self, _exe: &path::Path) -> Result<()> {
         unimplemented!()
     }
 }
