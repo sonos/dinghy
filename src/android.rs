@@ -12,7 +12,7 @@ pub struct AndroidDevice {
 
 impl AndroidDevice {
     fn from_id(id: &str) -> Result<AndroidDevice> {
-        let getprop_output = Command::new("adb").args(&["-s", id,
+        let getprop_output = Command::new(adb_bin_name()).args(&["-s", id,
             "shell", "getprop", "ro.product.cpu.abilist"])
             .output()?;
         let abilist = String::from_utf8(getprop_output.stdout)?;
@@ -62,6 +62,9 @@ impl Device for AndroidDevice {
         let bundle_path = exe.parent().ok_or("no parent")?.join("dinghy");
         let bundled_exe_path = bundle_path.join(exe_file_name);
 
+        debug!("Removing previous bundle {:?}", bundle_path);
+        let _ = fs::remove_dir_all(&bundle_path);
+
         debug!("Making bundle {:?} for {:?}", bundle_path, exe);
         fs::create_dir_all(&bundle_path)?;
 
@@ -88,7 +91,7 @@ impl Device for AndroidDevice {
         let target_exec = format!("{}/{}", target_dir, exe_name);
 
         debug!("Clear existing files");
-        let _stat = Command::new("adb").args(&["-s", &*self.id,
+        let _stat = Command::new(adb_bin_name()).args(&["-s", &*self.id,
             "shell", "rm", "-rf", &*target_dir])
             .status()?;
 
@@ -101,7 +104,7 @@ impl Device for AndroidDevice {
         }
 
         debug!("chmod target exe");
-        let stat = Command::new("adb").args(&["-s", &*self.id,
+        let stat = Command::new(adb_bin_name()).args(&["-s", &*self.id,
             "shell", "chmod", "755", &*target_exec])
             .status()?;            
         if !stat.success() {
@@ -110,7 +113,24 @@ impl Device for AndroidDevice {
 
         Ok(())
     }
-    fn run_app(&self, exe: &path::Path, args: &[&str]) -> Result<()> {
+    fn clean_app(&self, exe: &path::Path) -> Result<()> {
+        let exe_name = exe.file_name()
+            .and_then(|p| p.to_str())
+            .expect("exe should be a file in android mode");
+
+        let target_dir = format!("/data/local/tmp/dinghy/{}", exe_name);
+
+        debug!("rm target exe");
+        let stat = Command::new(adb_bin_name()).args(&["-s", &*self.id,
+            "shell", "rm", "-rf", &*target_dir])
+            .status()?;            
+        if !stat.success() {
+            Err("failure in android clean")?;
+        }
+
+        Ok(())
+    }
+    fn run_app(&self, exe: &path::Path, args: &[&str], envs: &[&str]) -> Result<()> {
         let exe_name = exe.file_name()
             .and_then(|p| p.to_str())
             .expect("exe should be a file in android mode");
@@ -118,21 +138,31 @@ impl Device for AndroidDevice {
         let target_dir = format!("/data/local/tmp/dinghy/{}", exe_name);
         let target_exe = format!("{}/{}", target_dir, exe_name);
 
-        let stat = Command::new("adb")
+        let stat = Command::new(adb_bin_name())
             .arg("-s").arg(&*self.id)
             .arg("shell")
-            .arg("DINGHY=1")
+            .arg(&*format!("DINGHY=1 {}", envs.join(" ")))
             .arg(&*target_exe)
             .args(args)
             .status()?;
-        // FIXME: consider switching to fb-adb to get error status
         if !stat.success() {
             Err("failure in android run")?;
         }
         Ok(())
     }
-    fn debug_app(&self, _app_path: &path::Path, _args: &[&str]) -> Result<()> {
+    fn debug_app(&self, _app_path: &path::Path, _args: &[&str], _envs: &[&str]) -> Result<()> {
         unimplemented!()
+    }
+}
+
+fn adb_bin_name() -> &'static str {
+    let status = Command::new("fb-adb")
+            .arg("--version")
+            .status();
+            
+    match status {
+        Err(_) => "adb",
+        Ok(_) => "fb-adb",
     }
 }
 

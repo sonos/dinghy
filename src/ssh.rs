@@ -42,13 +42,16 @@ impl Device for SshDevice {
         }
         Ok(())
     }
-    fn run_app(&self, app_path: &path::Path, args: &[&str]) -> Result<()> {
+    fn clean_app(&self, _exe: &path::Path) -> Result<()> {
+        unimplemented!()
+    }
+    fn run_app(&self, app_path: &path::Path, args: &[&str], envs: &[&str]) -> Result<()> {
         let user_at_host = format!("{}@{}", self.config.username, self.config.hostname);
         let app_name = app_path.file_name().unwrap();
         let path = path::PathBuf::from("/tmp/dinghy").join(app_name);
         let exe = path.join(&app_name);
         let stat = process::Command::new("ssh").arg(user_at_host)
-            .arg(&*format!("DINGHY=1 {}", &exe.to_str().unwrap()))
+            .arg(&*format!("DINGHY=1 {} {}", envs.join(" "), &exe.to_str().unwrap()))
             .args(args)
             .status()?;
         if !stat.success() {
@@ -56,7 +59,7 @@ impl Device for SshDevice {
         }
         Ok(())
     }
-    fn debug_app(&self, _app_path: &path::Path, _args: &[&str]) -> Result<()> {
+    fn debug_app(&self, _app_path: &path::Path, _args: &[&str], _envs: &[&str]) -> Result<()> {
         unimplemented!()
     }
 }
