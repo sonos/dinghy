@@ -63,7 +63,7 @@ impl Device for AndroidDevice {
         let bundled_exe_path = bundle_path.join(exe_file_name);
 
         debug!("Removing previous bundle {:?}", bundle_path);
-        fs::remove_dir_all(&bundle_path)?;
+        fs::remove_dir_all(&bundle_path).ok();
 
         debug!("Making bundle {:?} for {:?}", bundle_path, exe);
         fs::create_dir_all(&bundle_path)?;
