@@ -51,7 +51,7 @@ the fun stuff come.
 
 ## Android setup
 
-You'll need the usual ANDROID_NDK_HOME, and `adb` somewhere in your path. fb-ad
+You'll need the usual ANDROID_NDK_HOME, and `adb` somewhere in your path. fb-adb
 will be used if its availble on the path, giving better error handling.
 Also, your phone must have developer options enabled.
 
