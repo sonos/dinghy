@@ -106,7 +106,7 @@ fn make_linux_app(root: &path::Path, exe: &path::Path) -> Result<path::PathBuf> 
     fs::create_dir_all(app_path.join("src"))?;
     fs::copy(&exe, app_path.join(app_name))?;
     debug!("Copying src to bundle");
-    ::rec_copy(root, app_path.join("src"))?;
+    ::rec_copy(root, app_path.join("src"), false)?;
     debug!("Copying test_data to bundle");
     ::copy_test_data(root, &app_path)?;
     Ok(app_path.into())
@@ -123,7 +123,7 @@ fn copy_test_data<S: AsRef<path::Path>, T: AsRef<path::Path>>(root: S, app_path:
             let metadata = file.metadata()?;
             let dst = app_path.join("test_data").join(td.target);
             if metadata.is_dir() {
-                ::rec_copy(file, dst)?;
+                ::rec_copy(file, dst, td.copy_git_ignored)?;
             } else {
                 fs::copy(file
                          , dst)?;
@@ -135,12 +135,13 @@ fn copy_test_data<S: AsRef<path::Path>, T: AsRef<path::Path>>(root: S, app_path:
     Ok(())
 }
 
-fn rec_copy<P1: AsRef<path::Path>,P2: AsRef<path::Path>>(src:P1, dst:P2) -> Result<()> {
+fn rec_copy<P1: AsRef<path::Path>,P2: AsRef<path::Path>>(src:P1, dst:P2, copy_ignored_test_data: bool) -> Result<()> {
     let src = src.as_ref();
     let dst = dst.as_ref();
     let ignore_file = src.join(".dinghyignore");
     fs::create_dir_all(&dst)?;
     let mut walker = ignore::WalkBuilder::new(src);
+    walker.git_ignore(!copy_ignored_test_data);
     walker.add_ignore(ignore_file);
     for entry in walker.build() {
         let entry = entry?;

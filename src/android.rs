@@ -72,7 +72,7 @@ impl Device for AndroidDevice {
         fs::copy(&exe, &bundled_exe_path)?;
 
         debug!("Copying src to bundle");
-        ::rec_copy(source, &bundle_path.join("src"))?;
+        ::rec_copy(source, &bundle_path.join("src"), false)?;
 
         debug!("Copying test_data to bundle");
         ::copy_test_data(source, &bundle_path)?;
