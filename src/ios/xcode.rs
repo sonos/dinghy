@@ -36,7 +36,7 @@ pub fn wrap_as_app<P1, P2, P3>(target: &str,
              target.split("-").next().unwrap())?;
     writeln!(plist, r#"</dict></plist>"#)?;
 
-    ::rec_copy(&source, app_path.join("src"))?;
+    ::rec_copy(&source, app_path.join("src"), false)?;
     ::copy_test_data(source, &app_path)?;
     Ok(app_path)
 }
