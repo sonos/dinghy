@@ -258,6 +258,16 @@ conf_file = "/etc/some/file"
 The keys are the name under which to look for files below "test_data" in the
 bundles, and the values are what to be copied (from your development workstation).
 
+By default anything in `.gitignore` or `.dinghyignore` is not copied, however if
+you need .gitignore'd files to be copied it can be excluded by adding
+`copy_git_ignored = true`:
+
+```toml
+[test_data]
+the_data = { source = "../data-2017-02-05", copy_git_ignored = true }
+conf_file = "/etc/some/file"
+```
+
 Once again, you'll need to go through an helper in your code. Something like
 that should do:
 
