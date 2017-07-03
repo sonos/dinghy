@@ -1,13 +1,13 @@
-error_chain!{
+error_chain! {
     foreign_links {
-        ::std::io::Error, IoError;
-        ::std::string::FromUtf8Error, StringFromUtf8Error;
-        ::std::path::StripPrefixError, PathStripPrefixError;
-        Box<::cargo::CargoError>, CargoError;
-        ::plist::Error, PlistError;
-        ::regex::Error, RegexError;
-        ::json::Error, JsonError;
-        ::ignore::Error, IgnoreError;
-        ::toml::DecodeError, TomlDecodeError;
+        IoError(::std::io::Error);
+        StringFromUtf8Error(::std::string::FromUtf8Error);
+        PathStripPrefixError(::std::path::StripPrefixError);
+        CargoError(Box<::cargo::CargoError>);
+        PlistError(::plist::Error);
+        RegexError(::regex::Error);
+        JsonError(::json::Error);
+        IgnoreError(::ignore::Error);
+        TomlDecodeError(::toml::de::Error);
     }
 }
