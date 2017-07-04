@@ -88,6 +88,8 @@ pub struct SshDeviceConfiguration {
     pub hostname: String,
     pub username: String,
     pub target: String,
+    pub port: Option<u16>,
+    pub path: Option<String>,
 }
 
 impl Configuration {
