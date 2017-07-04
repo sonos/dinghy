@@ -408,7 +408,7 @@ fn prepare_runnable(target: &str,
     } else {
         Ok(compilation.tests
             .into_iter()
-            .map(|(pkg, name, exe)| {
+            .map(|(pkg, _, name, exe)| {
                 Runnable {
                     name: name,
                     source: pkg.root().to_path_buf(),

@@ -110,8 +110,7 @@ fn read_config_file<P: AsRef<path::Path>>(file: P) -> Result<ConfigurationFileCo
     let mut data = String::new();
     let mut fd = fs::File::open(file)?;
     fd.read_to_string(&mut data)?;
-    let value = ::toml::from_str(&*data)?;
-    Ok(value)
+    Ok(::toml::from_str(&data)?)
 }
 
 pub fn config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
