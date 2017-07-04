@@ -1,6 +1,6 @@
 [package]
 name = "dinghy"
-version = "0.2.13-pre"
+version = "0.2.13"
 authors = ["Mathieu Poumeyrol <mathieu.poumeyrol@snips.ai>"]
 license = "MIT/Apache-2.0"
 description = "Painless tests on mobile devices"

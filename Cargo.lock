@@ -1,6 +1,6 @@
 [root]
 name = "dinghy"
-version = "0.2.13-pre"
+version = "0.2.13"
 dependencies = [
  "cargo 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.25.0 (registry+https://github.com/rust-lang/crates.io-index)",
