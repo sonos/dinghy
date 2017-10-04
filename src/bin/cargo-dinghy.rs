@@ -363,10 +363,10 @@ fn prepare_runnable(target: &str,
     let benches =
         matches.values_of("BENCH").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
     let filter = cargo::ops::CompileFilter::new(matches.is_present("LIB"),
-                                                &bins,
-                                                &tests,
-                                                &examples,
-                                                &benches);
+                                                &bins, false,
+                                                &tests, false,
+                                                &examples, false,
+                                                &benches, false);
     let given_specs =
         matches.values_of("SPEC").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
     let spec = if !given_specs.is_empty() {
