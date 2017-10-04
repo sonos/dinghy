@@ -16,14 +16,14 @@ categories = [ "development-tools::cargo-plugins", "development-tools::testing" 
 travis-ci = { repository = "snipsco/dinghy" }
 
 [dependencies]
-error-chain = "0.10"
+error-chain = "0.11"
 libc="0.2"
 tempfile = "2.1"
 tempdir = "0.3"
 log="0.3"
 env_logger="0.4"
-clap = "2.25"
-cargo = "0.19"
+clap = "2.26"
+cargo = "0.21"
 plist = "0.2"
 regex = "0.2"
 json = "0.11"
