@@ -236,6 +236,10 @@ impl PlatformManager for IosManager {
         let sims_list =
             ::std::process::Command::new("xcrun").args(&["simctl", "list", "--json", "devices"])
                 .output()?;
+        if !sims_list.status.success() {
+            info!("Failed while looking for ios simulators. It this is not expected, you need to make sure `xcrun simctl list --json` works.");
+            return Ok(vec!())
+        }
         let sims_list = String::from_utf8(sims_list.stdout)?;
         let sims_list = ::json::parse(&*sims_list)?;
         let mut sims:Vec<Box<Device>> = vec![];
