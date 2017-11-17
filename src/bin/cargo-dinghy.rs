@@ -351,7 +351,8 @@ fn prepare_runnable(target: &str,
                    None,
                    &None,
                    false,
-                   false)?;
+                   false,
+                   &[])?;
     let wd = cargo::core::Workspace::new(&wd_path, &cfg)?;
     let bins =
         matches.values_of("BIN").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
@@ -366,7 +367,8 @@ fn prepare_runnable(target: &str,
                                                 &bins, false,
                                                 &tests, false,
                                                 &examples, false,
-                                                &benches, false);
+                                                &benches, false,
+                                                false);
     let given_specs =
         matches.values_of("SPEC").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
     let spec = if !given_specs.is_empty() {
