@@ -368,7 +368,7 @@ fn prepare_runnable(target: &str,
                                                 &tests, false,
                                                 &examples, false,
                                                 &benches, false,
-                                                matches.is_present("ALL"));
+                                                false);
     let given_specs =
         matches.values_of("SPEC").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
     let spec = if !given_specs.is_empty() {
