@@ -7,6 +7,7 @@ extern crate core_foundation_sys;
 extern crate error_chain;
 extern crate ignore;
 extern crate json;
+#[cfg(target_os="macos")]
 extern crate libc;
 #[macro_use]
 extern crate log;
@@ -15,6 +16,7 @@ extern crate regex;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+#[cfg(target_os="macos")]
 extern crate tempdir;
 extern crate toml;
 
