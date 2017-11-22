@@ -1,13 +1,13 @@
 extern crate cargo;
-#[cfg(target_os="macos")]
+#[cfg(target_os = "macos")]
 extern crate core_foundation;
-#[cfg(target_os="macos")]
+#[cfg(target_os = "macos")]
 extern crate core_foundation_sys;
 #[macro_use]
 extern crate error_chain;
 extern crate ignore;
 extern crate json;
-#[cfg(target_os="macos")]
+#[cfg(target_os = "macos")]
 extern crate libc;
 #[macro_use]
 extern crate log;
@@ -16,22 +16,20 @@ extern crate regex;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
-#[cfg(target_os="macos")]
+#[cfg(target_os = "macos")]
 extern crate tempdir;
 extern crate toml;
 
-#[cfg(target_os="macos")]
+#[cfg(target_os = "macos")]
 pub mod ios;
 pub mod config;
 
 pub mod android;
 pub mod ssh;
 pub mod errors;
+mod shim;
 
-mod linker;
-pub use linker::setup_linker;
-
-use std::{ fs, path };
+use std::{fs, path};
 
 use errors::*;
 
@@ -43,8 +41,18 @@ pub trait Device: std::fmt::Debug {
     fn name(&self) -> &str;
     fn id(&self) -> &str;
     fn target(&self) -> String;
-    fn can_run(&self, target:&str) -> bool {
+    fn can_run(&self, target: &str) -> bool {
         target == self.target()
+    }
+
+    fn cc_command(&self, target: &str) -> Result<String>;
+    fn linker_command(&self, target: &str) -> Result<String>;
+
+    fn setup_env(&self, target: &str) -> Result<()> {
+        let var_name = format!("CARGO_TARGET_{}_LINKER", target.replace("-", "_").to_uppercase());
+        shim::setup_shim(target, &var_name, "linker", &self.linker_command(target)?)?;
+        shim::setup_shim(target, "TARGET_CC", "cc", &self.cc_command(target)?)?;
+        Ok(())
     }
     fn start_remote_lldb(&self) -> Result<String>;
 
@@ -61,7 +69,7 @@ pub struct Dinghy {
 
 impl Dinghy {
     pub fn probe() -> Result<Dinghy> {
-        let mut managers:Vec<Box<PlatformManager>> = vec![];
+        let mut managers: Vec<Box<PlatformManager>> = vec![];
         if let Some(ios) = ios::IosManager::new()? {
             managers.push(Box::new(ios) as Box<PlatformManager>)
         }
@@ -71,13 +79,11 @@ impl Dinghy {
         if let Some(config) = ssh::SshDeviceManager::probe() {
             managers.push(Box::new(config) as Box<PlatformManager>)
         }
-        Ok(Dinghy {
-            managers: managers
-        })
+        Ok(Dinghy { managers: managers })
     }
 
     pub fn devices(&self) -> Result<Vec<Box<Device>>> {
-        let mut v = vec!();
+        let mut v = vec![];
         for m in &self.managers {
             v.extend(m.devices()?);
         }
@@ -85,13 +91,13 @@ impl Dinghy {
     }
 }
 
-#[cfg(not(target_os="macos"))]
+#[cfg(not(target_os = "macos"))]
 pub mod ios {
-    pub struct IosManager{}
-    pub struct IosDevice{}
+    pub struct IosManager {}
+    pub struct IosDevice {}
     impl ::PlatformManager for IosManager {
         fn devices(&self) -> ::errors::Result<Vec<Box<::Device>>> {
-            Ok(vec!())
+            Ok(vec![])
         }
     }
     impl IosManager {
@@ -127,17 +133,23 @@ fn copy_test_data<S: AsRef<path::Path>, T: AsRef<path::Path>>(root: S, app_path:
             if metadata.is_dir() {
                 ::rec_copy(file, dst, td.copy_git_ignored)?;
             } else {
-                fs::copy(file
-                         , dst)?;
+                fs::copy(file, dst)?;
             }
         } else {
-            warn!("configuration required test_data `{:?}` but it could not be found", td);
+            warn!(
+                "configuration required test_data `{:?}` but it could not be found",
+                td
+            );
         }
     }
     Ok(())
 }
 
-fn rec_copy<P1: AsRef<path::Path>,P2: AsRef<path::Path>>(src:P1, dst:P2, copy_ignored_test_data: bool) -> Result<()> {
+fn rec_copy<P1: AsRef<path::Path>, P2: AsRef<path::Path>>(
+    src: P1,
+    dst: P2,
+    copy_ignored_test_data: bool,
+) -> Result<()> {
     let src = src.as_ref();
     let dst = dst.as_ref();
     let ignore_file = src.join(".dinghyignore");
@@ -149,25 +161,39 @@ fn rec_copy<P1: AsRef<path::Path>,P2: AsRef<path::Path>>(src:P1, dst:P2, copy_ig
         let entry = entry?;
         let metadata = entry.metadata()?;
         let path = entry.path().strip_prefix(src)?;
-        if path.components().any(|comp| comp == std::path::Component::Normal("target".as_ref()) ) {
+        if path.components().any(|comp| comp.as_ref() == "target") {
             continue;
         }
         let target = dst.join(path);
         if metadata.is_dir() {
             if target.exists() && !target.is_dir() {
                 fs::remove_dir_all(&target)?;
-            }&
-            fs::create_dir_all(&target)?;
+            }
+            &fs::create_dir_all(&target)?;
         } else {
             if target.exists() && !target.is_file() {
                 fs::remove_dir_all(&target)?;
             }
-            if !target.exists()
-                || target.metadata()?.len() != entry.metadata()?.len()
-                || target.metadata()?.modified()? < entry.metadata()?.modified()? {
+            if !target.exists() || target.metadata()?.len() != entry.metadata()?.len()
+                || target.metadata()?.modified()? < entry.metadata()?.modified()?
+            {
                 fs::copy(entry.path(), &target)?;
             }
         }
     }
     Ok(())
+}
+
+fn sysroot_in_toolchain<P: AsRef<path::Path>>(p:P) -> Result<String> {
+    let mut sysroot:Option<path::PathBuf> = None;
+    for subdir in p.as_ref().read_dir()? {
+        let subdir = subdir?;
+        let maybe = subdir.path().join("sysroot");
+        if maybe.is_dir() {
+            sysroot = Some(maybe);
+        }
+    }
+    let sysroot = sysroot.ok_or("no sysroot found in toolchain")?;
+    let sysroot = sysroot.to_str().ok_or("sysroot is not utf-8")?;
+    Ok(sysroot.into())
 }

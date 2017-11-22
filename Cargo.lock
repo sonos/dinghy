@@ -240,7 +240,7 @@ dependencies = [
 
 [[package]]
 name = "dinghy"
-version = "0.2.16-pre"
+version = "0.2.17-pre"
 dependencies = [
  "cargo 0.22.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.27.1 (registry+https://github.com/rust-lang/crates.io-index)",

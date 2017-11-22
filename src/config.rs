@@ -39,8 +39,8 @@ impl<'de> de::Deserialize<'de> for TestDataConfiguration {
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 formatter.write_str(
                     "a path like \"tests/my_test_data\" or a \
-                                     detailed dependency like { source = \
-                                     \"tests/my_test_data\", copy_git_ignored = true }",
+                     detailed dependency like { source = \
+                     \"tests/my_test_data\", copy_git_ignored = true }",
                 )
             }
 
@@ -90,11 +90,13 @@ pub struct SshDeviceConfiguration {
     pub target: String,
     pub port: Option<u16>,
     pub path: Option<String>,
+    pub toolchain: Option<String>,
 }
 
 impl Configuration {
     fn merge(&mut self, file: &path::Path, other: ConfigurationFileContent) {
-        self.ssh_devices.extend(other.ssh_devices.unwrap_or(collections::BTreeMap::new()) );
+        self.ssh_devices
+            .extend(other.ssh_devices.unwrap_or(collections::BTreeMap::new()));
         for (target, source) in other.test_data.unwrap_or(collections::BTreeMap::new()) {
             self.test_data.push(TestData {
                 base: file.to_path_buf(),
@@ -141,9 +143,11 @@ pub fn config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
 mod tests {
     #[test]
     fn load_config_with_str_test_data() {
-        let config_file = ::std::env::current_exe().unwrap().parent().unwrap().join(
-            "../../../test-ws/test-app/.dinghy.toml",
-        );
+        let config_file = ::std::env::current_exe()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("../../../test-ws/test-app/.dinghy.toml");
         super::read_config_file(config_file).unwrap();
     }
 }
