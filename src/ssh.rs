@@ -10,6 +10,23 @@ pub struct SshDevice {
     config: SshDeviceConfiguration,
 }
 
+impl SshDevice {
+    fn cc(&self) -> Result<String> {
+        let toolchain = path::PathBuf::from(&self.config.toolchain.as_ref().ok_or("ssh configuration requires a toolchain")?);
+        let mut cc:Option<path::PathBuf> = None;
+        for file in toolchain.join("bin").read_dir()? {
+            let file = file?;
+            if file.file_name().to_string_lossy().ends_with("-gcc") || file.file_name().to_string_lossy().ends_with("-gcc.exe") {
+                cc = Some(file.path());
+                break
+            }
+        };
+        let cc = cc.ok_or("no gcc found in toolchain")?;
+        let cc = cc.to_str().ok_or("path is not utf-8")?;
+        Ok(cc.into())
+    }
+}
+
 impl Device for SshDevice {
     fn name(&self) -> &str {
         &*self.id
@@ -23,6 +40,13 @@ impl Device for SshDevice {
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
+    fn cc_command(&self, _target: &str) -> Result<String> {
+        Ok(format!("{} {}", self.cc()?, ::shim::GLOB_ARGS))
+    }
+    fn linker_command(&self, _target: &str) -> Result<String> {
+        let sysroot = ::sysroot_in_toolchain(&self.config.toolchain.as_ref().ok_or("ssh configuration requires a toolchain")?)?;
+        Ok(format!("{} --sysroot {} {}", self.cc()?, sysroot, ::shim::GLOB_ARGS))
+    }
     fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
         ::make_linux_app(source, exe)
     }
@@ -31,27 +55,23 @@ impl Device for SshDevice {
         let prefix = self.config.path.clone().unwrap_or("/tmp".into());
         let _stat = if let Some(port) = self.config.port {
             process::Command::new("ssh")
-                .args(
-                    &[
-                        &*user_at_host,
-                        "-p",
-                        &*format!("{}", port),
-                        "mkdir",
-                        "-p",
-                        &*format!("{}/dinghy", prefix),
-                    ],
-                )
+                .args(&[
+                    &*user_at_host,
+                    "-p",
+                    &*format!("{}", port),
+                    "mkdir",
+                    "-p",
+                    &*format!("{}/dinghy", prefix),
+                ])
                 .status()
         } else {
             process::Command::new("ssh")
-                .args(
-                    &[
-                        &*user_at_host,
-                        "mkdir",
-                        "-p",
-                        &*format!("{}/dinghy", prefix),
-                    ],
-                )
+                .args(&[
+                    &*user_at_host,
+                    "mkdir",
+                    "-p",
+                    &*format!("{}/dinghy", prefix),
+                ])
                 .status()
         };
         let target_path = format!(

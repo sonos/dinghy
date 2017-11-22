@@ -305,7 +305,7 @@ fn prepare_and_run(d: &dinghy::Device, subcommand: &str, matches: &clap::ArgMatc
         Err(format!("device {:?} can not run target {}", d, target))?;
     }
     info!("Picked device `{}' [{}]", d.name(), target);
-    let runnable = prepare_runnable(&*target, subcommand, matches)?;
+    let runnable = prepare_runnable(&*target, d, subcommand, matches)?;
     let args =
         matches.values_of("ARGS").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
     let envs =
@@ -334,6 +334,7 @@ fn prepare_and_run(d: &dinghy::Device, subcommand: &str, matches: &clap::ArgMatc
 
 
 fn prepare_runnable(target: &str,
+                    device: &dinghy::Device,
                     subcommand: &str,
                     matches: &clap::ArgMatches)
                     -> Result<Vec<Runnable>> {
@@ -346,7 +347,7 @@ fn prepare_runnable(target: &str,
     };
     let features: Vec<String> =
         matches.value_of("FEATURES").unwrap_or("").split(" ").map(|s| s.into()).collect();
-    dinghy::setup_linker(&*target)?;
+    device.setup_env(target)?;
     cfg.configure(matches.occurrences_of("VERBOSE") as u32,
                    None,
                    &None,
