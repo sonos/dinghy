@@ -33,6 +33,7 @@ fn main() {
                         .short("p")
                         .long("package")
                         .takes_value(true)
+                        .multiple(true)
                         .help("Package to run tests for"))
                     .arg(::clap::Arg::with_name("DEBUGGER")
                         .long("debugger")
@@ -49,6 +50,11 @@ fn main() {
                     .arg(::clap::Arg::with_name("ALL")
                          .long("all")
                          .help("Test all packages in the workspace"))
+                    .arg(::clap::Arg::with_name("EXCLUDE")
+                        .long("exclude")
+                        .takes_value(true)
+                        .multiple(true)
+                        .help("Exclude package to from the test"))
                     .arg(::clap::Arg::with_name("VERBOSE")
                         .short("v")
                         .long("verbose")
@@ -141,6 +147,7 @@ fn main() {
                     .arg(::clap::Arg::with_name("SPEC")
                         .short("p")
                         .long("package")
+                        .multiple(true)
                         .takes_value(true)
                         .help("Package to run benchmarks for"))
                     .arg(::clap::Arg::with_name("DEBUGGER")
@@ -155,6 +162,14 @@ fn main() {
                         .long("target")
                         .takes_value(true)
                         .help("target triple (rust conventions)"))
+                    .arg(::clap::Arg::with_name("ALL")
+                         .long("all")
+                         .help("Benchmark all packages in the workspace"))
+                    .arg(::clap::Arg::with_name("EXCLUDE")
+                        .long("exclude")
+                        .takes_value(true)
+                        .multiple(true)
+                        .help("Exclude package to from the benchmark"))
                     .arg(::clap::Arg::with_name("VERBOSE")
                         .short("v")
                         .long("verbose")
@@ -200,6 +215,7 @@ fn main() {
                         .short("p")
                         .long("package")
                         .takes_value(true)
+                        .multiple(true)
                         .help("Package to build"))
                     .arg(::clap::Arg::with_name("TARGET")
                         .long("target")
@@ -208,6 +224,11 @@ fn main() {
                     .arg(::clap::Arg::with_name("ALL")
                          .long("all")
                          .help("Build all packages in the workspace"))
+                    .arg(::clap::Arg::with_name("EXCLUDE")
+                        .long("exclude")
+                        .takes_value(true)
+                        .multiple(true)
+                        .help("Exclude package to from the build"))
                     .arg(::clap::Arg::with_name("VERBOSE")
                         .short("v")
                         .long("verbose")
@@ -369,15 +390,12 @@ fn prepare_runnable(target: &str,
                                                 &examples, false,
                                                 &benches, false,
                                                 false);
-    let given_specs =
+    let excludes =
+        matches.values_of("EXCLUDE").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
+    let packages =
         matches.values_of("SPEC").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
-    let spec = if !given_specs.is_empty() {
-        cargo::ops::Packages::Packages(&given_specs)
-    } else if matches.is_present("ALL") {
-        cargo::ops::Packages::All
-    } else {
-        cargo::ops::Packages::Packages(&[])
-    };
+    let spec = cargo::ops::Packages::from_flags(wd.is_virtual(),
+        matches.is_present("ALL"), &excludes, &packages)?;
 
     let options = cargo::ops::CompileOptions {
         config: &cfg,
