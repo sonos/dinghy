@@ -18,7 +18,7 @@ travis-ci = { repository = "snipsco/dinghy" }
 [dependencies]
 error-chain = "0.11"
 log="0.3"
-env_logger="0.4"
+loggerv="0.6"
 clap = "2.26"
 cargo = "0.22"
 plist = "0.2"
