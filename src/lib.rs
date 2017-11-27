@@ -6,6 +6,7 @@ extern crate core_foundation_sys;
 #[macro_use]
 extern crate error_chain;
 extern crate ignore;
+extern crate isatty;
 extern crate json;
 #[cfg(target_os = "macos")]
 extern crate libc;
@@ -114,10 +115,10 @@ fn make_linux_app(root: &path::Path, exe: &path::Path) -> Result<path::PathBuf> 
     let app_name = "dinghy";
     let app_path = exe.parent().unwrap().join("dinghy").join(app_name);
     debug!("Making bundle {:?} for {:?}", app_path, exe);
-    fs::create_dir_all(app_path.join("src"))?;
+    fs::create_dir_all(&app_path)?;
     fs::copy(&exe, app_path.join(app_name))?;
     debug!("Copying src to bundle");
-    ::rec_copy(root, app_path.join("src"), false)?;
+    ::rec_copy(root, &app_path, false)?;
     debug!("Copying test_data to bundle");
     ::copy_test_data(root, &app_path)?;
     Ok(app_path.into())

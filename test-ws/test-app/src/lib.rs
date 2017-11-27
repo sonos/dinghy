@@ -1,5 +1,3 @@
-
-
 #[cfg(test)]
 mod tests {
 
@@ -7,18 +5,30 @@ mod tests {
         use std::path;
 
         pub fn src_path() -> path::PathBuf {
-            if cfg!(any(target_os = "ios", target_os = "android")) ||
-               ::std::env::var("DINGHY").is_ok() {
-                ::std::env::current_exe().unwrap().parent().unwrap().join("src")
+            if cfg!(any(target_os = "ios", target_os = "android"))
+                || ::std::env::var("DINGHY").is_ok()
+            {
+                ::std::env::current_exe()
+                    .unwrap()
+                    .parent()
+                    .unwrap()
+                    .into()
             } else {
                 path::PathBuf::from(".")
             }
         }
 
         pub fn test_data_path() -> Option<path::PathBuf> {
-            if cfg!(any(target_os = "ios", target_os = "android")) ||
-               ::std::env::var("DINGHY").is_ok() {
-                Some(::std::env::current_exe().unwrap().parent().unwrap().join("test_data"))
+            if cfg!(any(target_os = "ios", target_os = "android"))
+                || ::std::env::var("DINGHY").is_ok()
+            {
+                Some(
+                    ::std::env::current_exe()
+                        .unwrap()
+                        .parent()
+                        .unwrap()
+                        .join("test_data"),
+                )
             } else {
                 None
             }
@@ -39,11 +49,19 @@ mod tests {
                 .map(|p| p.join("dinghy_source"))
                 .unwrap_or(path::PathBuf::from("../.."))
                 .join("LICENSE");
-            assert!(license.exists(), "File from dinghy_source not found: {:?}", license);
+            assert!(
+                license.exists(),
+                "File from dinghy_source not found: {:?}",
+                license
+            );
             let license = test_data_path()
                 .map(|p| p.join("dinghy_license"))
                 .unwrap_or(path::PathBuf::from("../../LICENSE"));
-            assert!(license.exists(), "File dinghy_license not found: {:?}", license);
+            assert!(
+                license.exists(),
+                "File dinghy_license not found: {:?}",
+                license
+            );
         }
 
         #[test]
