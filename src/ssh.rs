@@ -93,30 +93,23 @@ impl Device for SshDevice {
             app.file_name().unwrap().to_str().unwrap()
         );
         info!("Rsyncing to {}", self.name());
-        println!(
-            "{}/ {}:{}/",
+        debug!(
+            "rsync {}/ {}:{}/",
             app.to_str().unwrap(),
             user_at_host,
             &*target_path
         );
-        let stat = if let Some(port) = self.config.port {
-            process::Command::new("/usr/bin/rsync")
-                .arg("-a")
-                .arg("-v")
-                .arg("-e")
-                .arg(&*format!("ssh -p {}", port))
-                .arg(&*format!("{}/", app.to_str().unwrap()))
-                .arg(&*format!("{}:{}/", user_at_host, &*target_path))
-                .status()?
-        } else {
-            process::Command::new("/usr/bin/rsync")
-                .arg("-a")
-                .arg("-v")
-                .arg(&*format!("{}/", app.to_str().unwrap()))
-                .arg(&*format!("{}:{}/", user_at_host, &*target_path))
-                .status()?
+        let mut command = process::Command::new("/usr/bin/rsync");
+        command.arg("-a").arg("-v");
+        if let Some(port) = self.config.port {
+            command.arg(&*format!("ssh -p {}", port));
         };
-        if !stat.success() {
+        command.arg(&*format!("{}/", app.to_str().unwrap()))
+                .arg(&*format!("{}:{}/", user_at_host, &*target_path));
+        if !log_enabled!(::log::LogLevel::Debug) {
+            command.stdout(::std::process::Stdio::null()).stderr(::std::process::Stdio::null());
+        }
+        if !command.status()?.success() {
             Err("error installing app")?
         }
         Ok(())

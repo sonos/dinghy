@@ -2,7 +2,7 @@ extern crate cargo;
 #[macro_use]
 extern crate clap;
 extern crate dinghy;
-extern crate env_logger;
+extern crate loggerv;
 #[macro_use]
 extern crate log;
 
@@ -13,7 +13,7 @@ use cargo::util::important_paths::find_root_manifest_for_wd;
 use dinghy::errors::*;
 
 fn main() {
-    env_logger::init().unwrap();
+
 
     let filtered_env = ::std::env::args()
         .enumerate()
@@ -27,6 +27,10 @@ fn main() {
                     .long("device")
                     .takes_value(true)
                     .help("device hint"))
+                .arg(::clap::Arg::with_name("v")
+                    .short("v")
+                    .multiple(true)
+                    .help("Sets the level of verbosity"))
                 .subcommand(::clap::SubCommand::with_name("devices"))
                 .subcommand(::clap::SubCommand::with_name("test")
                     .arg(::clap::Arg::with_name("SPEC")
@@ -274,6 +278,8 @@ fn main() {
                     .arg(::clap::Arg::with_name("ARGS").multiple(true).help("test arguments")))
                 .subcommand(::clap::SubCommand::with_name("lldbproxy"))
     }.get_matches_from(filtered_env);
+
+    loggerv::init_with_verbosity(matches.occurrences_of("v")).unwrap();
 
     if let Err(e) = run(matches) {
         println!("{}", e);
