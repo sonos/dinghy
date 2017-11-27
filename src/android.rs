@@ -1,18 +1,19 @@
 use std::{env, fs, path};
-use std::process::Command;
+use std::process::{ Command, Stdio };
 
 use errors::*;
-use {Device, PlatformManager};
+use {Device, PlatformManager, Toolchain};
 
 #[derive(Debug, Clone)]
 pub struct AndroidDevice {
+    adb: String,
     id: String,
     supported_targets: Vec<&'static str>,
 }
 
 impl AndroidDevice {
-    fn from_id(id: &str) -> Result<AndroidDevice> {
-        let getprop_output = Command::new(adb_bin_name())
+    fn from_id(adb:String, id: &str) -> Result<AndroidDevice> {
+        let getprop_output = Command::new(&adb)
             .args(&["-s", id, "shell", "getprop", "ro.product.cpu.abilist"])
             .output()?;
         let abilist = String::from_utf8(getprop_output.stdout)?;
@@ -31,16 +32,18 @@ impl AndroidDevice {
             .collect::<Vec<_>>();
 
         let device = AndroidDevice {
+            adb: adb,
             id: id.into(),
             supported_targets: supported_targets,
         };
+        debug!("device: {:?}", device);
         Ok(device)
     }
 }
 
 impl Device for AndroidDevice {
     fn name(&self) -> &str {
-        "i'm a droid"
+        "android device"
     }
     fn id(&self) -> &str {
         &*self.id
@@ -61,11 +64,8 @@ impl Device for AndroidDevice {
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
-    fn cc_command(&self, target: &str) -> Result<String> {
-        AndroidNdk::for_target(target)?.cc_command()
-    }
-    fn linker_command(&self, target: &str) -> Result<String> {
-        AndroidNdk::for_target(target)?.linker_command()
+    fn toolchain(&self, target: &str) -> Result<Box<Toolchain>> {
+        toolchain(target)
     }
     fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
         use std::fs;
@@ -85,7 +85,7 @@ impl Device for AndroidDevice {
         fs::copy(&exe, &bundled_exe_path)?;
 
         debug!("Copying src to bundle");
-        ::rec_copy(source, &bundle_path.join("src"), false)?;
+        ::rec_copy(source, &bundle_path, false)?;
 
         debug!("Copying test_data to bundle");
         ::copy_test_data(source, &bundle_path)?;
@@ -104,12 +104,12 @@ impl Device for AndroidDevice {
         let target_exec = format!("{}/{}", target_dir, exe_name);
 
         debug!("Clear existing files");
-        let _stat = Command::new(adb_bin_name())
+        let _stat = Command::new(&self.adb)
             .args(&["-s", &*self.id, "shell", "rm", "-rf", &*target_dir])
             .status()?;
 
         debug!("Push entire parent dir of exe");
-        let stat = Command::new("adb")
+        let stat = Command::new(&self.adb)
             .args(&["-s", &*self.id, "push", exe_parent, &*target_dir])
             .status()?;
         if !stat.success() {
@@ -117,7 +117,7 @@ impl Device for AndroidDevice {
         }
 
         debug!("chmod target exe");
-        let stat = Command::new(adb_bin_name())
+        let stat = Command::new(&self.adb)
             .args(&["-s", &*self.id, "shell", "chmod", "755", &*target_exec])
             .status()?;
         if !stat.success() {
@@ -134,7 +134,7 @@ impl Device for AndroidDevice {
         let target_dir = format!("/data/local/tmp/dinghy/{}", exe_name);
 
         debug!("rm target exe");
-        let stat = Command::new(adb_bin_name())
+        let stat = Command::new(&self.adb)
             .args(&["-s", &*self.id, "shell", "rm", "-rf", &*target_dir])
             .status()?;
         if !stat.success() {
@@ -151,7 +151,7 @@ impl Device for AndroidDevice {
         let target_dir = format!("/data/local/tmp/dinghy/{}", exe_name);
         let target_exe = format!("{}/{}", target_dir, exe_name);
 
-        let stat = Command::new(adb_bin_name())
+        let stat = Command::new(&self.adb)
             .arg("-s")
             .arg(&*self.id)
             .arg("shell")
@@ -169,25 +169,35 @@ impl Device for AndroidDevice {
     }
 }
 
-fn adb_bin_name() -> &'static str {
-    let status = Command::new("fb-adb").arg("--version").status();
+fn adb() -> Result<String> {
+    fn try_out(command: &str) -> bool {
+        match Command::new(command).arg("--version").stdout(Stdio::null()).status() {
+            Ok(_) => true,
+            Err(_) => false,
+        }
 
-    match status {
-        Err(_) => "adb",
-        Ok(_) => "fb-adb",
     }
+    if try_out("fb_adb") { return Ok("fb-adb".into()) }
+    if try_out("adb") { return Ok("adb".into()) }
+    if let Ok(home) = env::var("HOME") {
+        let mac_place = format!("{}/Library/Android/sdk/platform-tools/adb", home);
+        if try_out(&mac_place) {
+            return Ok(mac_place)
+        }
+    }
+    Err("Neither fb-adb or adb could be found")?
 }
 
-pub struct AndroidManager {}
+pub struct AndroidManager {adb: String}
 
 impl PlatformManager for AndroidManager {
     fn devices(&self) -> Result<Vec<Box<Device>>> {
-        let result = Command::new("adb").arg("devices").output()?;
+        let result = Command::new(&self.adb).arg("devices").output()?;
         let mut devices = vec![];
         let device_regex = ::regex::Regex::new(r#"^(\S+)\tdevice\r?$"#)?;
         for line in String::from_utf8(result.stdout)?.split("\n").skip(1) {
             if let Some(caps) = device_regex.captures(line) {
-                let d = AndroidDevice::from_id(&caps[1])?;
+                let d = AndroidDevice::from_id(self.adb.clone(), &caps[1])?;
                 debug!("Discovered Android device {:?}", d);
                 devices.push(Box::new(d) as Box<Device>);
             }
@@ -198,10 +208,10 @@ impl PlatformManager for AndroidManager {
 
 impl AndroidManager {
     pub fn probe() -> Option<AndroidManager> {
-        match Command::new("adb").arg("devices").output() {
-            Ok(_) => {
-                info!("adb found in path, android enabled");
-                Some(AndroidManager {})
+        match adb() {
+            Ok(adb) => {
+                info!("Using {}", adb);
+                Some(AndroidManager { adb })
             }
             Err(_) => {
                 info!("adb not found in path, android disabled");
@@ -211,27 +221,59 @@ impl AndroidManager {
     }
 }
 
-#[allow(dead_code)]
+fn toolchain_path() -> Result<path::PathBuf> {
+    let user_home = env::home_dir().ok_or("no home dir found'")?;
+    Ok(user_home.join(".dinghy").join("android-toolchains"))
+}
+
+fn toolchain(target: &str) -> Result<Box<Toolchain>> {
+    for f in toolchain_path()?.read_dir()? {
+        let f = f?;
+        if f.file_name().to_string_lossy().starts_with(target) {
+            return Ok(::regular_toolchain::RegularToolchain::new(f.path())?)
+        }
+    }
+    AndroidNdk::for_target(target)
+}
+
+#[derive(Debug)]
 pub struct AndroidNdk {
     toolchain: String,
-    gcc: String,
+    gcc_prefix: String,
     arch: String,
     home: String,
     api: String,
     prebuilt_dir: path::PathBuf,
 }
 
+impl Toolchain for AndroidNdk {
+
+    fn cc_command(&self, _target: &str) -> Result<String> {
+        let gcc = self.prebuilt_dir
+            .join("bin")
+            .join(format!("{}-gcc", self.gcc_prefix));
+        Ok(format!("{:?} {}", gcc, ::shim::GLOB_ARGS))
+    }
+
+    fn linker_command(&self, _target: &str) -> Result<String> {
+        let gcc = self.prebuilt_dir
+            .join("bin")
+            .join(format!("{}-gcc", self.gcc_prefix));
+        Ok(format!("{:?} {}", gcc, ::shim::GLOB_ARGS))
+    }
+}
+
 impl AndroidNdk {
-    fn for_target(device_target: &str) -> Result<AndroidNdk> {
+    fn for_target(device_target: &str) -> Result<Box<Toolchain>> {
         if let Err(_) = env::var("ANDROID_NDK_HOME") {
-            if let Ok(home) = env::var("HOME") {
-                let mac_place = format!("{}/Library/Android/sdk/ndk-bundle", home);
+            if let Some(home) = env::home_dir() {
+                let mac_place = home.join("Library/Android/sdk/ndk-bundle");
                 if fs::metadata(&mac_place)?.is_dir() {
                     env::set_var("ANDROID_NDK_HOME", &mac_place)
                 }
             } else {
                 Err(
-                    "Android target detected, but could not find (or guess) ANDROID_NDK_HOME. \
+                    "Android target detected, but could not find (or guess) ANDROID_NDK_HOME or a toolchain. \
                      You need to set it up.",
                 )?
             }
@@ -243,6 +285,17 @@ impl AndroidNdk {
             .map_err(|_| "environment variable ANDROID_NDK_HOME is required")?;
 
         let api = env::var("ANDROID_API").unwrap_or(Self::default_api_for_arch(arch)?.into());
+        let wanted_tc = toolchain_path()?.join(format!("{}_{}", toolchain, api));
+
+        warn!("Using ndk as a toolchain for: {}. This only works for pure rust builds.", device_target);
+        warn!("If your build has non-rust dependencies (like C or C++ libraries), consider building a standalone toolchain.");
+        warn!("For instance:");
+        warn!("  python {:?} --arch {} --api {} --install-dir {:?}",
+              path::Path::new(&home).join("build").join("tools").join("make_standalone_toolchain.py"),
+              arch.split("-").last().unwrap(),
+              api.split("-").last().unwrap(),
+              wanted_tc
+        );
 
         let prebuilt_dir = path::Path::new(&home)
             .join("toolchains")
@@ -254,36 +307,14 @@ impl AndroidNdk {
             .next()
             .ok_or("No prebuilt toolchain in your android setup")??;
 
-        Ok(AndroidNdk {
+        Ok(Box::new(AndroidNdk {
             toolchain: toolchain.into(),
-            gcc: gcc.into(),
+            gcc_prefix: gcc.into(),
             arch: arch.into(),
             home: home.into(),
             api: api.into(),
             prebuilt_dir: prebuilt_dir.path().into(),
-        })
-    }
-
-    fn cc_command(&self) -> Result<String> {
-        let gcc = self.prebuilt_dir
-            .join("bin")
-            .join(&self.gcc)
-            .join(format!("{}-gcc", self.gcc));
-        Ok(format!("{:?} {}", gcc, ::shim::GLOB_ARGS))
-    }
-
-    fn linker_command(&self) -> Result<String> {
-        let sysroot = ::sysroot_in_toolchain(&self.toolchain)?;
-        let gcc = self.prebuilt_dir
-            .join("bin")
-            .join(&self.gcc)
-            .join(format!("{}-gcc", self.gcc));
-        Ok(format!(
-            "{:?} --sysroot {} {}",
-            gcc,
-            sysroot,
-            ::shim::GLOB_ARGS
-        ))
+        }))
     }
 
     fn ndk_details(rust_target: &str) -> Result<(&str, &str, &str)> {

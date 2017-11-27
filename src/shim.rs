@@ -13,6 +13,7 @@ pub static GLOB_ARGS: &str = r#""$@""#;
 pub static GLOB_ARGS: &str = r#"%*"#;
 
 pub fn setup_shim(device_target: &str, var: &str, name: &str, shell: &str) -> Result<()> {
+    debug!("  * shim for {}: {}", name, shell);
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
     let root = wd_path.parent().ok_or("building at / ?")?;
     let shim = create_shim(&root, device_target, name, shell)?;
