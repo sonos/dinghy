@@ -21,7 +21,7 @@ fn main() {
         .map(|(_, s)| s);
 
     let matches = {
-            ::clap::App::new("dinghy")
+        ::clap::App::new("dinghy")
                 .version(crate_version!())
                 .arg(::clap::Arg::with_name("DEVICE")
                     .long("device")
@@ -273,8 +273,7 @@ fn main() {
                         .help("Do not build the `default` feature"))
                     .arg(::clap::Arg::with_name("ARGS").multiple(true).help("test arguments")))
                 .subcommand(::clap::SubCommand::with_name("lldbproxy"))
-        }
-        .get_matches_from(filtered_env);
+    }.get_matches_from(filtered_env);
 
     if let Err(e) = run(matches) {
         println!("{}", e);
@@ -285,10 +284,13 @@ fn main() {
 fn run(matches: clap::ArgMatches) -> Result<()> {
     let dinghy = dinghy::Dinghy::probe()?;
     thread::sleep(time::Duration::from_millis(100));
-    let mut devices = dinghy.devices()?
+    let mut devices = dinghy
+        .devices()?
         .into_iter()
         .filter(|d| match matches.value_of("DEVICE") {
-            Some(filter) => format!("{:?}", d).to_lowercase().contains(&filter.to_lowercase()),
+            Some(filter) => format!("{:?}", d)
+                .to_lowercase()
+                .contains(&filter.to_lowercase()),
             None => true,
         })
         .collect::<Vec<_>>();
@@ -327,29 +329,40 @@ struct Runnable {
 }
 
 fn prepare_and_run(d: &dinghy::Device, subcommand: &str, matches: &clap::ArgMatches) -> Result<()> {
-    let target = matches.value_of("TARGET").map(|s| s.into()).unwrap_or(d.target());
+    let target = matches
+        .value_of("TARGET")
+        .map(|s| s.into())
+        .unwrap_or(d.target());
     if !d.can_run(&*target) {
         Err(format!("device {:?} can not run target {}", d, target))?;
     }
     info!("Picked device `{}' [{}]", d.name(), target);
     let runnable = prepare_runnable(&*target, d, subcommand, matches)?;
-    let args =
-        matches.values_of("ARGS").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
-    let envs =
-        matches.values_of("ENVS").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
+    let args = matches
+        .values_of("ARGS")
+        .map(|vs| vs.map(|s| s.to_string()).collect())
+        .unwrap_or(vec![]);
+    let envs = matches
+        .values_of("ENVS")
+        .map(|vs| vs.map(|s| s.to_string()).collect())
+        .unwrap_or(vec![]);
     for t in runnable {
         let app = d.make_app(&t.source, &t.exe)?;
         if subcommand != "build" {
             d.install_app(&app.as_ref())?;
             if matches.is_present("DEBUGGER") {
                 println!("DEBUGGER");
-                d.debug_app(app.as_ref(),
-                               &*args.iter().map(|s| &s[..]).collect::<Vec<_>>(),
-                               &*envs.iter().map(|s| &s[..]).collect::<Vec<_>>())?;
+                d.debug_app(
+                    app.as_ref(),
+                    &*args.iter().map(|s| &s[..]).collect::<Vec<_>>(),
+                    &*envs.iter().map(|s| &s[..]).collect::<Vec<_>>(),
+                )?;
             } else {
-                d.run_app(app.as_ref(),
-                             &*args.iter().map(|s| &s[..]).collect::<Vec<_>>(),
-                             &*envs.iter().map(|s| &s[..]).collect::<Vec<_>>())?;
+                d.run_app(
+                    app.as_ref(),
+                    &*args.iter().map(|s| &s[..]).collect::<Vec<_>>(),
+                    &*envs.iter().map(|s| &s[..]).collect::<Vec<_>>(),
+                )?;
             }
             if matches.is_present("CLEANUP") {
                 d.clean_app(&app.as_ref())?;
@@ -360,11 +373,12 @@ fn prepare_and_run(d: &dinghy::Device, subcommand: &str, matches: &clap::ArgMatc
 }
 
 
-fn prepare_runnable(target: &str,
-                    device: &dinghy::Device,
-                    subcommand: &str,
-                    matches: &clap::ArgMatches)
-                    -> Result<Vec<Runnable>> {
+fn prepare_runnable(
+    target: &str,
+    device: &dinghy::Device,
+    subcommand: &str,
+    matches: &clap::ArgMatches,
+) -> Result<Vec<Runnable>> {
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
     let cfg = cargo::util::config::Config::default()?;
     let mode = match subcommand {
@@ -372,37 +386,64 @@ fn prepare_runnable(target: &str,
         "bench" => cargo::ops::CompileMode::Bench,
         _ => cargo::ops::CompileMode::Build,
     };
-    let features: Vec<String> =
-        matches.value_of("FEATURES").unwrap_or("").split(" ").map(|s| s.into()).collect();
+    let features: Vec<String> = matches
+        .value_of("FEATURES")
+        .unwrap_or("")
+        .split(" ")
+        .map(|s| s.into())
+        .collect();
     device.setup_env(target)?;
-    cfg.configure(matches.occurrences_of("VERBOSE") as u32,
-                   None,
-                   &None,
-                   false,
-                   false,
-                   &[])?;
+    cfg.configure(
+        matches.occurrences_of("VERBOSE") as u32,
+        None,
+        &None,
+        false,
+        false,
+        &[],
+    )?;
     let wd = cargo::core::Workspace::new(&wd_path, &cfg)?;
-    let bins =
-        matches.values_of("BIN").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
-    let tests =
-        matches.values_of("TEST").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
-    let examples = matches.values_of("EXAMPLE")
+    let bins = matches
+        .values_of("BIN")
         .map(|vs| vs.map(|s| s.to_string()).collect())
         .unwrap_or(vec![]);
-    let benches =
-        matches.values_of("BENCH").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
-    let filter = cargo::ops::CompileFilter::new(matches.is_present("LIB"),
-                                                &bins, false,
-                                                &tests, false,
-                                                &examples, false,
-                                                &benches, false,
-                                                false);
-    let excludes =
-        matches.values_of("EXCLUDE").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
-    let packages =
-        matches.values_of("SPEC").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec![]);
-    let spec = cargo::ops::Packages::from_flags(wd.is_virtual(),
-        matches.is_present("ALL"), &excludes, &packages)?;
+    let tests = matches
+        .values_of("TEST")
+        .map(|vs| vs.map(|s| s.to_string()).collect())
+        .unwrap_or(vec![]);
+    let examples = matches
+        .values_of("EXAMPLE")
+        .map(|vs| vs.map(|s| s.to_string()).collect())
+        .unwrap_or(vec![]);
+    let benches = matches
+        .values_of("BENCH")
+        .map(|vs| vs.map(|s| s.to_string()).collect())
+        .unwrap_or(vec![]);
+    let filter = cargo::ops::CompileFilter::new(
+        matches.is_present("LIB"),
+        &bins,
+        false,
+        &tests,
+        false,
+        &examples,
+        false,
+        &benches,
+        false,
+        false,
+    );
+    let excludes = matches
+        .values_of("EXCLUDE")
+        .map(|vs| vs.map(|s| s.to_string()).collect())
+        .unwrap_or(vec![]);
+    let packages = matches
+        .values_of("SPEC")
+        .map(|vs| vs.map(|s| s.to_string()).collect())
+        .unwrap_or(vec![]);
+    let spec = cargo::ops::Packages::from_flags(
+        wd.is_virtual(),
+        matches.is_present("ALL"),
+        &excludes,
+        &packages,
+    )?;
 
     let options = cargo::ops::CompileOptions {
         config: &cfg,
@@ -421,27 +462,33 @@ fn prepare_runnable(target: &str,
     };
     let compilation = cargo::ops::compile(&wd, &options)?;
     if subcommand == "run" {
-        Ok(compilation.binaries
-            .into_iter()
-            .take(1)
-            .map(|t| {
-                Runnable {
-                    name: "main".into(),
-                    exe: t,
-                    source: path::PathBuf::from("."),
-                }
-            })
-            .collect::<Vec<_>>())
+        Ok(
+            compilation
+                .binaries
+                .into_iter()
+                .take(1)
+                .map(|t| {
+                    Runnable {
+                        name: "main".into(),
+                        exe: t,
+                        source: path::PathBuf::from("."),
+                    }
+                })
+                .collect::<Vec<_>>(),
+        )
     } else {
-        Ok(compilation.tests
-            .into_iter()
-            .map(|(pkg, _, name, exe)| {
-                Runnable {
-                    name: name,
-                    source: pkg.root().to_path_buf(),
-                    exe: exe,
-                }
-            })
-            .collect::<Vec<_>>())
+        Ok(
+            compilation
+                .tests
+                .into_iter()
+                .map(|(pkg, _, name, exe)| {
+                    Runnable {
+                        name: name,
+                        source: pkg.root().to_path_buf(),
+                        exe: exe,
+                    }
+                })
+                .collect::<Vec<_>>(),
+        )
     }
 }

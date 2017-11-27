@@ -8,9 +8,9 @@ use errors::*;
 use cargo::util::important_paths::find_root_manifest_for_wd;
 
 #[cfg(not(target_os = "windows"))]
-pub static GLOB_ARGS:&str = r#""$@""#;
+pub static GLOB_ARGS: &str = r#""$@""#;
 #[cfg(target_os = "windows")]
-pub static GLOB_ARGS:&str = r#"%*"#;
+pub static GLOB_ARGS: &str = r#"%*"#;
 
 pub fn setup_shim(device_target: &str, var: &str, name: &str, shell: &str) -> Result<()> {
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;

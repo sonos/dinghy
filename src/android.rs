@@ -265,14 +265,25 @@ impl AndroidNdk {
     }
 
     fn cc_command(&self) -> Result<String> {
-        let gcc = self.prebuilt_dir.join("bin").join(&self.gcc).join(format!("{}-gcc", self.gcc));
+        let gcc = self.prebuilt_dir
+            .join("bin")
+            .join(&self.gcc)
+            .join(format!("{}-gcc", self.gcc));
         Ok(format!("{:?} {}", gcc, ::shim::GLOB_ARGS))
     }
 
     fn linker_command(&self) -> Result<String> {
         let sysroot = ::sysroot_in_toolchain(&self.toolchain)?;
-        let gcc = self.prebuilt_dir.join("bin").join(&self.gcc).join(format!("{}-gcc", self.gcc));
-        Ok(format!("{:?} --sysroot {} {}", gcc, sysroot, ::shim::GLOB_ARGS))
+        let gcc = self.prebuilt_dir
+            .join("bin")
+            .join(&self.gcc)
+            .join(format!("{}-gcc", self.gcc));
+        Ok(format!(
+            "{:?} --sysroot {} {}",
+            gcc,
+            sysroot,
+            ::shim::GLOB_ARGS
+        ))
     }
 
     fn ndk_details(rust_target: &str) -> Result<(&str, &str, &str)> {
