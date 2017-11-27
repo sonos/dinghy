@@ -143,29 +143,20 @@ impl Device for SshDevice {
         let app_name = app_path.file_name().unwrap();
         let path = path::PathBuf::from(prefix).join("dinghy").join(app_name);
         let exe = path.join(&app_name);
-        let stat = if let Some(port) = self.config.port {
-            process::Command::new("ssh")
-                .arg(user_at_host)
-                .arg("-p")
-                .arg(&*format!("{}", port))
-                .arg(&*format!(
-                    "DINGHY=1 {} {}",
-                    envs.join(" "),
-                    &exe.to_str().unwrap()
-                ))
-                .args(args)
-                .status()?
-        } else {
-            process::Command::new("ssh")
-                .arg(user_at_host)
-                .arg(&*format!(
-                    "DINGHY=1 {} {}",
-                    envs.join(" "),
-                    &exe.to_str().unwrap()
-                ))
-                .args(args)
-                .status()?
-        };
+        let mut command = process::Command::new("ssh");
+        if let Some(port) = self.config.port {
+            command.arg("-p").arg(&*format!("{}", port));
+        }
+        if ::isatty::stdout_isatty() {
+            command.arg("-t").arg("-o").arg("LogLevel=QUIET");
+        }
+        command.arg(user_at_host).arg(&*format!(
+            "cd {:?} ; DINGHY=1 {} {}",
+            path,
+            envs.join(" "),
+            &exe.to_str().unwrap()
+        )).args(args);
+        let stat = command.status()?;
         if !stat.success() {
             Err("test fail.")?
         }
