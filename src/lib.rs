@@ -29,7 +29,7 @@ pub mod android;
 pub mod ssh;
 pub mod errors;
 mod shim;
-mod regular_toolchain;
+pub mod regular_toolchain;
 
 use std::{fs, path};
 
@@ -57,7 +57,7 @@ pub trait Device: std::fmt::Debug {
     fn debug_app(&self, app: &path::Path, args: &[&str], envs: &[&str]) -> Result<()>;
 }
 
-pub trait Toolchain: std::fmt::Debug {
+pub trait Toolchain: std::fmt::Debug + std::fmt::Display {
     fn cc_command(&self, target: &str) -> Result<String>;
     fn linker_command(&self, target: &str) -> Result<String>;
     fn setup_env(&self, target: &str) -> Result<()> {

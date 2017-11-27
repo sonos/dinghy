@@ -4,6 +4,7 @@ use { Result, Toolchain };
 
 #[derive(Debug)]
 pub struct RegularToolchain {
+    root: path::PathBuf,
     bin: path::PathBuf,
     cc: String,
     sysroot: String,
@@ -26,8 +27,14 @@ impl RegularToolchain {
         let bin = bin.ok_or("no bin/*-gcc found in toolchain")?;
         let cc = cc.ok_or("no bin/*-gcc found in toolchain")?;
         let cc = cc.to_str().ok_or("path is not utf-8")?.to_string();
-        let sysroot = sysroot_in_toolchain(toolchain)?;
-        Ok(Box::new(RegularToolchain { bin, cc, sysroot }))
+        let sysroot = sysroot_in_toolchain(&toolchain)?;
+        Ok(Box::new(RegularToolchain { root:toolchain.as_ref().into(), bin, cc, sysroot }))
+    }
+}
+
+impl ::std::fmt::Display for RegularToolchain {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::result::Result<(), ::std::fmt::Error> {
+        write!(f, "{:?}", self.root)
     }
 }
 
