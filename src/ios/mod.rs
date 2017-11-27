@@ -253,6 +253,16 @@ impl Toolchain for IosToolchain {
     }
 }
 
+impl ::std::fmt::Display for IosToolchain {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::result::Result<(), ::std::fmt::Error> {
+        if self.sim {
+            write!(f, "XCode targetting Ios Simulator")
+        } else {
+            write!(f, "XCode targetting Ios Device")
+        }
+    }
+}
+
 pub struct IosManager {
     devices: sync::Arc<sync::Mutex<Vec<IosDevice>>>,
 }

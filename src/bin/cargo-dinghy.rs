@@ -24,13 +24,20 @@ fn main() {
         ::clap::App::new("dinghy")
                 .version(crate_version!())
                 .arg(::clap::Arg::with_name("DEVICE")
+                    .short("d")
                     .long("device")
                     .takes_value(true)
                     .help("device hint"))
-                .arg(::clap::Arg::with_name("v")
+                .arg(::clap::Arg::with_name("VERBOSE")
                     .short("v")
+                    .long("verbose")
                     .multiple(true)
                     .help("Sets the level of verbosity"))
+                .arg(::clap::Arg::with_name("TOOLCHAIN")
+                    .short("t")
+                    .long("toolchain")
+                    .takes_value(true)
+                    .help("Use a specific toolchain (build only)"))
                 .subcommand(::clap::SubCommand::with_name("devices"))
                 .subcommand(::clap::SubCommand::with_name("test")
                     .arg(::clap::Arg::with_name("SPEC")
@@ -279,7 +286,7 @@ fn main() {
                 .subcommand(::clap::SubCommand::with_name("lldbproxy"))
     }.get_matches_from(filtered_env);
 
-    loggerv::init_with_verbosity(matches.occurrences_of("v")).unwrap();
+    loggerv::init_with_verbosity(matches.occurrences_of("VERBOSE")).unwrap();
 
     if let Err(e) = run(matches) {
         println!("{}", e);
@@ -287,10 +294,10 @@ fn main() {
     }
 }
 
-fn run(matches: clap::ArgMatches) -> Result<()> {
+fn maybe_device_from_cli(matches: &clap::ArgMatches) -> Result<Option<Box<dinghy::Device>>> {
     let dinghy = dinghy::Dinghy::probe()?;
     thread::sleep(time::Duration::from_millis(100));
-    let mut devices = dinghy
+    let devices = dinghy
         .devices()?
         .into_iter()
         .filter(|d| match matches.value_of("DEVICE") {
@@ -300,24 +307,47 @@ fn run(matches: clap::ArgMatches) -> Result<()> {
             None => true,
         })
         .collect::<Vec<_>>();
-    if devices.len() == 0 {
-        Err("No devices found")?
-    }
-    let d: Box<dinghy::Device> = devices.remove(0);
+    Ok(devices.into_iter().next())
+}
+fn device_from_cli(matches: &clap::ArgMatches) -> Result<Box<dinghy::Device>> {
+    Ok(maybe_device_from_cli(matches)?.ok_or("No device found")?)
+}
+
+fn run(matches: clap::ArgMatches) -> Result<()> {
     match matches.subcommand() {
         ("devices", Some(_matches)) => {
+            let dinghy = dinghy::Dinghy::probe()?;
+            thread::sleep(time::Duration::from_millis(100));
             let devices = dinghy.devices()?;
             for d in devices {
                 println!("{:?}", d);
             }
             Ok(())
         }
-        ("run", Some(matches)) => prepare_and_run(&*d, "run", matches),
-        ("test", Some(matches)) => prepare_and_run(&*d, "test", matches),
-        ("bench", Some(matches)) => prepare_and_run(&*d, "bench", matches),
-        ("build", Some(matches)) => prepare_and_run(&*d, "build", matches),
+        ("run", Some(subs)) => prepare_and_run(&*device_from_cli(&matches)?, "run", subs),
+        ("test", Some(subs)) => prepare_and_run(&*device_from_cli(&matches)?, "test", subs),
+        ("bench", Some(subs)) => prepare_and_run(&*device_from_cli(&matches)?, "bench", subs),
+        ("build", Some(subs)) => {
+            let dev = maybe_device_from_cli(&matches)?;
+            let target = if let Some(target) = subs.value_of("TARGET") {
+                target.into()
+            } else if let Some(ref d) = dev {
+                d.target()
+            } else {
+                Err("no toolchain nor device could be determined")?
+            };
+            let toolchain = if let Some(tc) = matches.value_of("TOOLCHAIN") {
+                dinghy::regular_toolchain::RegularToolchain::new(tc)?
+            } else if let Some(d) = dev {
+                d.toolchain(&target)?
+            } else {
+                Err("no toolchain nor device could be determined")?
+            };
+            build(&target, &*toolchain, cargo::ops::CompileMode::Build, subs)?;
+            Ok(())
+        }
         ("lldbproxy", Some(_matches)) => {
-            let lldb = d.start_remote_lldb()?;
+            let lldb = device_from_cli(&matches)?.start_remote_lldb()?;
             println!("lldb running at: {}", lldb);
             loop {
                 thread::sleep(time::Duration::from_millis(100));
@@ -392,6 +422,7 @@ fn build(
     mode: cargo::ops::CompileMode,
     matches: &clap::ArgMatches,
 ) -> Result<Vec<Runnable>> {
+    info!("Building for target {} using {}", target, toolchain);
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
     let cfg = cargo::util::config::Config::default()?;
     let features: Vec<String> = matches

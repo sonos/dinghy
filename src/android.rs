@@ -343,4 +343,11 @@ impl AndroidNdk {
             }
         })
     }
+
+}
+
+impl ::std::fmt::Display for AndroidNdk {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::result::Result<(), ::std::fmt::Error> {
+        write!(f, "AndroidNdk")
+    }
 }
