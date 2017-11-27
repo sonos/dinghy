@@ -343,7 +343,14 @@ fn prepare_and_run(d: &dinghy::Device, subcommand: &str, matches: &clap::ArgMatc
         Err(format!("device {:?} can not run target {}", d, target))?;
     }
     info!("Picked device `{}' [{}]", d.name(), target);
-    let runnable = prepare_runnable(&*target, d, subcommand, matches)?;
+    let mode = match subcommand {
+        "test" => cargo::ops::CompileMode::Test,
+        "bench" => cargo::ops::CompileMode::Bench,
+        _ => cargo::ops::CompileMode::Build,
+    };
+    let tc = d.toolchain(&target)?;
+    debug!("Toolchain {:?}", tc);
+    let runnable = build(&*target, &*tc, mode, matches)?;
     let args = matches
         .values_of("ARGS")
         .map(|vs| vs.map(|s| s.to_string()).collect())
@@ -379,26 +386,21 @@ fn prepare_and_run(d: &dinghy::Device, subcommand: &str, matches: &clap::ArgMatc
 }
 
 
-fn prepare_runnable(
+fn build(
     target: &str,
-    device: &dinghy::Device,
-    subcommand: &str,
+    toolchain: &dinghy::Toolchain,
+    mode: cargo::ops::CompileMode,
     matches: &clap::ArgMatches,
 ) -> Result<Vec<Runnable>> {
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
     let cfg = cargo::util::config::Config::default()?;
-    let mode = match subcommand {
-        "test" => cargo::ops::CompileMode::Test,
-        "bench" => cargo::ops::CompileMode::Bench,
-        _ => cargo::ops::CompileMode::Build,
-    };
     let features: Vec<String> = matches
         .value_of("FEATURES")
         .unwrap_or("")
         .split(" ")
         .map(|s| s.into())
         .collect();
-    device.setup_env(target)?;
+    toolchain.setup_env(target)?;
     cfg.configure(
         matches.occurrences_of("VERBOSE") as u32,
         None,
@@ -460,14 +462,14 @@ fn prepare_runnable(
         no_default_features: matches.is_present("NO_DEFAULT_FEATURES"),
         spec: spec,
         filter: filter,
-        release: subcommand == "bench" || matches.is_present("RELEASE"),
+        release: mode == cargo::ops::CompileMode::Bench || matches.is_present("RELEASE"),
         mode: mode,
         message_format: cargo::ops::MessageFormat::Human,
         target_rustdoc_args: None,
         target_rustc_args: None,
     };
     let compilation = cargo::ops::compile(&wd, &options)?;
-    if subcommand == "run" {
+    if mode == cargo::ops::CompileMode::Build {
         Ok(
             compilation
                 .binaries

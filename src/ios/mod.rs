@@ -16,7 +16,7 @@ use core_foundation_sys::number::kCFBooleanTrue;
 
 mod mobiledevice_sys;
 use self::mobiledevice_sys::*;
-use {Device, PlatformManager};
+use {Device, PlatformManager, Toolchain};
 
 mod xcode;
 
@@ -89,15 +89,8 @@ impl Device for IosDevice {
         debug!("start lldb");
         Ok(format!("localhost:{}", proxy))
     }
-    fn cc_command(&self, _target: &str) -> Result<String> {
-        Ok("cc".into())
-    }
-    fn linker_command(&self, _target: &str) -> Result<String> {
-        let xcrun = process::Command::new("xcrun")
-            .args(&["--sdk", "iphoneos", "--show-sdk-path"])
-            .output()?;
-        let sdk_path = String::from_utf8(xcrun.stdout)?;
-        Ok(format!(r#"cc -isysroot {} "$@""#, &*sdk_path.trim_right()))
+    fn toolchain(&self, _target: &str) -> Result<Box<Toolchain>> {
+        Ok(Box::new(IosToolchain { sim: false }))
     }
     fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
         let signing = xcode::look_for_signature_settings(&*self.id)?
@@ -177,15 +170,8 @@ impl Device for IosSimDevice {
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
-    fn cc_command(&self, _target: &str) -> Result<String> {
-        Ok("cc".into())
-    }
-    fn linker_command(&self, _target: &str) -> Result<String> {
-        let xcrun = process::Command::new("xcrun")
-            .args(&["--sdk", "iphonesimulator", "--show-sdk-path"])
-            .output()?;
-        let sdk_path = String::from_utf8(xcrun.stdout)?;
-        Ok(format!(r#"cc -isysroot {} "$@""#, &*sdk_path.trim_right()))
+    fn toolchain(&self, _target: &str) -> Result<Box<Toolchain>> {
+        Ok(Box::new(IosToolchain { sim: true }))
     }
     fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
         let name = exe.file_name().expect("root ?");
@@ -244,6 +230,26 @@ impl Device for IosSimDevice {
     }
     fn clean_app(&self, _exe: &path::Path) -> Result<()> {
         unimplemented!()
+    }
+}
+
+
+#[derive(Debug)]
+pub struct IosToolchain {
+    sim: bool,
+}
+
+impl Toolchain for IosToolchain {
+    fn cc_command(&self, _target: &str) -> Result<String> {
+        Ok("cc".into())
+    }
+    fn linker_command(&self, _target: &str) -> Result<String> {
+        let sdk_name = if self.sim { "iphonesimulator" } else { "iphoneos" };
+        let xcrun = process::Command::new("xcrun")
+            .args(&["--sdk", sdk_name, "--show-sdk-path"])
+            .output()?;
+        let sdk_path = String::from_utf8(xcrun.stdout)?;
+        Ok(format!(r#"cc -isysroot {} "$@""#, &*sdk_path.trim_right()))
     }
 }
 

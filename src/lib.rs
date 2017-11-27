@@ -29,6 +29,7 @@ pub mod android;
 pub mod ssh;
 pub mod errors;
 mod shim;
+mod regular_toolchain;
 
 use std::{fs, path};
 
@@ -45,19 +46,8 @@ pub trait Device: std::fmt::Debug {
     fn can_run(&self, target: &str) -> bool {
         target == self.target()
     }
+    fn toolchain(&self, target: &str) -> Result<Box<Toolchain>>;
 
-    fn cc_command(&self, target: &str) -> Result<String>;
-    fn linker_command(&self, target: &str) -> Result<String>;
-
-    fn setup_env(&self, target: &str) -> Result<()> {
-        let var_name = format!(
-            "CARGO_TARGET_{}_LINKER",
-            target.replace("-", "_").to_uppercase()
-        );
-        shim::setup_shim(target, &var_name, "linker", &self.linker_command(target)?)?;
-        shim::setup_shim(target, "TARGET_CC", "cc", &self.cc_command(target)?)?;
-        Ok(())
-    }
     fn start_remote_lldb(&self) -> Result<String>;
 
     fn make_app(&self, source: &path::Path, app: &path::Path) -> Result<path::PathBuf>;
@@ -65,6 +55,25 @@ pub trait Device: std::fmt::Debug {
     fn clean_app(&self, path: &path::Path) -> Result<()>;
     fn run_app(&self, app: &path::Path, args: &[&str], envs: &[&str]) -> Result<()>;
     fn debug_app(&self, app: &path::Path, args: &[&str], envs: &[&str]) -> Result<()>;
+}
+
+pub trait Toolchain: std::fmt::Debug {
+    fn cc_command(&self, target: &str) -> Result<String>;
+    fn linker_command(&self, target: &str) -> Result<String>;
+    fn setup_env(&self, target: &str) -> Result<()> {
+        debug!("setup environment for cargo build");
+        let var_name = format!(
+            "CARGO_TARGET_{}_LINKER",
+            target.replace("-", "_").to_uppercase()
+        );
+        debug!("linker?");
+        debug!("linker: {:?}", self.linker_command(target)?);
+        shim::setup_shim(target, &var_name, "linker", &self.linker_command(target)?)?;
+        shim::setup_shim(target, "TARGET_CC", "cc", &self.cc_command(target)?)?;
+        self.setup_more_env(target)?;
+        Ok(())
+    }
+    fn setup_more_env(&self, _target: &str) -> Result<()> { Ok(()) }
 }
 
 pub struct Dinghy {
@@ -186,18 +195,4 @@ fn rec_copy<P1: AsRef<path::Path>, P2: AsRef<path::Path>>(
         }
     }
     Ok(())
-}
-
-fn sysroot_in_toolchain<P: AsRef<path::Path>>(p: P) -> Result<String> {
-    let mut sysroot: Option<path::PathBuf> = None;
-    for subdir in p.as_ref().read_dir()? {
-        let subdir = subdir?;
-        let maybe = subdir.path().join("sysroot");
-        if maybe.is_dir() {
-            sysroot = Some(maybe);
-        }
-    }
-    let sysroot = sysroot.ok_or("no sysroot found in toolchain")?;
-    let sysroot = sysroot.to_str().ok_or("sysroot is not utf-8")?;
-    Ok(sysroot.into())
 }
