@@ -1,4 +1,4 @@
-use std::{path, process};
+use std::{env, path, process};
 use errors::*;
 use {Device, PlatformManager};
 
@@ -59,6 +59,12 @@ impl Device for SshDevice {
             sysroot,
             ::shim::GLOB_ARGS
         ))
+    }
+    fn setup_more_env(&self, _target: &str) -> Result<()> {
+        let sysroot = ::sysroot_in_toolchain(&self.config.toolchain.as_ref()
+            .ok_or("ssh configuration requires a toolchain")?)?;
+        env::set_var("TARGET_SYSROOT", sysroot);
+        Ok(())
     }
     fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
         ::make_linux_app(source, exe)

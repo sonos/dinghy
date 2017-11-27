@@ -56,8 +56,11 @@ pub trait Device: std::fmt::Debug {
         );
         shim::setup_shim(target, &var_name, "linker", &self.linker_command(target)?)?;
         shim::setup_shim(target, "TARGET_CC", "cc", &self.cc_command(target)?)?;
+        self.setup_more_env(target)?;
         Ok(())
     }
+    fn setup_more_env(&self, target: &str) -> Result<()> { Ok(()) }
+
     fn start_remote_lldb(&self) -> Result<String>;
 
     fn make_app(&self, source: &path::Path, app: &path::Path) -> Result<path::PathBuf>;
