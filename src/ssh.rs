@@ -12,15 +12,20 @@ pub struct SshDevice {
 
 impl SshDevice {
     fn cc(&self) -> Result<String> {
-        let toolchain = path::PathBuf::from(&self.config.toolchain.as_ref().ok_or("ssh configuration requires a toolchain")?);
-        let mut cc:Option<path::PathBuf> = None;
+        let toolchain = path::PathBuf::from(&self.config
+            .toolchain
+            .as_ref()
+            .ok_or("ssh configuration requires a toolchain")?);
+        let mut cc: Option<path::PathBuf> = None;
         for file in toolchain.join("bin").read_dir()? {
             let file = file?;
-            if file.file_name().to_string_lossy().ends_with("-gcc") || file.file_name().to_string_lossy().ends_with("-gcc.exe") {
+            if file.file_name().to_string_lossy().ends_with("-gcc")
+                || file.file_name().to_string_lossy().ends_with("-gcc.exe")
+            {
                 cc = Some(file.path());
-                break
+                break;
             }
-        };
+        }
         let cc = cc.ok_or("no gcc found in toolchain")?;
         let cc = cc.to_str().ok_or("path is not utf-8")?;
         Ok(cc.into())
@@ -44,8 +49,16 @@ impl Device for SshDevice {
         Ok(format!("{} {}", self.cc()?, ::shim::GLOB_ARGS))
     }
     fn linker_command(&self, _target: &str) -> Result<String> {
-        let sysroot = ::sysroot_in_toolchain(&self.config.toolchain.as_ref().ok_or("ssh configuration requires a toolchain")?)?;
-        Ok(format!("{} --sysroot {} {}", self.cc()?, sysroot, ::shim::GLOB_ARGS))
+        let sysroot = ::sysroot_in_toolchain(&self.config
+            .toolchain
+            .as_ref()
+            .ok_or("ssh configuration requires a toolchain")?)?;
+        Ok(format!(
+            "{} --sysroot {} {}",
+            self.cc()?,
+            sysroot,
+            ::shim::GLOB_ARGS
+        ))
     }
     fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
         ::make_linux_app(source, exe)

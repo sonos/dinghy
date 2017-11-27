@@ -49,7 +49,10 @@ pub trait Device: std::fmt::Debug {
     fn linker_command(&self, target: &str) -> Result<String>;
 
     fn setup_env(&self, target: &str) -> Result<()> {
-        let var_name = format!("CARGO_TARGET_{}_LINKER", target.replace("-", "_").to_uppercase());
+        let var_name = format!(
+            "CARGO_TARGET_{}_LINKER",
+            target.replace("-", "_").to_uppercase()
+        );
         shim::setup_shim(target, &var_name, "linker", &self.linker_command(target)?)?;
         shim::setup_shim(target, "TARGET_CC", "cc", &self.cc_command(target)?)?;
         Ok(())
@@ -184,8 +187,8 @@ fn rec_copy<P1: AsRef<path::Path>, P2: AsRef<path::Path>>(
     Ok(())
 }
 
-fn sysroot_in_toolchain<P: AsRef<path::Path>>(p:P) -> Result<String> {
-    let mut sysroot:Option<path::PathBuf> = None;
+fn sysroot_in_toolchain<P: AsRef<path::Path>>(p: P) -> Result<String> {
+    let mut sysroot: Option<path::PathBuf> = None;
     for subdir in p.as_ref().read_dir()? {
         let subdir = subdir?;
         let maybe = subdir.path().join("sysroot");
