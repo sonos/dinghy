@@ -324,9 +324,9 @@ fn run(matches: clap::ArgMatches) -> Result<()> {
             }
             Ok(())
         }
-        ("run", Some(subs)) => prepare_and_run(&*device_from_cli(&matches)?, "run", subs),
-        ("test", Some(subs)) => prepare_and_run(&*device_from_cli(&matches)?, "test", subs),
-        ("bench", Some(subs)) => prepare_and_run(&*device_from_cli(&matches)?, "bench", subs),
+        ("run", Some(subs)) => prepare_and_run(&matches, "run", subs),
+        ("test", Some(subs)) => prepare_and_run(&matches, "test", subs),
+        ("bench", Some(subs)) => prepare_and_run(&matches, "bench", subs),
         ("build", Some(subs)) => {
             let dev = maybe_device_from_cli(&matches)?;
             let target = if let Some(target) = subs.value_of("TARGET") {
@@ -364,8 +364,9 @@ struct Runnable {
     source: path::PathBuf,
 }
 
-fn prepare_and_run(d: &dinghy::Device, subcommand: &str, matches: &clap::ArgMatches) -> Result<()> {
-    let target = matches
+fn prepare_and_run(matches: &clap::ArgMatches, subcommand: &str, sub: &clap::ArgMatches) -> Result<()> {
+    let d = device_from_cli(&matches)?;
+    let target = sub
         .value_of("TARGET")
         .map(|s| s.into())
         .unwrap_or(d.target());
@@ -378,14 +379,18 @@ fn prepare_and_run(d: &dinghy::Device, subcommand: &str, matches: &clap::ArgMatc
         "bench" => cargo::ops::CompileMode::Bench,
         _ => cargo::ops::CompileMode::Build,
     };
-    let tc = d.toolchain(&target)?;
+    let tc = if let Some(tc) = matches.value_of("TOOLCHAIN") {
+        dinghy::regular_toolchain::RegularToolchain::new(tc)?
+    } else {
+        d.toolchain(&target)?
+    };
     debug!("Toolchain {:?}", tc);
-    let runnable = build(&*target, &*tc, mode, matches)?;
-    let args = matches
+    let runnable = build(&*target, &*tc, mode, sub)?;
+    let args = sub
         .values_of("ARGS")
         .map(|vs| vs.map(|s| s.to_string()).collect())
         .unwrap_or(vec![]);
-    let envs = matches
+    let envs = sub
         .values_of("ENVS")
         .map(|vs| vs.map(|s| s.to_string()).collect())
         .unwrap_or(vec![]);
@@ -393,7 +398,7 @@ fn prepare_and_run(d: &dinghy::Device, subcommand: &str, matches: &clap::ArgMatc
         let app = d.make_app(&t.source, &t.exe)?;
         if subcommand != "build" {
             d.install_app(&app.as_ref())?;
-            if matches.is_present("DEBUGGER") {
+            if sub.is_present("DEBUGGER") {
                 println!("DEBUGGER");
                 d.debug_app(
                     app.as_ref(),
@@ -407,7 +412,7 @@ fn prepare_and_run(d: &dinghy::Device, subcommand: &str, matches: &clap::ArgMatc
                     &*envs.iter().map(|s| &s[..]).collect::<Vec<_>>(),
                 )?;
             }
-            if matches.is_present("CLEANUP") {
+            if sub.is_present("CLEANUP") {
                 d.clean_app(&app.as_ref())?;
             }
         }
