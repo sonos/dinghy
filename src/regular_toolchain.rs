@@ -6,29 +6,32 @@ use { Result, Toolchain };
 pub struct RegularToolchain {
     root: path::PathBuf,
     bin: path::PathBuf,
-    cc: String,
+    bin_prefix: String,
     sysroot: String,
 }
 
 impl RegularToolchain {
     pub fn new<P: AsRef<path::Path>>(toolchain:P) -> Result<Box<Toolchain>> {
         let mut bin: Option<path::PathBuf> = None;
-        let mut cc: Option<path::PathBuf> = None;
+        let mut prefix: Option<String> = None;
         for file in toolchain.as_ref().join("bin").read_dir()? {
             let file = file?;
             if file.file_name().to_string_lossy().ends_with("-gcc")
                 || file.file_name().to_string_lossy().ends_with("-gcc.exe")
             {
                 bin = Some(toolchain.as_ref().join("bin"));
-                cc = Some(file.path());
+                prefix = Some(file.file_name().to_string_lossy().replace(".exe", "").replace("-gcc",""));
                 break;
             }
         }
         let bin = bin.ok_or("no bin/*-gcc found in toolchain")?;
-        let cc = cc.ok_or("no bin/*-gcc found in toolchain")?;
-        let cc = cc.to_str().ok_or("path is not utf-8")?.to_string();
+        let bin_prefix = prefix.ok_or("no gcc in toolchain")?.to_string();
         let sysroot = sysroot_in_toolchain(&toolchain)?;
-        Ok(Box::new(RegularToolchain { root:toolchain.as_ref().into(), bin, cc, sysroot }))
+        Ok(Box::new(RegularToolchain { root:toolchain.as_ref().into(), bin, bin_prefix, sysroot }))
+    }
+
+    fn binary(&self, name: &str) -> String {
+        self.bin.join(format!("{}-{}", self.bin_prefix, name)).to_string_lossy().into()
     }
 }
 
@@ -40,18 +43,19 @@ impl ::std::fmt::Display for RegularToolchain {
 
 impl Toolchain for RegularToolchain {
     fn cc_command(&self, _target: &str) -> Result<String> {
-        Ok(format!("{} {}", self.cc, ::shim::GLOB_ARGS))
+        Ok(format!("{} {}", self.binary("gcc"), ::shim::GLOB_ARGS))
     }
     fn linker_command(&self, _target: &str) -> Result<String> {
         Ok(format!(
             "{} --sysroot {} {}",
-            self.cc,
+            self.binary("gcc"),
             self.sysroot,
             ::shim::GLOB_ARGS
         ))
     }
     fn setup_more_env(&self, _target: &str) -> Result<()> {
         env::set_var("TARGET_SYSROOT", &self.sysroot);
+        env::set_var("TARGET_AR", &self.binary("ar"));
         Ok(())
     }
 }

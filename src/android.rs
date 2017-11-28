@@ -155,7 +155,7 @@ impl Device for AndroidDevice {
             .arg("-s")
             .arg(&*self.id)
             .arg("shell")
-            .arg(&*format!("DINGHY=1 {}", envs.join(" ")))
+            .arg(&*format!("cd {:?}; DINGHY=1 {}", target_dir, envs.join(" ")))
             .arg(&*target_exe)
             .args(args)
             .status()?;
