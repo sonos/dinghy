@@ -227,10 +227,12 @@ fn toolchain_path() -> Result<path::PathBuf> {
 }
 
 fn toolchain(target: &str) -> Result<Box<Toolchain>> {
-    for f in toolchain_path()?.read_dir()? {
-        let f = f?;
-        if f.file_name().to_string_lossy().starts_with(target) {
-            return Ok(::regular_toolchain::RegularToolchain::new(f.path())?)
+    if toolchain_path()?.exists() {
+        for f in toolchain_path()?.read_dir()? {
+            let f = f?;
+            if f.file_name().to_string_lossy().starts_with(target) {
+                return Ok(::regular_toolchain::RegularToolchain::new(f.path())?)
+            }
         }
     }
     AndroidNdk::for_target(target)
