@@ -42,11 +42,15 @@ pub trait PlatformManager {
 pub trait Device: std::fmt::Debug {
     fn name(&self) -> &str;
     fn id(&self) -> &str;
-    fn target(&self) -> String;
+    fn rustc_triple_guess(&self) -> Option<String>;
     fn can_run(&self, target: &str) -> bool {
-        target == self.target()
+        if let Some(t) = self.rustc_triple_guess() {
+            t == target
+        } else {
+            true
+        }
     }
-    fn platform(&self, target: &str) -> Result<Box<Platform>>;
+    fn platform(&self) -> Result<Box<Platform>>;
 
     fn start_remote_lldb(&self) -> Result<String>;
 
@@ -57,23 +61,26 @@ pub trait Device: std::fmt::Debug {
     fn debug_app(&self, app: &path::Path, args: &[&str], envs: &[&str]) -> Result<()>;
 }
 
-pub trait Platform: std::fmt::Debug + std::fmt::Display {
-    fn cc_command(&self, target: &str) -> Result<String>;
-    fn linker_command(&self, target: &str) -> Result<String>;
-    fn setup_env(&self, target: &str) -> Result<()> {
+pub trait Platform {
+    fn id(&self) -> String;
+    fn cc_command(&self) -> Result<String>;
+    fn linker_command(&self) -> Result<String>;
+    fn rustc_triple(&self) -> Result<String>;
+    fn setup_env(&self) -> Result<()> {
         debug!("setup environment for cargo build");
+        let triple = self.rustc_triple()?;
         let var_name = format!(
             "CARGO_TARGET_{}_LINKER",
-            target.replace("-", "_").to_uppercase()
+            triple.replace("-", "_").to_uppercase()
         );
         debug!("linker?");
-        debug!("linker: {:?}", self.linker_command(target)?);
-        shim::setup_shim(target, &var_name, "linker", &self.linker_command(target)?)?;
-        shim::setup_shim(target, "TARGET_CC", "cc", &self.cc_command(target)?)?;
-        self.setup_more_env(target)?;
+        debug!("linker: {:?}", self.linker_command()?);
+        shim::setup_shim(&triple, &self.id(), &var_name, "linker", &self.linker_command()?)?;
+        shim::setup_shim(&triple, &self.id(), "TARGET_CC", "cc", &self.cc_command()?)?;
+        self.setup_more_env()?;
         Ok(())
     }
-    fn setup_more_env(&self, _target: &str) -> Result<()> {
+    fn setup_more_env(&self) -> Result<()> {
         Ok(())
     }
 }
@@ -84,6 +91,7 @@ pub struct Dinghy {
 
 impl Dinghy {
     pub fn probe() -> Result<Dinghy> {
+        let conf = std::sync::Arc::new(config::config(::std::env::current_dir().unwrap())?);
         let mut managers: Vec<Box<PlatformManager>> = vec![];
         if let Some(ios) = ios::IosManager::new()? {
             managers.push(Box::new(ios) as Box<PlatformManager>)
@@ -91,7 +99,7 @@ impl Dinghy {
         if let Some(android) = android::AndroidManager::probe() {
             managers.push(Box::new(android) as Box<PlatformManager>)
         }
-        if let Some(config) = ssh::SshDeviceManager::probe() {
+        if let Some(config) = ssh::SshDeviceManager::probe(conf.clone()) {
             managers.push(Box::new(config) as Box<PlatformManager>)
         }
         Ok(Dinghy { managers: managers })

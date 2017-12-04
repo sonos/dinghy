@@ -73,23 +73,31 @@ impl<'de> de::Deserialize<'de> for TestDataConfiguration {
 
 #[derive(Debug, Default)]
 pub struct Configuration {
+    pub platforms: collections::BTreeMap<String, PlatformConfiguration>,
     pub ssh_devices: collections::BTreeMap<String, SshDeviceConfiguration>,
     pub test_data: Vec<TestData>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 struct ConfigurationFileContent {
+    pub platforms: Option<collections::BTreeMap<String, PlatformConfiguration>>,
     pub ssh_devices: Option<collections::BTreeMap<String, SshDeviceConfiguration>>,
     pub test_data: Option<collections::BTreeMap<String, TestDataConfiguration>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct PlatformConfiguration {
+    pub toolchain: Option<String>,
+    pub sysroot: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SshDeviceConfiguration {
     pub hostname: String,
     pub username: String,
-    pub target: String,
     pub port: Option<u16>,
     pub path: Option<String>,
+    pub target: Option<String>,
     pub toolchain: Option<String>,
 }
 

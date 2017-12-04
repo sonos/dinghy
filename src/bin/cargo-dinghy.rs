@@ -31,7 +31,7 @@ fn main() {
                     .long("verbose")
                     .multiple(true)
                     .help("Sets the level of verbosity"))
-                .arg(::clap::Arg::with_name("TOOLCHAIN")
+                .arg(::clap::Arg::with_name("PLATFORM")
                     .short("t")
                     .long("platform")
                     .takes_value(true)
@@ -322,8 +322,23 @@ fn maybe_device_from_cli(matches: &clap::ArgMatches) -> Result<Option<Box<dinghy
         Ok(None)
     }
 }
+
 fn device_from_cli(matches: &clap::ArgMatches) -> Result<Box<dinghy::Device>> {
     Ok(maybe_device_from_cli(matches)?.ok_or("No device found")?)
+}
+
+fn default_platform_from_cli(matches: &clap::ArgMatches) -> Result<Box<dinghy::Platform>> {
+    if let Some(tc) = matches.value_of("PLATFORM") {
+        return dinghy::regular_platform::RegularPlatform::new(tc)
+    }
+    if let Some(dev) = maybe_device_from_cli(matches)? {
+        return dev.platform()
+    }
+    Err("Could not guess a platform")?
+}
+
+fn platform_from_cli(matches: &clap::ArgMatches) -> Result<Box<dinghy::Platform>> {
+    default_platform_from_cli(matches)
 }
 
 fn run(matches: clap::ArgMatches) -> Result<()> {
@@ -341,22 +356,8 @@ fn run(matches: clap::ArgMatches) -> Result<()> {
         ("test", Some(subs)) => prepare_and_run(&matches, "test", subs),
         ("bench", Some(subs)) => prepare_and_run(&matches, "bench", subs),
         ("build", Some(subs)) => {
-            let dev = maybe_device_from_cli(&matches)?;
-            let target = if let Some(target) = subs.value_of("TARGET") {
-                target.into()
-            } else if let Some(ref d) = dev {
-                d.target()
-            } else {
-                Err("no platform nor device could be determined")?
-            };
-            let platform = if let Some(tc) = matches.value_of("TOOLCHAIN") {
-                dinghy::regular_platform::RegularPlatform::new(tc)?
-            } else if let Some(d) = dev {
-                d.platform(&target)?
-            } else {
-                Err("no platform nor device could be determined")?
-            };
-            build(&target, &*platform, cargo::ops::CompileMode::Build, subs)?;
+            let pf = platform_from_cli(&matches)?;
+            build(pf, cargo::ops::CompileMode::Build, subs)?;
             Ok(())
         }
         ("lldbproxy", Some(_matches)) => {
@@ -391,13 +392,9 @@ fn prepare_and_run(matches: &clap::ArgMatches, subcommand: &str, sub: &clap::Arg
         "bench" => cargo::ops::CompileMode::Bench,
         _ => cargo::ops::CompileMode::Build,
     };
-    let tc = if let Some(tc) = matches.value_of("TOOLCHAIN") {
-        dinghy::regular_platform::RegularPlatform::new(tc)?
-    } else {
-        d.platform(&target)?
-    };
-    debug!("Platform {:?}", tc);
-    let runnable = build(&*target, &*tc, mode, sub)?;
+    let pf = platform_from_cli(&matches)?;
+    debug!("Platform {:?}", pf);
+    let runnable = build(pf, mode, sub)?;
     let args = sub
         .values_of("ARGS")
         .map(|vs| vs.map(|s| s.to_string()).collect())
@@ -434,12 +431,11 @@ fn prepare_and_run(matches: &clap::ArgMatches, subcommand: &str, sub: &clap::Arg
 
 
 fn build(
-    target: &str,
     platform: &dinghy::Platform,
     mode: cargo::ops::CompileMode,
     matches: &clap::ArgMatches,
 ) -> Result<Vec<Runnable>> {
-    info!("Building for target {} using {}", target, platform);
+    info!("Building for platform {}", platform);
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
     let cfg = cargo::util::config::Config::default()?;
     let features: Vec<String> = matches
@@ -448,7 +444,7 @@ fn build(
         .split(" ")
         .map(|s| s.into())
         .collect();
-    platform.setup_env(target)?;
+    platform.setup_env()?;
     cfg.configure(
         matches.occurrences_of("VERBOSE") as u32,
         None,

@@ -12,22 +12,23 @@ pub static GLOB_ARGS: &str = r#""$@""#;
 #[cfg(target_os = "windows")]
 pub static GLOB_ARGS: &str = r#"%*"#;
 
-pub fn setup_shim(device_target: &str, var: &str, name: &str, shell: &str) -> Result<()> {
+pub fn setup_shim(rustc_triple: &str, id: &str, var: &str, name: &str, shell: &str) -> Result<()> {
     debug!("  * shim for {}: {}", name, shell);
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
     let root = wd_path.parent().ok_or("building at / ?")?;
-    let shim = create_shim(&root, device_target, name, shell)?;
+    let shim = create_shim(&root, rustc_triple, id, name, shell)?;
     env::set_var(var, shim);
     Ok(())
 }
 
 fn create_shim<P: AsRef<path::Path>>(
     root: P,
-    device_target: &str,
+    rustc_triple: &str,
+    id: &str,
     name: &str,
     shell: &str,
 ) -> Result<path::PathBuf> {
-    let target_path = root.as_ref().join("target").join(device_target);
+    let target_path = root.as_ref().join("target").join(rustc_triple).join(id);
     fs::create_dir_all(&target_path)?;
     let mut shim = target_path.join(name);
     if cfg!(target_os = "windows") {
