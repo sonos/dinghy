@@ -2,9 +2,9 @@ extern crate cargo;
 #[macro_use]
 extern crate clap;
 extern crate dinghy;
-extern crate loggerv;
 #[macro_use]
 extern crate log;
+extern crate pretty_env_logger;
 
 use std::{env, path, thread, time};
 
@@ -13,8 +13,6 @@ use cargo::util::important_paths::find_root_manifest_for_wd;
 use dinghy::errors::*;
 
 fn main() {
-
-
     let filtered_env = ::std::env::args()
         .enumerate()
         .filter(|&(ix, ref s)| !(ix == 1 && s == "dinghy"))
@@ -286,7 +284,15 @@ fn main() {
                 .subcommand(::clap::SubCommand::with_name("lldbproxy"))
     }.get_matches_from(filtered_env);
 
-    loggerv::init_with_verbosity(matches.occurrences_of("VERBOSE")).unwrap();
+    if ::std::env::var("RUST_LOG").is_err() {
+        let dinghy_verbosity = match matches.occurrences_of("VERBOSE") {
+            0 => "warn",
+            1 => "info",
+            _ => "debug",
+        };
+        ::std::env::set_var("RUST_LOG", format!("{},cargo=error", dinghy_verbosity));
+    };
+    pretty_env_logger::init().unwrap();
 
     if let Err(e) = run(matches) {
         println!("{}", e);
@@ -307,7 +313,14 @@ fn maybe_device_from_cli(matches: &clap::ArgMatches) -> Result<Option<Box<dinghy
             None => true,
         })
         .collect::<Vec<_>>();
-    Ok(devices.into_iter().next())
+    let device = devices.into_iter().next();
+    if let Some(device) = device {
+        info!("Picked device: {}", device.name());
+        Ok(Some(device))
+    } else {
+        info!("No device found");
+        Ok(None)
+    }
 }
 fn device_from_cli(matches: &clap::ArgMatches) -> Result<Box<dinghy::Device>> {
     Ok(maybe_device_from_cli(matches)?.ok_or("No device found")?)
@@ -373,7 +386,6 @@ fn prepare_and_run(matches: &clap::ArgMatches, subcommand: &str, sub: &clap::Arg
     if !d.can_run(&*target) {
         Err(format!("device {:?} can not run target {}", d, target))?;
     }
-    info!("Picked device `{}' [{}]", d.name(), target);
     let mode = match subcommand {
         "test" => cargo::ops::CompileMode::Test,
         "bench" => cargo::ops::CompileMode::Bench,
