@@ -44,7 +44,7 @@ where
     )?;
     writeln!(plist, r#"</dict></plist>"#)?;
 
-    ::rec_copy(&source, app_path.join("src"), false)?;
+    ::rec_copy(&source, &app_path, false)?;
     ::copy_test_data(source, &app_path)?;
     Ok(app_path)
 }

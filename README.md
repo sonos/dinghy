@@ -204,7 +204,7 @@ But once this is done, well, it works the same.
 
 ## Sending sources files to the devices
 
-Some tests are relying on the presence of files at relative places to be able
+Some tests are relying on the presence of files at relative paths to be able
 to proceed. But we can not always control where we will be executing from (we
 can not always do `cd someplace` before running the tests).
 
@@ -212,13 +212,10 @@ So, the tests are "bundled" in the following way:
 
 * root dinghy test directory
     * test_executable
-    * src/ mirrors the not-ignorable files from your sources
+    * recursive copy of the not-ignorable files and directories from your sources
     * test_data is contains configurable data to be sent to the device
         * some_file
         * some_dir
-
-So let's say your integration test is in `tests/test_1.rs` and uses `tests/data_1.txt`.
-It will be copied into `src/tests/data_1.txt`.
 
 Anything in .gitignore or .dinghyignore will not be bundled.
 
@@ -229,7 +226,7 @@ function:
 pub fn src_path() -> path::PathBuf {
     if cfg!(any(target_os = "ios", target_os = "android")) ||
        ::std::env::var("DINGHY").is_ok() {
-        ::std::env::current_exe().unwrap().parent().unwrap().join("src")
+        ::std::env::current_exe().unwrap().parent().unwrap()
     } else {
         path::PathBuf::from(".")
     }
