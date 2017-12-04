@@ -73,7 +73,9 @@ pub trait Toolchain: std::fmt::Debug + std::fmt::Display {
         self.setup_more_env(target)?;
         Ok(())
     }
-    fn setup_more_env(&self, _target: &str) -> Result<()> { Ok(()) }
+    fn setup_more_env(&self, _target: &str) -> Result<()> {
+        Ok(())
+    }
 }
 
 pub struct Dinghy {

@@ -1,6 +1,6 @@
 use std::{path, process};
 use errors::*;
-use {Device, PlatformManager,Toolchain};
+use {Device, PlatformManager, Toolchain};
 
 use config::SshDeviceConfiguration;
 
@@ -10,8 +10,7 @@ pub struct SshDevice {
     config: SshDeviceConfiguration,
 }
 
-impl SshDevice {
-}
+impl SshDevice {}
 
 impl Device for SshDevice {
     fn name(&self) -> &str {
@@ -24,7 +23,10 @@ impl Device for SshDevice {
         self.config.target.to_string()
     }
     fn toolchain(&self, _target: &str) -> Result<Box<Toolchain>> {
-        let tc = self.config.toolchain.as_ref().ok_or("Ssh target with no default configuration")?;
+        let tc = self.config
+            .toolchain
+            .as_ref()
+            .ok_or("Ssh target with no default configuration")?;
         ::regular_toolchain::RegularToolchain::new(tc)
     }
     fn start_remote_lldb(&self) -> Result<String> {
@@ -74,10 +76,13 @@ impl Device for SshDevice {
         if let Some(port) = self.config.port {
             command.arg(&*format!("ssh -p {}", port));
         };
-        command.arg(&*format!("{}/", app.to_str().unwrap()))
-                .arg(&*format!("{}:{}/", user_at_host, &*target_path));
+        command
+            .arg(&*format!("{}/", app.to_str().unwrap()))
+            .arg(&*format!("{}:{}/", user_at_host, &*target_path));
         if !log_enabled!(::log::LogLevel::Debug) {
-            command.stdout(::std::process::Stdio::null()).stderr(::std::process::Stdio::null());
+            command
+                .stdout(::std::process::Stdio::null())
+                .stderr(::std::process::Stdio::null());
         }
         if !command.status()?.success() {
             Err("error installing app")?
@@ -120,12 +125,15 @@ impl Device for SshDevice {
         if ::isatty::stdout_isatty() {
             command.arg("-t").arg("-o").arg("LogLevel=QUIET");
         }
-        command.arg(user_at_host).arg(&*format!(
-            "cd {:?} ; DINGHY=1 {} {}",
-            path,
-            envs.join(" "),
-            &exe.to_str().unwrap()
-        )).args(args);
+        command
+            .arg(user_at_host)
+            .arg(&*format!(
+                "cd {:?} ; DINGHY=1 {} {}",
+                path,
+                envs.join(" "),
+                &exe.to_str().unwrap()
+            ))
+            .args(args);
         let stat = command.status()?;
         if !stat.success() {
             Err("test fail.")?
@@ -147,17 +155,15 @@ impl SshDeviceManager {
 
 impl PlatformManager for SshDeviceManager {
     fn devices(&self) -> Result<Vec<Box<Device>>> {
-        Ok(
-            ::config::config(::std::env::current_dir().unwrap())?
-                .ssh_devices
-                .iter()
-                .map(|(k, d)| {
-                    Box::new(SshDevice {
-                        id: k.clone(),
-                        config: d.clone(),
-                    }) as _
-                })
-                .collect(),
-        )
+        Ok(::config::config(::std::env::current_dir().unwrap())?
+            .ssh_devices
+            .iter()
+            .map(|(k, d)| {
+                Box::new(SshDevice {
+                    id: k.clone(),
+                    config: d.clone(),
+                }) as _
+            })
+            .collect())
     }
 }

@@ -1,5 +1,5 @@
 use std::{env, fs, path};
-use std::process::{ Command, Stdio };
+use std::process::{Command, Stdio};
 
 use errors::*;
 use {Device, PlatformManager, Toolchain};
@@ -12,7 +12,7 @@ pub struct AndroidDevice {
 }
 
 impl AndroidDevice {
-    fn from_id(adb:String, id: &str) -> Result<AndroidDevice> {
+    fn from_id(adb: String, id: &str) -> Result<AndroidDevice> {
         let getprop_output = Command::new(&adb)
             .args(&["-s", id, "shell", "getprop", "ro.product.cpu.abilist"])
             .output()?;
@@ -155,7 +155,11 @@ impl Device for AndroidDevice {
             .arg("-s")
             .arg(&*self.id)
             .arg("shell")
-            .arg(&*format!("cd {:?}; DINGHY=1 {}", target_dir, envs.join(" ")))
+            .arg(&*format!(
+                "cd {:?}; DINGHY=1 {}",
+                target_dir,
+                envs.join(" ")
+            ))
             .arg(&*target_exe)
             .args(args)
             .status()?;
@@ -171,24 +175,33 @@ impl Device for AndroidDevice {
 
 fn adb() -> Result<String> {
     fn try_out(command: &str) -> bool {
-        match Command::new(command).arg("--version").stdout(Stdio::null()).status() {
+        match Command::new(command)
+            .arg("--version")
+            .stdout(Stdio::null())
+            .status()
+        {
             Ok(_) => true,
             Err(_) => false,
         }
-
     }
-    if try_out("fb_adb") { return Ok("fb-adb".into()) }
-    if try_out("adb") { return Ok("adb".into()) }
+    if try_out("fb_adb") {
+        return Ok("fb-adb".into());
+    }
+    if try_out("adb") {
+        return Ok("adb".into());
+    }
     if let Ok(home) = env::var("HOME") {
         let mac_place = format!("{}/Library/Android/sdk/platform-tools/adb", home);
         if try_out(&mac_place) {
-            return Ok(mac_place)
+            return Ok(mac_place);
         }
     }
     Err("Neither fb-adb or adb could be found")?
 }
 
-pub struct AndroidManager {adb: String}
+pub struct AndroidManager {
+    adb: String,
+}
 
 impl PlatformManager for AndroidManager {
     fn devices(&self) -> Result<Vec<Box<Device>>> {
@@ -231,7 +244,7 @@ fn toolchain(target: &str) -> Result<Box<Toolchain>> {
         for f in toolchain_path()?.read_dir()? {
             let f = f?;
             if f.file_name().to_string_lossy().starts_with(target) {
-                return Ok(::regular_toolchain::RegularToolchain::new(f.path())?)
+                return Ok(::regular_toolchain::RegularToolchain::new(f.path())?);
             }
         }
     }
@@ -249,7 +262,6 @@ pub struct AndroidNdk {
 }
 
 impl Toolchain for AndroidNdk {
-
     fn cc_command(&self, _target: &str) -> Result<String> {
         let gcc = self.prebuilt_dir
             .join("bin")
@@ -289,14 +301,21 @@ impl AndroidNdk {
         let api = env::var("ANDROID_API").unwrap_or(Self::default_api_for_arch(arch)?.into());
         let wanted_tc = toolchain_path()?.join(format!("{}_{}", toolchain, api));
 
-        warn!("Using ndk as a toolchain for: {}. This only works for pure rust builds.", device_target);
+        warn!(
+            "Using ndk as a toolchain for: {}. This only works for pure rust builds.",
+            device_target
+        );
         warn!("If your build has non-rust dependencies (like C or C++ libraries), consider building a standalone toolchain.");
         warn!("For instance:");
-        warn!("  python {:?} --arch {} --api {} --install-dir {:?}",
-              path::Path::new(&home).join("build").join("tools").join("make_standalone_toolchain.py"),
-              arch.split("-").last().unwrap(),
-              api.split("-").last().unwrap(),
-              wanted_tc
+        warn!(
+            "  python {:?} --arch {} --api {} --install-dir {:?}",
+            path::Path::new(&home)
+                .join("build")
+                .join("tools")
+                .join("make_standalone_toolchain.py"),
+            arch.split("-").last().unwrap(),
+            api.split("-").last().unwrap(),
+            wanted_tc
         );
 
         let prebuilt_dir = path::Path::new(&home)
@@ -339,13 +358,13 @@ impl AndroidNdk {
             "arch-x86" => "android-18",
             "arch-x86_64" => "android-21",
             _ => {
-                return Err(Error::from(
-                    format!("Unknown android arch {}", android_arch),
-                ))
+                return Err(Error::from(format!(
+                    "Unknown android arch {}",
+                    android_arch
+                )))
             }
         })
     }
-
 }
 
 impl ::std::fmt::Display for AndroidNdk {
