@@ -16,7 +16,7 @@ use core_foundation_sys::number::kCFBooleanTrue;
 
 mod mobiledevice_sys;
 use self::mobiledevice_sys::*;
-use {Device, PlatformManager, Toolchain};
+use {Device, PlatformManager, Platform};
 
 mod xcode;
 
@@ -89,7 +89,7 @@ impl Device for IosDevice {
         debug!("start lldb");
         Ok(format!("localhost:{}", proxy))
     }
-    fn toolchain(&self, _target: &str) -> Result<Box<Toolchain>> {
+    fn platform(&self, _target: &str) -> Result<Box<Platform>> {
         Ok(Box::new(IosToolchain { sim: false }))
     }
     fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
@@ -171,7 +171,7 @@ impl Device for IosSimDevice {
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
-    fn toolchain(&self, _target: &str) -> Result<Box<Toolchain>> {
+    fn platform(&self, _target: &str) -> Result<Box<Platform>> {
         Ok(Box::new(IosToolchain { sim: true }))
     }
     fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
@@ -240,7 +240,7 @@ pub struct IosToolchain {
     sim: bool,
 }
 
-impl Toolchain for IosToolchain {
+impl Platform for IosToolchain {
     fn cc_command(&self, _target: &str) -> Result<String> {
         Ok("cc".into())
     }

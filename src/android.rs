@@ -2,7 +2,7 @@ use std::{env, fs, path};
 use std::process::{Command, Stdio};
 
 use errors::*;
-use {Device, PlatformManager, Toolchain};
+use {Device, PlatformManager, Platform};
 
 #[derive(Debug, Clone)]
 pub struct AndroidDevice {
@@ -64,7 +64,7 @@ impl Device for AndroidDevice {
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
-    fn toolchain(&self, target: &str) -> Result<Box<Toolchain>> {
+    fn platform(&self, target: &str) -> Result<Box<Platform>> {
         toolchain(target)
     }
     fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
@@ -239,12 +239,12 @@ fn toolchain_path() -> Result<path::PathBuf> {
     Ok(user_home.join(".dinghy").join("android-toolchains"))
 }
 
-fn toolchain(target: &str) -> Result<Box<Toolchain>> {
+fn toolchain(target: &str) -> Result<Box<Platform>> {
     if toolchain_path()?.exists() {
         for f in toolchain_path()?.read_dir()? {
             let f = f?;
             if f.file_name().to_string_lossy().starts_with(target) {
-                return Ok(::regular_toolchain::RegularToolchain::new(f.path())?);
+                return Ok(::regular_platform::RegularPlatform::new(f.path())?);
             }
         }
     }
@@ -261,7 +261,7 @@ pub struct AndroidNdk {
     prebuilt_dir: path::PathBuf,
 }
 
-impl Toolchain for AndroidNdk {
+impl Platform for AndroidNdk {
     fn cc_command(&self, _target: &str) -> Result<String> {
         let gcc = self.prebuilt_dir
             .join("bin")
@@ -278,7 +278,7 @@ impl Toolchain for AndroidNdk {
 }
 
 impl AndroidNdk {
-    fn for_target(device_target: &str) -> Result<Box<Toolchain>> {
+    fn for_target(device_target: &str) -> Result<Box<Platform>> {
         if let Err(_) = env::var("ANDROID_NDK_HOME") {
             if let Some(home) = env::home_dir() {
                 let mac_place = home.join("Library/Android/sdk/ndk-bundle");
