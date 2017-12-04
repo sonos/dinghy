@@ -1,16 +1,20 @@
-use std::{path, process};
+use std::{path, process, sync};
 use errors::*;
 use {Device, PlatformManager, Platform};
 
-use config::SshDeviceConfiguration;
+use config::{ Configuration, SshDeviceConfiguration};
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct SshDevice {
     id: String,
-    config: SshDeviceConfiguration,
+    conf: sync::Arc<Configuration>,
 }
 
-impl SshDevice {}
+impl SshDevice {
+    fn ssh_config(&self) -> &SshDeviceConfiguration {
+        &self.conf.ssh_devices[&self.id]
+    }
+}
 
 impl Device for SshDevice {
     fn name(&self) -> &str {
@@ -19,11 +23,11 @@ impl Device for SshDevice {
     fn id(&self) -> &str {
         &*self.id
     }
-    fn target(&self) -> String {
-        self.config.target.to_string()
+    fn rustc_triple_guess(&self) -> Option<String> {
+        None
     }
-    fn platform(&self, _target: &str) -> Result<Box<Platform>> {
-        let tc = self.config
+    fn platform(&self) -> Result<Box<Platform>> {
+        let tc = self.ssh_config()
             .toolchain
             .as_ref()
             .ok_or("Ssh target with no default configuration")?;
@@ -36,9 +40,9 @@ impl Device for SshDevice {
         ::make_linux_app(source, exe)
     }
     fn install_app(&self, app: &path::Path) -> Result<()> {
-        let user_at_host = format!("{}@{}", self.config.username, self.config.hostname);
-        let prefix = self.config.path.clone().unwrap_or("/tmp".into());
-        let _stat = if let Some(port) = self.config.port {
+        let user_at_host = format!("{}@{}", self.ssh_config().username, self.ssh_config().hostname);
+        let prefix = self.ssh_config().path.clone().unwrap_or("/tmp".into());
+        let _stat = if let Some(port) = self.ssh_config().port {
             process::Command::new("ssh")
                 .args(&[
                     &*user_at_host,
@@ -73,7 +77,7 @@ impl Device for SshDevice {
         );
         let mut command = process::Command::new("/usr/bin/rsync");
         command.arg("-a").arg("-v");
-        if let Some(port) = self.config.port {
+        if let Some(port) = self.ssh_config().port {
             command.arg(&*format!("ssh -p {}", port));
         };
         command
@@ -90,11 +94,11 @@ impl Device for SshDevice {
         Ok(())
     }
     fn clean_app(&self, app_path: &path::Path) -> Result<()> {
-        let user_at_host = format!("{}@{}", self.config.username, self.config.hostname);
-        let prefix = self.config.path.clone().unwrap_or("/tmp".into());
+        let user_at_host = format!("{}@{}", self.ssh_config().username, self.ssh_config().hostname);
+        let prefix = self.ssh_config().path.clone().unwrap_or("/tmp".into());
         let app_name = app_path.file_name().unwrap();
         let path = path::PathBuf::from(prefix).join("dinghy").join(app_name);
-        let stat = if let Some(port) = self.config.port {
+        let stat = if let Some(port) = self.ssh_config().port {
             process::Command::new("ssh")
                 .arg(user_at_host)
                 .arg("-p")
@@ -113,13 +117,13 @@ impl Device for SshDevice {
         Ok(())
     }
     fn run_app(&self, app_path: &path::Path, args: &[&str], envs: &[&str]) -> Result<()> {
-        let user_at_host = format!("{}@{}", self.config.username, self.config.hostname);
-        let prefix = self.config.path.clone().unwrap_or("/tmp".into());
+        let user_at_host = format!("{}@{}", self.ssh_config().username, self.ssh_config().hostname);
+        let prefix = self.ssh_config().path.clone().unwrap_or("/tmp".into());
         let app_name = app_path.file_name().unwrap();
         let path = path::PathBuf::from(prefix).join("dinghy").join(app_name);
         let exe = path.join(&app_name);
         let mut command = process::Command::new("ssh");
-        if let Some(port) = self.config.port {
+        if let Some(port) = self.ssh_config().port {
             command.arg("-p").arg(&*format!("{}", port));
         }
         if ::isatty::stdout_isatty() {
@@ -145,23 +149,24 @@ impl Device for SshDevice {
     }
 }
 
-pub struct SshDeviceManager {}
+pub struct SshDeviceManager {
+    conf: sync::Arc<Configuration>
+}
 
 impl SshDeviceManager {
-    pub fn probe() -> Option<SshDeviceManager> {
-        Some(SshDeviceManager {})
+    pub fn probe(conf: sync::Arc<Configuration>) -> Option<SshDeviceManager> {
+        Some(SshDeviceManager {conf})
     }
 }
 
 impl PlatformManager for SshDeviceManager {
     fn devices(&self) -> Result<Vec<Box<Device>>> {
-        Ok(::config::config(::std::env::current_dir().unwrap())?
-            .ssh_devices
+        Ok(self.conf.ssh_devices
             .iter()
-            .map(|(k, d)| {
+            .map(|(k, _)| {
                 Box::new(SshDevice {
                     id: k.clone(),
-                    config: d.clone(),
+                    conf: self.conf.clone(),
                 }) as _
             })
             .collect())

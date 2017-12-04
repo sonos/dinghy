@@ -54,7 +54,6 @@ pub struct IosSimDevice {
 
 unsafe impl Send for IosDevice {}
 
-
 impl Device for IosDevice {
     fn name(&self) -> &str {
         &*self.name
@@ -62,14 +61,14 @@ impl Device for IosDevice {
     fn id(&self) -> &str {
         &*self.id
     }
-    fn target(&self) -> String {
-        format!("{}-apple-ios", self.arch_cpu)
+    fn rustc_triple_guess(&self) -> Option<String> {
+        Some(format!("{}-apple-ios", self.arch_cpu))
     }
     fn can_run(&self, target: &str) -> bool {
         if !target.ends_with("-apple-ios") {
             return false;
         }
-        if target == self.target() {
+        if Some(target) == self.rustc_triple_guess().as_ref().map(|a| &**a) {
             return true;
         }
         if target == "armv7-apple-ios" && (self.arch_cpu == "armv7s" || self.arch_cpu == "aarch64")
@@ -89,8 +88,8 @@ impl Device for IosDevice {
         debug!("start lldb");
         Ok(format!("localhost:{}", proxy))
     }
-    fn platform(&self, _target: &str) -> Result<Box<Platform>> {
-        Ok(Box::new(IosToolchain { sim: false }))
+    fn platform(&self, target_hint:Option<String>) -> Result<Box<Platform>> {
+        Ok(Box::new(IosToolchain { sim: false, rustc_triple: self.rustc_triple_guess().ok_or("")? }))
     }
     fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
         let signing = xcode::look_for_signature_settings(&*self.id)?
@@ -165,13 +164,13 @@ impl Device for IosSimDevice {
     fn id(&self) -> &str {
         &*self.id
     }
-    fn target(&self) -> String {
-        "x86_64-apple-ios".to_string()
+    fn rustc_triple_guess(&self) -> Option<String> {
+        Some("x86_64-apple-ios".to_string())
     }
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
-    fn platform(&self, _target: &str) -> Result<Box<Platform>> {
+    fn platform(&self) -> Result<Box<Platform>> {
         Ok(Box::new(IosToolchain { sim: true }))
     }
     fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
@@ -237,14 +236,21 @@ impl Device for IosSimDevice {
 
 #[derive(Debug)]
 pub struct IosToolchain {
+    rustc_triple: String,
     sim: bool,
 }
 
 impl Platform for IosToolchain {
-    fn cc_command(&self, _target: &str) -> Result<String> {
+    fn id(&self) -> String {
+        self.rustc_triple
+    }
+    fn rustc_triple(&self) -> Result<String> {
+        Ok(self.rustc_triple.clone())
+    }
+    fn cc_command(&self) -> Result<String> {
         Ok("cc".into())
     }
-    fn linker_command(&self, _target: &str) -> Result<String> {
+    fn linker_command(&self) -> Result<String> {
         let sdk_name = if self.sim {
             "iphonesimulator"
         } else {

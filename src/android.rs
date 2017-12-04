@@ -48,15 +48,14 @@ impl Device for AndroidDevice {
     fn id(&self) -> &str {
         &*self.id
     }
-    fn target(&self) -> String {
+    fn rustc_triple_guess(&self) -> Option<String> {
         // Prefer arm-linux-androideabi if valid because it's Tier 1
         self.supported_targets
             .iter()
             .filter(|&s| s == &"arm-linux-androideabi")
             .next()
             .or_else(|| self.supported_targets.get(0))
-            .unwrap_or(&"")
-            .to_string()
+            .map(|it| it.to_string())
     }
     fn can_run(&self, target: &str) -> bool {
         self.supported_targets.iter().any(|&t| t == target)
@@ -64,8 +63,9 @@ impl Device for AndroidDevice {
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
-    fn platform(&self, target: &str) -> Result<Box<Platform>> {
-        toolchain(target)
+    fn platform(&self) -> Result<Box<Platform>> {
+        let triple = self.rustc_triple_guess().ok_or("Could not guess an android platform")?;
+        toolchain(&triple)
     }
     fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
         use std::fs;
@@ -262,14 +262,20 @@ pub struct AndroidNdk {
 }
 
 impl Platform for AndroidNdk {
-    fn cc_command(&self, _target: &str) -> Result<String> {
+    fn id(&self) -> String {
+        format!("{}-linux-androideabi", self.arch)
+    }
+    fn rustc_triple(&self) -> Result<String> {
+        Ok(format!("{}-linux-androideabi", self.arch))
+    }
+    fn cc_command(&self) -> Result<String> {
         let gcc = self.prebuilt_dir
             .join("bin")
             .join(format!("{}-gcc", self.gcc_prefix));
         Ok(format!("{:?} {}", gcc, ::shim::GLOB_ARGS))
     }
 
-    fn linker_command(&self, _target: &str) -> Result<String> {
+    fn linker_command(&self) -> Result<String> {
         let gcc = self.prebuilt_dir
             .join("bin")
             .join(format!("{}-gcc", self.gcc_prefix));

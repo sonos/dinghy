@@ -4,14 +4,16 @@ use {Result, Platform};
 
 #[derive(Debug)]
 pub struct RegularPlatform {
+    id: String,
     root: path::PathBuf,
     bin: path::PathBuf,
+    rustc_triple: String,
     bin_prefix: String,
     sysroot: String,
 }
 
 impl RegularPlatform {
-    pub fn new<P: AsRef<path::Path>>(toolchain: P) -> Result<Box<Platform>> {
+    pub fn new<P: AsRef<path::Path>>(id:String, toolchain: P) -> Result<Box<Platform>> {
         let mut bin: Option<path::PathBuf> = None;
         let mut prefix: Option<String> = None;
         for file in toolchain.as_ref().join("bin").read_dir()? {
@@ -55,10 +57,16 @@ impl ::std::fmt::Display for RegularPlatform {
 }
 
 impl Platform for RegularPlatform {
-    fn cc_command(&self, _target: &str) -> Result<String> {
+    fn id(&self) -> String {
+        self.id
+    }
+    fn rustc_triple(&self) -> Result<String> {
+        Ok(self.rustc_triple)
+    }
+    fn cc_command(&self) -> Result<String> {
         Ok(format!("{} {}", self.binary("gcc"), ::shim::GLOB_ARGS))
     }
-    fn linker_command(&self, _target: &str) -> Result<String> {
+    fn linker_command(&self) -> Result<String> {
         Ok(format!(
             "{} --sysroot {} {}",
             self.binary("gcc"),
@@ -66,7 +74,7 @@ impl Platform for RegularPlatform {
             ::shim::GLOB_ARGS
         ))
     }
-    fn setup_more_env(&self, _target: &str) -> Result<()> {
+    fn setup_more_env(&self) -> Result<()> {
         env::set_var("TARGET_SYSROOT", &self.sysroot);
         env::set_var("TARGET_AR", &self.binary("ar"));
         Ok(())
