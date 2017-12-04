@@ -33,9 +33,9 @@ fn main() {
                     .help("Sets the level of verbosity"))
                 .arg(::clap::Arg::with_name("TOOLCHAIN")
                     .short("t")
-                    .long("toolchain")
+                    .long("platform")
                     .takes_value(true)
-                    .help("Use a specific toolchain (build only)"))
+                    .help("Use a specific platform (build only)"))
                 .subcommand(::clap::SubCommand::with_name("devices"))
                 .subcommand(::clap::SubCommand::with_name("test")
                     .arg(::clap::Arg::with_name("SPEC")
@@ -347,16 +347,16 @@ fn run(matches: clap::ArgMatches) -> Result<()> {
             } else if let Some(ref d) = dev {
                 d.target()
             } else {
-                Err("no toolchain nor device could be determined")?
+                Err("no platform nor device could be determined")?
             };
-            let toolchain = if let Some(tc) = matches.value_of("TOOLCHAIN") {
-                dinghy::regular_toolchain::RegularToolchain::new(tc)?
+            let platform = if let Some(tc) = matches.value_of("TOOLCHAIN") {
+                dinghy::regular_platform::RegularPlatform::new(tc)?
             } else if let Some(d) = dev {
-                d.toolchain(&target)?
+                d.platform(&target)?
             } else {
-                Err("no toolchain nor device could be determined")?
+                Err("no platform nor device could be determined")?
             };
-            build(&target, &*toolchain, cargo::ops::CompileMode::Build, subs)?;
+            build(&target, &*platform, cargo::ops::CompileMode::Build, subs)?;
             Ok(())
         }
         ("lldbproxy", Some(_matches)) => {
@@ -392,11 +392,11 @@ fn prepare_and_run(matches: &clap::ArgMatches, subcommand: &str, sub: &clap::Arg
         _ => cargo::ops::CompileMode::Build,
     };
     let tc = if let Some(tc) = matches.value_of("TOOLCHAIN") {
-        dinghy::regular_toolchain::RegularToolchain::new(tc)?
+        dinghy::regular_platform::RegularPlatform::new(tc)?
     } else {
-        d.toolchain(&target)?
+        d.platform(&target)?
     };
-    debug!("Toolchain {:?}", tc);
+    debug!("Platform {:?}", tc);
     let runnable = build(&*target, &*tc, mode, sub)?;
     let args = sub
         .values_of("ARGS")
@@ -435,11 +435,11 @@ fn prepare_and_run(matches: &clap::ArgMatches, subcommand: &str, sub: &clap::Arg
 
 fn build(
     target: &str,
-    toolchain: &dinghy::Toolchain,
+    platform: &dinghy::Platform,
     mode: cargo::ops::CompileMode,
     matches: &clap::ArgMatches,
 ) -> Result<Vec<Runnable>> {
-    info!("Building for target {} using {}", target, toolchain);
+    info!("Building for target {} using {}", target, platform);
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
     let cfg = cargo::util::config::Config::default()?;
     let features: Vec<String> = matches
@@ -448,7 +448,7 @@ fn build(
         .split(" ")
         .map(|s| s.into())
         .collect();
-    toolchain.setup_env(target)?;
+    platform.setup_env(target)?;
     cfg.configure(
         matches.occurrences_of("VERBOSE") as u32,
         None,

@@ -1,6 +1,6 @@
 use std::{path, process};
 use errors::*;
-use {Device, PlatformManager, Toolchain};
+use {Device, PlatformManager, Platform};
 
 use config::SshDeviceConfiguration;
 
@@ -22,12 +22,12 @@ impl Device for SshDevice {
     fn target(&self) -> String {
         self.config.target.to_string()
     }
-    fn toolchain(&self, _target: &str) -> Result<Box<Toolchain>> {
+    fn platform(&self, _target: &str) -> Result<Box<Platform>> {
         let tc = self.config
             .toolchain
             .as_ref()
             .ok_or("Ssh target with no default configuration")?;
-        ::regular_toolchain::RegularToolchain::new(tc)
+        ::regular_platform::RegularPlatform::new(tc)
     }
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
