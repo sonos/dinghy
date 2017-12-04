@@ -143,11 +143,12 @@ impl IosDevice {
             Some(Value::String(ref v)) if v == "arm64" => "aarch64",
             _ => "armv7",
         };
-        let id = if let Value::String(id) = rustify(unsafe { AMDeviceCopyDeviceIdentifier(ptr) })? {
-            id
-        } else {
-            Err("unexpected id format")?
-        };
+        let id =
+            if let Value::String(id) = rustify(unsafe { AMDeviceCopyDeviceIdentifier(ptr) })? {
+                id
+            } else {
+                Err("unexpected id format")?
+            };
         Ok(IosDevice {
             ptr: ptr,
             name: name,
@@ -244,7 +245,11 @@ impl Toolchain for IosToolchain {
         Ok("cc".into())
     }
     fn linker_command(&self, _target: &str) -> Result<String> {
-        let sdk_name = if self.sim { "iphonesimulator" } else { "iphoneos" };
+        let sdk_name = if self.sim {
+            "iphonesimulator"
+        } else {
+            "iphoneos"
+        };
         let xcrun = process::Command::new("xcrun")
             .args(&["--sdk", sdk_name, "--show-sdk-path"])
             .output()?;
@@ -334,13 +339,11 @@ impl PlatformManager for IosManager {
             }
         }
         let devices = self.devices.lock().map_err(|_| "poisoned lock")?;
-        Ok(
-            devices
-                .iter()
-                .map(|d| Box::new(d.clone()) as Box<Device>)
-                .chain(sims.into_iter())
-                .collect(),
-        )
+        Ok(devices
+            .iter()
+            .map(|d| Box::new(d.clone()) as Box<Device>)
+            .chain(sims.into_iter())
+            .collect())
     }
 }
 
