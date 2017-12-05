@@ -87,6 +87,7 @@ struct ConfigurationFileContent {
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct PlatformConfiguration {
+    pub rustc_triple: Option<String>,
     pub toolchain: Option<String>,
     pub sysroot: Option<String>,
 }
@@ -99,6 +100,7 @@ pub struct SshDeviceConfiguration {
     pub path: Option<String>,
     pub target: Option<String>,
     pub toolchain: Option<String>,
+    pub platform: Option<String>,
 }
 
 impl Configuration {

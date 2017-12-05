@@ -27,11 +27,18 @@ impl Device for SshDevice {
         None
     }
     fn platform(&self) -> Result<Box<Platform>> {
-        let tc = self.ssh_config()
-            .toolchain
-            .as_ref()
-            .ok_or("Ssh target with no default configuration")?;
-        ::regular_platform::RegularPlatform::new(tc)
+        debug!("building platform for {:?}", self);
+        match self.ssh_config().platform {
+            Some(ref pf_name) => {
+            let pf = &self.conf.platforms.get(pf_name).ok_or(format!("platform {} not found", pf_name))?;
+            ::regular_platform::RegularPlatform::new(self.id.clone(), pf.rustc_triple.clone().unwrap(), pf.toolchain.clone().unwrap())
+            },
+            None => {
+                let tc = self.ssh_config().toolchain.clone().ok_or(format!("device {} has neither platform nor toolchain specified", self.name()))?;
+                let target = self.ssh_config().target.clone().ok_or(format!("device {} has neither platform nor target specified", self.name()))?;
+                ::regular_platform::RegularPlatform::new(self.id.clone(), target, tc)
+            }
+        }
     }
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()

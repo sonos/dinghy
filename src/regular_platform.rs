@@ -13,7 +13,7 @@ pub struct RegularPlatform {
 }
 
 impl RegularPlatform {
-    pub fn new<P: AsRef<path::Path>>(id:String, toolchain: P) -> Result<Box<Platform>> {
+    pub fn new<P: AsRef<path::Path>>(id:String, rustc_triple:String, toolchain: P) -> Result<Box<Platform>> {
         let mut bin: Option<path::PathBuf> = None;
         let mut prefix: Option<String> = None;
         for file in toolchain.as_ref().join("bin").read_dir()? {
@@ -35,8 +35,10 @@ impl RegularPlatform {
         let bin_prefix = prefix.ok_or("no gcc in toolchain")?.to_string();
         let sysroot = sysroot_in_toolchain(&toolchain)?;
         Ok(Box::new(RegularPlatform {
+            id,
             root: toolchain.as_ref().into(),
             bin,
+            rustc_triple,
             bin_prefix,
             sysroot,
         }))
@@ -58,10 +60,10 @@ impl ::std::fmt::Display for RegularPlatform {
 
 impl Platform for RegularPlatform {
     fn id(&self) -> String {
-        self.id
+        self.id.clone()
     }
     fn rustc_triple(&self) -> Result<String> {
-        Ok(self.rustc_triple)
+        Ok(self.rustc_triple.to_string())
     }
     fn cc_command(&self) -> Result<String> {
         Ok(format!("{} {}", self.binary("gcc"), ::shim::GLOB_ARGS))

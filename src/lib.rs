@@ -61,23 +61,24 @@ pub trait Device: std::fmt::Debug {
     fn debug_app(&self, app: &path::Path, args: &[&str], envs: &[&str]) -> Result<()>;
 }
 
-pub trait Platform {
+pub trait Platform : std::fmt::Debug {
     fn id(&self) -> String;
     fn cc_command(&self) -> Result<String>;
     fn linker_command(&self) -> Result<String>;
     fn rustc_triple(&self) -> Result<String>;
     fn setup_env(&self) -> Result<()> {
-        debug!("setup environment for cargo build");
+        debug!("setup environment for cargo build ({:?})", self);
         let triple = self.rustc_triple()?;
         let var_name = format!(
             "CARGO_TARGET_{}_LINKER",
             triple.replace("-", "_").to_uppercase()
         );
-        debug!("linker?");
         debug!("linker: {:?}", self.linker_command()?);
         shim::setup_shim(&triple, &self.id(), &var_name, "linker", &self.linker_command()?)?;
         shim::setup_shim(&triple, &self.id(), "TARGET_CC", "cc", &self.cc_command()?)?;
+        debug!("setup more env");
         self.setup_more_env()?;
+        debug!("done setup env");
         Ok(())
     }
     fn setup_more_env(&self) -> Result<()> {
