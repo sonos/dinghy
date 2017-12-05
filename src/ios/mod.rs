@@ -88,7 +88,7 @@ impl Device for IosDevice {
         debug!("start lldb");
         Ok(format!("localhost:{}", proxy))
     }
-    fn platform(&self, target_hint:Option<String>) -> Result<Box<Platform>> {
+    fn platform(&self) -> Result<Box<Platform>> {
         Ok(Box::new(IosToolchain { sim: false, rustc_triple: self.rustc_triple_guess().ok_or("")? }))
     }
     fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
@@ -171,7 +171,7 @@ impl Device for IosSimDevice {
         unimplemented!()
     }
     fn platform(&self) -> Result<Box<Platform>> {
-        Ok(Box::new(IosToolchain { sim: true }))
+        Ok(Box::new(IosToolchain { sim: true, rustc_triple: self.rustc_triple_guess().unwrap() }))
     }
     fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
         let name = exe.file_name().expect("root ?");
@@ -242,7 +242,7 @@ pub struct IosToolchain {
 
 impl Platform for IosToolchain {
     fn id(&self) -> String {
-        self.rustc_triple
+        self.rustc_triple.to_string()
     }
     fn rustc_triple(&self) -> Result<String> {
         Ok(self.rustc_triple.clone())
@@ -510,15 +510,11 @@ struct Session(*const am_device);
 
 fn ensure_session(dev: *const am_device) -> Result<Session> {
     unsafe {
-        debug!("ensure session 1");
         mk_result(AMDeviceConnect(dev))?;
-        debug!("ensure session 1.4");
         if AMDeviceIsPaired(dev) == 0 {
             Err("lost pairing")?
         };
-        debug!("ensure session 2");
         mk_result(AMDeviceValidatePairing(dev))?;
-        debug!("ensure session 3");
         mk_result(AMDeviceStartSession(dev))?;
         Ok(Session(dev))
         // debug!("ensure session 4 ({:x})", rv);

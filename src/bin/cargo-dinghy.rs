@@ -11,6 +11,8 @@ use std::{env, path, thread, time};
 use cargo::util::important_paths::find_root_manifest_for_wd;
 
 use dinghy::errors::*;
+use dinghy::config::Configuration;
+use dinghy::regular_platform::RegularPlatform;
 
 fn main() {
     let filtered_env = ::std::env::args()
@@ -290,7 +292,7 @@ fn main() {
             1 => "info",
             _ => "debug",
         };
-        ::std::env::set_var("RUST_LOG", format!("{},cargo=error", dinghy_verbosity));
+        ::std::env::set_var("RUST_LOG", format!("{},cargo=error,cargo_dinghy={}", dinghy_verbosity, dinghy_verbosity));
     };
     pretty_env_logger::init().unwrap();
 
@@ -323,25 +325,44 @@ fn maybe_device_from_cli(matches: &clap::ArgMatches) -> Result<Option<Box<dinghy
     }
 }
 
-fn device_from_cli(matches: &clap::ArgMatches) -> Result<Box<dinghy::Device>> {
+fn device_from_cli(
+    _conf: &Configuration,
+    matches: &clap::ArgMatches,
+) -> Result<Box<dinghy::Device>> {
     Ok(maybe_device_from_cli(matches)?.ok_or("No device found")?)
 }
 
-fn default_platform_from_cli(matches: &clap::ArgMatches) -> Result<Box<dinghy::Platform>> {
-    if let Some(tc) = matches.value_of("PLATFORM") {
-        return dinghy::regular_platform::RegularPlatform::new(tc)
+fn default_platform_from_cli(
+    conf: &Configuration,
+    matches: &clap::ArgMatches,
+) -> Result<Box<dinghy::Platform>> {
+    if let Some(pf) = matches.value_of("PLATFORM") {
+        let cf = conf.platforms
+            .get(pf)
+            .ok_or(format!("platform {} not found in conf", pf))?;
+        return RegularPlatform::new(
+            pf.to_string(),
+            cf.rustc_triple.clone().unwrap(),
+            cf.toolchain.clone().unwrap(),
+        );
     }
     if let Some(dev) = maybe_device_from_cli(matches)? {
-        return dev.platform()
+        return dev.platform();
     }
     Err("Could not guess a platform")?
 }
 
-fn platform_from_cli(matches: &clap::ArgMatches) -> Result<Box<dinghy::Platform>> {
-    default_platform_from_cli(matches)
+fn platform_from_cli(
+    conf: &Configuration,
+    matches: &clap::ArgMatches,
+) -> Result<Box<dinghy::Platform>> {
+    default_platform_from_cli(conf, matches)
 }
 
 fn run(matches: clap::ArgMatches) -> Result<()> {
+    debug!("0");
+    let conf = ::dinghy::config::config(::std::env::current_dir().unwrap())?;
+
     match matches.subcommand() {
         ("devices", Some(_matches)) => {
             let dinghy = dinghy::Dinghy::probe()?;
@@ -352,16 +373,16 @@ fn run(matches: clap::ArgMatches) -> Result<()> {
             }
             Ok(())
         }
-        ("run", Some(subs)) => prepare_and_run(&matches, "run", subs),
-        ("test", Some(subs)) => prepare_and_run(&matches, "test", subs),
-        ("bench", Some(subs)) => prepare_and_run(&matches, "bench", subs),
+        ("run", Some(subs)) => prepare_and_run(&conf, &matches, "run", subs),
+        ("test", Some(subs)) => prepare_and_run(&conf, &matches, "test", subs),
+        ("bench", Some(subs)) => prepare_and_run(&conf, &matches, "bench", subs),
         ("build", Some(subs)) => {
-            let pf = platform_from_cli(&matches)?;
-            build(pf, cargo::ops::CompileMode::Build, subs)?;
+            let pf = platform_from_cli(&conf, &matches)?;
+            build(&*pf, cargo::ops::CompileMode::Build, subs)?;
             Ok(())
         }
         ("lldbproxy", Some(_matches)) => {
-            let lldb = device_from_cli(&matches)?.start_remote_lldb()?;
+            let lldb = device_from_cli(&conf, &matches)?.start_remote_lldb()?;
             println!("lldb running at: {}", lldb);
             loop {
                 thread::sleep(time::Duration::from_millis(100));
@@ -378,29 +399,25 @@ struct Runnable {
     source: path::PathBuf,
 }
 
-fn prepare_and_run(matches: &clap::ArgMatches, subcommand: &str, sub: &clap::ArgMatches) -> Result<()> {
-    let d = device_from_cli(&matches)?;
-    let target = sub
-        .value_of("TARGET")
-        .map(|s| s.into())
-        .unwrap_or(d.target());
-    if !d.can_run(&*target) {
-        Err(format!("device {:?} can not run target {}", d, target))?;
-    }
+fn prepare_and_run(
+    conf: &Configuration,
+    matches: &clap::ArgMatches,
+    subcommand: &str,
+    sub: &clap::ArgMatches,
+) -> Result<()> {
+    let d = device_from_cli(&conf, &matches)?;
     let mode = match subcommand {
         "test" => cargo::ops::CompileMode::Test,
         "bench" => cargo::ops::CompileMode::Bench,
         _ => cargo::ops::CompileMode::Build,
     };
-    let pf = platform_from_cli(&matches)?;
+    let pf = platform_from_cli(conf, matches)?;
     debug!("Platform {:?}", pf);
-    let runnable = build(pf, mode, sub)?;
-    let args = sub
-        .values_of("ARGS")
+    let runnable = build(&*pf, mode, sub)?;
+    let args = sub.values_of("ARGS")
         .map(|vs| vs.map(|s| s.to_string()).collect())
         .unwrap_or(vec![]);
-    let envs = sub
-        .values_of("ENVS")
+    let envs = sub.values_of("ENVS")
         .map(|vs| vs.map(|s| s.to_string()).collect())
         .unwrap_or(vec![]);
     for t in runnable {
@@ -431,11 +448,11 @@ fn prepare_and_run(matches: &clap::ArgMatches, subcommand: &str, sub: &clap::Arg
 
 
 fn build(
-    platform: &dinghy::Platform,
+    pf: &dinghy::Platform,
     mode: cargo::ops::CompileMode,
     matches: &clap::ArgMatches,
 ) -> Result<Vec<Runnable>> {
-    info!("Building for platform {}", platform);
+    info!("Building for platform {:?}", pf);
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
     let cfg = cargo::util::config::Config::default()?;
     let features: Vec<String> = matches
@@ -444,7 +461,7 @@ fn build(
         .split(" ")
         .map(|s| s.into())
         .collect();
-    platform.setup_env()?;
+    pf.setup_env()?;
     cfg.configure(
         matches.occurrences_of("VERBOSE") as u32,
         None,
@@ -497,10 +514,12 @@ fn build(
         &packages,
     )?;
 
+    let triple = pf.rustc_triple()?;
+    debug!("rustc target triple: {}", triple);
     let options = cargo::ops::CompileOptions {
         config: &cfg,
         jobs: None,
-        target: Some(&*target),
+        target: Some(&triple),
         features: &*features,
         all_features: matches.is_present("ALL_FEATURES"),
         no_default_features: matches.is_present("NO_DEFAULT_FEATURES"),
@@ -514,33 +533,29 @@ fn build(
     };
     let compilation = cargo::ops::compile(&wd, &options)?;
     if mode == cargo::ops::CompileMode::Build {
-        Ok(
-            compilation
-                .binaries
-                .into_iter()
-                .take(1)
-                .map(|t| {
-                    Runnable {
-                        name: "main".into(),
-                        exe: t,
-                        source: path::PathBuf::from("."),
-                    }
-                })
-                .collect::<Vec<_>>(),
-        )
+        Ok(compilation
+            .binaries
+            .into_iter()
+            .take(1)
+            .map(|t| {
+                Runnable {
+                    name: "main".into(),
+                    exe: t,
+                    source: path::PathBuf::from("."),
+                }
+            })
+            .collect::<Vec<_>>())
     } else {
-        Ok(
-            compilation
-                .tests
-                .into_iter()
-                .map(|(pkg, _, name, exe)| {
-                    Runnable {
-                        name: name,
-                        source: pkg.root().to_path_buf(),
-                        exe: exe,
-                    }
-                })
-                .collect::<Vec<_>>(),
-        )
+        Ok(compilation
+            .tests
+            .into_iter()
+            .map(|(pkg, _, name, exe)| {
+                Runnable {
+                    name: name,
+                    source: pkg.root().to_path_buf(),
+                    exe: exe,
+                }
+            })
+            .collect::<Vec<_>>())
     }
 }
