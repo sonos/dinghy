@@ -8,7 +8,7 @@ pub struct RegularPlatform {
     root: path::PathBuf,
     bin: path::PathBuf,
     rustc_triple: String,
-    bin_prefix: String,
+    tc_triple: String,
     sysroot: String,
 }
 
@@ -32,21 +32,21 @@ impl RegularPlatform {
             }
         }
         let bin = bin.ok_or("no bin/*-gcc found in toolchain")?;
-        let bin_prefix = prefix.ok_or("no gcc in toolchain")?.to_string();
+        let tc_triple = prefix.ok_or("no gcc in toolchain")?.to_string();
         let sysroot = sysroot_in_toolchain(&toolchain)?;
         Ok(Box::new(RegularPlatform {
             id,
             root: toolchain.as_ref().into(),
             bin,
             rustc_triple,
-            bin_prefix,
+            tc_triple,
             sysroot,
         }))
     }
 
     fn binary(&self, name: &str) -> String {
         self.bin
-            .join(format!("{}-{}", self.bin_prefix, name))
+            .join(format!("{}-{}", self.tc_triple, name))
             .to_string_lossy()
             .into()
     }
@@ -77,6 +77,17 @@ impl Platform for RegularPlatform {
         ))
     }
     fn setup_more_env(&self) -> Result<()> {
+        let wd_path = ::cargo::util::important_paths::find_root_manifest_for_wd(None, &env::current_dir()?)?;
+        let root = wd_path.parent().ok_or("building at / ?")?;
+        let path = env::var("PATH").unwrap();
+        let shims_path = root.join("target").join(&self.rustc_triple).join(&self.id);
+        env::set_var("PATH", format!("{}:{}", path, shims_path.to_string_lossy()));
+        for exe in self.bin.read_dir()? {
+            let exe = exe?;
+            let rustified_exe = &exe.file_name().to_string_lossy().replace(&self.tc_triple, &self.rustc_triple);
+            println!("toolchain: {} -> {}", exe.path().to_string_lossy(), rustified_exe);
+            ::shim::create_shim(root, &self.rustc_triple, &self.id, rustified_exe, &format!("{} {}", exe.path().to_string_lossy(), ::shim::GLOB_ARGS))?;
+        }
         env::set_var("TARGET_SYSROOT", &self.sysroot);
         env::set_var("TARGET_AR", &self.binary("ar"));
         Ok(())

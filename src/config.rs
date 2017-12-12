@@ -90,6 +90,13 @@ pub struct PlatformConfiguration {
     pub rustc_triple: Option<String>,
     pub toolchain: Option<String>,
     pub sysroot: Option<String>,
+    pub overlays: collections::HashMap<String,OverlayConfiguration>
+}
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct OverlayConfiguration {
+    pub path: String,
+    pub provider: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -105,6 +112,9 @@ pub struct SshDeviceConfiguration {
 
 impl Configuration {
     fn merge(&mut self, file: &path::Path, other: ConfigurationFileContent) {
+        if let Some(pfs) = other.platforms {
+            self.platforms.extend(pfs)
+        }
         self.ssh_devices
             .extend(other.ssh_devices.unwrap_or(collections::BTreeMap::new()));
         for (target, source) in other.test_data.unwrap_or(collections::BTreeMap::new()) {

@@ -59,6 +59,11 @@ fn main() {
                         .long("target")
                         .takes_value(true)
                         .help("target triple (rust conventions)"))
+                    .arg(::clap::Arg::with_name("JOBS")
+                        .long("jobs")
+                        .short("j")
+                        .takes_value(true)
+                        .help("number of concurrent jobs"))
                     .arg(::clap::Arg::with_name("ALL")
                          .long("all")
                          .help("Test all packages in the workspace"))
@@ -127,6 +132,11 @@ fn main() {
                         .long("verbose")
                         .multiple(true)
                         .help("Use verbose output"))
+                    .arg(::clap::Arg::with_name("JOBS")
+                        .long("jobs")
+                        .short("j")
+                        .takes_value(true)
+                        .help("number of concurrent jobs"))
                     .arg(::clap::Arg::with_name("BIN")
                         .long("bin")
                         .takes_value(true)
@@ -168,6 +178,11 @@ fn main() {
                         .long("debugger")
                         .takes_value(false)
                         .help("just start debugger"))
+                    .arg(::clap::Arg::with_name("JOBS")
+                        .long("jobs")
+                        .short("j")
+                        .takes_value(true)
+                        .help("number of concurrent jobs"))
                     .arg(::clap::Arg::with_name("CLEANUP")
                         .long("cleanup")
                         .takes_value(false)
@@ -237,6 +252,11 @@ fn main() {
                         .long("target")
                         .takes_value(true)
                         .help("target triple (rust conventions)"))
+                    .arg(::clap::Arg::with_name("JOBS")
+                        .long("jobs")
+                        .short("j")
+                        .takes_value(true)
+                        .help("number of concurrent jobs"))
                     .arg(::clap::Arg::with_name("ALL")
                          .long("all")
                          .help("Build all packages in the workspace"))
@@ -292,7 +312,7 @@ fn main() {
             1 => "info",
             _ => "debug",
         };
-        ::std::env::set_var("RUST_LOG", format!("{},cargo=error,cargo_dinghy={}", dinghy_verbosity, dinghy_verbosity));
+        ::std::env::set_var("RUST_LOG", format!("cargo_dinghy={},dinghy={}", dinghy_verbosity, dinghy_verbosity));
     };
     pretty_env_logger::init().unwrap();
 
@@ -337,6 +357,7 @@ fn default_platform_from_cli(
     matches: &clap::ArgMatches,
 ) -> Result<Box<dinghy::Platform>> {
     if let Some(pf) = matches.value_of("PLATFORM") {
+        println!("platforms: {:?}", conf.platforms);
         let cf = conf.platforms
             .get(pf)
             .ok_or(format!("platform {} not found in conf", pf))?;
@@ -487,6 +508,9 @@ fn build(
         .values_of("BENCH")
         .map(|vs| vs.map(|s| s.to_string()).collect())
         .unwrap_or(vec![]);
+    let jobs = matches
+        .value_of("JOBS")
+        .map(|v| v.parse().unwrap());
     let filter = cargo::ops::CompileFilter::new(
         matches.is_present("LIB"),
         &bins,
@@ -518,7 +542,7 @@ fn build(
     debug!("rustc target triple: {}", triple);
     let options = cargo::ops::CompileOptions {
         config: &cfg,
-        jobs: None,
+        jobs,
         target: Some(&triple),
         features: &*features,
         all_features: matches.is_present("ALL_FEATURES"),
