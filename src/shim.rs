@@ -21,7 +21,7 @@ pub fn setup_shim(rustc_triple: &str, id: &str, var: &str, name: &str, shell: &s
     Ok(())
 }
 
-fn create_shim<P: AsRef<path::Path>>(
+pub fn create_shim<P: AsRef<path::Path>>(
     root: P,
     rustc_triple: &str,
     id: &str,
