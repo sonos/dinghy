@@ -34,7 +34,6 @@ fn main() {
                     .multiple(true)
                     .help("Sets the level of verbosity"))
                 .arg(::clap::Arg::with_name("PLATFORM")
-                    .short("t")
                     .long("platform")
                     .takes_value(true)
                     .help("Use a specific platform (build only)"))
