@@ -7,6 +7,7 @@ extern crate core_foundation_sys;
 extern crate error_chain;
 extern crate ignore;
 extern crate isatty;
+extern crate itertools;
 extern crate json;
 #[cfg(target_os = "macos")]
 extern crate libc;
@@ -20,6 +21,7 @@ extern crate serde_derive;
 #[cfg(target_os = "macos")]
 extern crate tempdir;
 extern crate toml;
+extern crate walkdir;
 
 #[cfg(target_os = "macos")]
 pub mod ios;

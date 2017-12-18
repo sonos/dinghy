@@ -1,6 +1,8 @@
 use std::{env, path};
 
 use {Result, Platform};
+use itertools::Itertools;
+use walkdir::WalkDir;
 
 #[derive(Debug)]
 pub struct RegularPlatform {
@@ -81,6 +83,7 @@ impl Platform for RegularPlatform {
         let root = wd_path.parent().ok_or("building at / ?")?;
         let path = env::var("PATH").unwrap();
         let shims_path = root.join("target").join(&self.rustc_triple).join(&self.id);
+
         env::set_var("PATH", format!("{}:{}", path, shims_path.to_string_lossy()));
         for exe in self.bin.read_dir()? {
             let exe = exe?;
@@ -88,8 +91,16 @@ impl Platform for RegularPlatform {
             println!("toolchain: {} -> {}", exe.path().to_string_lossy(), rustified_exe);
             ::shim::create_shim(root, &self.rustc_triple, &self.id, rustified_exe, &format!("{} {}", exe.path().to_string_lossy(), ::shim::GLOB_ARGS))?;
         }
-        env::set_var("TARGET_SYSROOT", &self.sysroot);
+        env::set_var("TARGET_SYSROOT", &self.sysroot.clone());
         env::set_var("TARGET_AR", &self.binary("ar"));
+        env::set_var("PKG_CONFIG_ALLOW_CROSS", "1");
+        env::set_var("PKG_CONFIG_LIBDIR", WalkDir::new(self.root.to_string_lossy().as_ref())
+            .into_iter()
+            .filter_map(|e| e.ok()) // Ignore unreadable files, maybe could warn...
+            .filter(|e| e.file_name() == "pkgconfig" && e.file_type().is_dir())
+            .map(|e| e.path().to_string_lossy().into_owned())
+            .join(":"));
+        env::set_var("PKG_CONFIG_SYSROOT_DIR", &self.sysroot.clone());
         Ok(())
     }
 }
