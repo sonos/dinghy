@@ -15,102 +15,171 @@ use dinghy::config::Configuration;
 use dinghy::regular_platform::RegularPlatform;
 
 trait SnipsClapExt {
-    fn define_additional_args(self) -> Self;
-    fn define_build_args(self) -> Self;
-    fn define_common_args(self) -> Self;
-    fn define_multi_target_args(self) -> Self;
-    fn define_remote_args(self) -> Self;
+    fn additional_args(self) -> Self;
+    fn all(self) -> Self;
+    fn all_features(self) -> Self;
+    fn bin(self) -> Self;
+    fn bench(self) -> Self;
+    fn common_remote(self) -> Self;
+    fn device(self) -> Self;
+    fn example(self) -> Self;
+    fn exclude(self) -> Self;
+    fn features(self) -> Self;
+    fn job(self) -> Self;
+    fn lib(self) -> Self;
+    fn no_default_features(self) -> Self;
+    fn package(self) -> Self;
+    fn platform(self) -> Self;
+    fn release(self) -> Self;
+    fn target(self) -> Self;
+    fn test(self) -> Self;
+    fn verbose(self) -> Self;
 }
 
 impl<'a, 'b> SnipsClapExt for clap::App<'a, 'b> {
-    fn define_additional_args(self) -> Self {
-        self.arg(::clap::Arg::with_name("ARGS").multiple(true).help("test arguments"))
+    fn additional_args(self) -> Self {
+        self.arg(::clap::Arg::with_name("ARGS")
+            .multiple(true)
+            .help("test arguments"))
     }
 
-    fn define_build_args(self) -> Self {
-        self.arg(::clap::Arg::with_name("LIB").long("lib").help("only the library"))
-    }
-
-    fn define_common_args(self) -> Self {
-        self.arg(::clap::Arg::with_name("ALL_FEATURES")
-            .long("all-features")
-            .help("Build all available features"))
-            .arg(::clap::Arg::with_name("BIN")
-                .long("bin")
-                .takes_value(true)
-                .help("only the specified binary"))
-            .arg(::clap::Arg::with_name("EXAMPLE")
-                .long("example")
-                .takes_value(true)
-                .help("only the specified example"))
-            .arg(::clap::Arg::with_name("FEATURES")
-                .long("features")
-                .takes_value(true)
-                .help("Space-separated list of features to also build"))
-            .arg(::clap::Arg::with_name("JOBS")
-                .long("jobs")
-                .short("j")
-                .takes_value(true)
-                .help("number of concurrent jobs"))
-            .arg(::clap::Arg::with_name("NO_DEFAULT_FEATURES")
-                .long("no-default-features")
-                .help("Do not build the `default` feature"))
-            // Not used for bench but I don't care
-            .arg(::clap::Arg::with_name("RELEASE")
-                .long("release")
-                .help("Build artifacts in release mode, with optimizations"))
-            .arg(::clap::Arg::with_name("SPEC")
-                .short("p")
-                .long("package")
-                .takes_value(true)
-                .multiple(true)
-                .number_of_values(1)
-                .help("Package to bench, build, run or test"))
-            .arg(::clap::Arg::with_name("TARGET")
-                .long("target")
-                .takes_value(true)
-                .help("target triple (rust conventions)"))
-            .arg(::clap::Arg::with_name("VERBOSE")
-                .short("v")
-                .long("verbose")
-                .multiple(true)
-                .help("Use verbose output"))
-    }
-
-    fn define_multi_target_args(self) -> Self {
+    fn all(self) -> Self {
         self.arg(::clap::Arg::with_name("ALL")
             .long("all")
             .help("Build all packages in the workspace"))
-            .arg(::clap::Arg::with_name("BENCH")
-                .long("bench")
-                .takes_value(true)
-                .help("only the specified benchmark target"))
-            .arg(::clap::Arg::with_name("EXCLUDE")
-                .long("exclude")
-                .takes_value(true)
-                .multiple(true)
-                .number_of_values(1)
-                .help("Exclude package to from the build"))
-            .arg(::clap::Arg::with_name("TEST")
-                .long("test")
-                .takes_value(true)
-                .help("only the specified integration test target"))
     }
 
-    fn define_remote_args(self) -> Self {
-        self.arg(::clap::Arg::with_name("CLEANUP")
-            .long("cleanup")
-            .takes_value(false)
-            .help("cleanup device after complete"))
+    fn all_features(self) -> Self {
+        self.arg(::clap::Arg::with_name("ALL_FEATURES")
+            .long("all-features")
+            .help("Build all available features"))
+    }
+
+    fn bench(self) -> Self {
+        self.arg(::clap::Arg::with_name("BENCH")
+            .long("bench")
+            .takes_value(true)
+            .help("only the specified benchmark target"))
+    }
+
+    fn bin(self) -> Self {
+        self.arg(::clap::Arg::with_name("BIN")
+            .long("bin")
+            .takes_value(true)
+            .help("only the specified binary"))
+    }
+
+    fn common_remote(self) -> Self {
+        self
+            .arg(::clap::Arg::with_name("CLEANUP")
+                .long("cleanup")
+                .takes_value(false)
+                .help("cleanup device after complete"))
             .arg(::clap::Arg::with_name("DEBUGGER")
                 .long("debugger")
                 .takes_value(false)
                 .help("just start debugger"))
             .arg(::clap::Arg::with_name("ENVS")
-                     .long("env")
-                     .takes_value(true)
-                     .multiple(true)
-                     .help("Space-separated list of env variables to set e.g. RUST_TRACE=trace"))
+                .long("env")
+                .takes_value(true)
+                .multiple(true)
+                .help("Space-separated list of env variables to set e.g. RUST_TRACE=trace"))
+    }
+
+    fn device(self) -> Self {
+        self.arg(::clap::Arg::with_name("DEVICE")
+            .short("d")
+            .long("device")
+            .takes_value(true)
+            .help("device hint"))
+    }
+
+    fn example(self) -> Self {
+        self.arg(::clap::Arg::with_name("EXAMPLE")
+            .long("example")
+            .takes_value(true)
+            .help("only the specified example"))
+    }
+
+    fn exclude(self) -> Self {
+        self.arg(::clap::Arg::with_name("EXCLUDE")
+            .long("exclude")
+            .takes_value(true)
+            .multiple(true)
+            .number_of_values(1)
+            .help("Exclude package to from the build"))
+    }
+
+    fn features(self) -> Self {
+        self.arg(::clap::Arg::with_name("FEATURES")
+            .long("features")
+            .takes_value(true)
+            .help("Space-separated list of features to also build"))
+    }
+
+    fn job(self) -> Self {
+        self.arg(::clap::Arg::with_name("JOBS")
+            .long("jobs")
+            .short("j")
+            .takes_value(true)
+            .help("number of concurrent jobs"))
+    }
+
+    fn lib(self) -> Self {
+        self.arg(::clap::Arg::with_name("LIB")
+            .long("lib")
+            .help("only the library"))
+    }
+
+    fn no_default_features(self) -> Self {
+        self.arg(::clap::Arg::with_name("NO_DEFAULT_FEATURES")
+            .long("no-default-features")
+            .help("Do not build the `default` feature"))
+    }
+
+    fn package(self) -> Self {
+        self.arg(::clap::Arg::with_name("SPEC")
+            .short("p")
+            .long("package")
+            .takes_value(true)
+            .multiple(true)
+            .number_of_values(1)
+            .help("Package to bench, build, run or test"))
+    }
+
+    fn platform(self) -> Self {
+        self.arg(::clap::Arg::with_name("PLATFORM")
+            .long("platform")
+            .takes_value(true)
+            .help("Use a specific platform (build only)"))
+    }
+
+    fn release(self) -> Self {
+        self.arg(::clap::Arg::with_name("RELEASE")
+            .long("release")
+            .help("Build artifacts in release mode, with optimizations"))
+    }
+
+    fn target(self) -> Self {
+        self.arg(::clap::Arg::with_name("TARGET")
+            .long("target")
+            .takes_value(true)
+            .help("target triple (rust conventions)"))
+    }
+
+    fn test(self) -> Self {
+        self.arg(::clap::Arg::with_name("TEST")
+            .long("test")
+            .takes_value(true)
+            .help("only the specified integration test target"))
+    }
+
+    fn verbose(self) -> Self {
+        self.arg(::clap::Arg::with_name("VERBOSE")
+            .short("v")
+            .long("verbose")
+            .multiple(true)
+            .help("Sets the level of verbosity"))
     }
 }
 
@@ -146,49 +215,83 @@ fn main() {
     let matches = {
         ::clap::App::new("dinghy")
             .version(crate_version!())
-            .arg(::clap::Arg::with_name("DEVICE")
-                .short("d")
-                .long("device")
-                .takes_value(true)
-                .help("device hint"))
-            .arg(::clap::Arg::with_name("VERBOSE")
-                .short("v")
-                .long("verbose")
-                .multiple(true)
-                .help("Sets the level of verbosity"))
-            .arg(::clap::Arg::with_name("PLATFORM")
-                .long("platform")
-                .takes_value(true)
-                .help("Use a specific platform (build only)"))
+            .device()
+            .verbose()
+            .platform()
 
-            .subcommand(::clap::SubCommand::with_name("devices"))
+            .subcommand(SubCommand::with_name("bench")
+                .lib()
+                .bin()
+                .example()
+                .test()
+                .bench()
+                .package()
+                .all()
+                .exclude()
+                .job()
+                .features()
+                .no_default_features()
+                .all_features()
+                .common_remote()
+                .target()
+                .verbose()
+                .additional_args())
 
-            .subcommand(::clap::SubCommand::with_name("test")
-                .define_build_args()
-                .define_common_args()
-                .define_multi_target_args()
-                .define_remote_args()
-                .define_additional_args())
+            .subcommand(SubCommand::with_name("build")
+                .package()
+                .all()
+                .exclude()
+                .job()
+                .lib()
+                .bin()
+                .example()
+                .test()
+                .bench()
+                .release()
+                .features()
+                .all_features()
+                .no_default_features()
+                .target()
+                .verbose()
+                .additional_args())
 
-            .subcommand(::clap::SubCommand::with_name("run")
-                .define_common_args()
-                .define_remote_args()
-                .define_additional_args())
+            .subcommand(SubCommand::with_name("devices"))
 
-            .subcommand(::clap::SubCommand::with_name("bench")
-                .define_build_args()
-                .define_common_args()
-                .define_multi_target_args()
-                .define_remote_args()
-                .define_additional_args())
+            .subcommand(SubCommand::with_name("lldbproxy"))
 
-            .subcommand(::clap::SubCommand::with_name("build")
-                .define_build_args()
-                .define_common_args()
-                .define_multi_target_args()
-                .define_additional_args())
+            .subcommand(SubCommand::with_name("run")
+                .bin()
+                .example()
+                .package()
+                .job()
+                .release()
+                .features()
+                .all_features()
+                .no_default_features()
+                .target()
+                .verbose()
+                .common_remote()
+                .additional_args())
 
-            .subcommand(::clap::SubCommand::with_name("lldbproxy"))
+            .subcommand(SubCommand::with_name("test")
+                .lib()
+                .bin()
+                .example()
+                .test()
+                .bench()
+                .all()
+                .package()
+                .exclude()
+                .job()
+                .features()
+                .all_features()
+                .no_default_features()
+                .release()
+                .target()
+                .verbose()
+                .common_remote()
+                .additional_args())
+
     }.get_matches_from(filtered_env);
 
     if ::std::env::var("RUST_LOG").is_err() {
@@ -243,7 +346,6 @@ fn platform_from_cli(
 }
 
 fn run(matches: clap::ArgMatches) -> Result<()> {
-    debug!("0");
     let conf = ::dinghy::config::config(::std::env::current_dir().unwrap())?;
 
     match matches.subcommand() {
