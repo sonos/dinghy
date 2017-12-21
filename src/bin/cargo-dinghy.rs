@@ -6,24 +6,27 @@ extern crate dinghy;
 extern crate log;
 extern crate pretty_env_logger;
 
-use std::{env, path, thread, time};
+use std::env;
+use std::path;
+use std::thread;
+use std::time;
 
 use cargo::util::important_paths::find_root_manifest_for_wd;
 use clap::SubCommand;
 use dinghy::cli::SnipsClapExt;
-use dinghy::errors::*;
 use dinghy::config::Configuration;
+use dinghy::errors::*;
 use dinghy::regular_platform::RegularPlatform;
 
 
 fn main() {
-    let filtered_env = ::std::env::args()
+    let filtered_args = env::args()
         .enumerate()
         .filter(|&(ix, ref s)| !(ix == 1 && s == "dinghy"))
         .map(|(_, s)| s);
 
     let matches = {
-        ::clap::App::new("dinghy")
+        clap::App::new("dinghy")
             .version(crate_version!())
             .device()
             .verbose()
@@ -102,15 +105,15 @@ fn main() {
                 .common_remote()
                 .additional_args())
 
-    }.get_matches_from(filtered_env);
+    }.get_matches_from(filtered_args);
 
-    if ::std::env::var("RUST_LOG").is_err() {
+    if env::var("RUST_LOG").is_err() {
         let dinghy_verbosity = match matches.occurrences_of("VERBOSE") {
             0 => "warn",
             1 => "info",
             _ => "debug",
         };
-        ::std::env::set_var("RUST_LOG", format!("cargo_dinghy={},dinghy={}", dinghy_verbosity, dinghy_verbosity));
+        env::set_var("RUST_LOG", format!("cargo_dinghy={},dinghy={}", dinghy_verbosity, dinghy_verbosity));
     };
     pretty_env_logger::init().unwrap();
 
@@ -179,7 +182,7 @@ fn platform_from_cli(
 }
 
 fn run(matches: clap::ArgMatches) -> Result<()> {
-    let conf = ::dinghy::config::config(::std::env::current_dir().unwrap())?;
+    let conf = ::dinghy::config::config(env::current_dir().unwrap())?;
 
     match matches.subcommand() {
         ("devices", Some(_matches)) => {
