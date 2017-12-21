@@ -3,6 +3,9 @@ use std::process::{Command, Stdio};
 
 use errors::*;
 use {Device, Platform, PlatformManager};
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
 #[derive(Debug, Clone)]
 pub struct AndroidDevice {
@@ -174,6 +177,13 @@ impl Device for AndroidDevice {
     }
 }
 
+impl Display for AndroidDevice {
+    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
+        fmt.write_str(format!("{:?}", self).as_str())?;
+        Ok(())
+    }
+}
+
 fn adb() -> Result<String> {
     fn try_out(command: &str) -> bool {
         match Command::new(command)
@@ -241,8 +251,9 @@ fn toolchain_path() -> Result<path::PathBuf> {
 }
 
 fn toolchain(target: &str) -> Result<Box<Platform>> {
-    if toolchain_path()?.exists() {
-        for f in toolchain_path()?.read_dir()? {
+    let toolchain_path = toolchain_path()?;
+    if toolchain_path.exists() {
+        for f in toolchain_path.read_dir().map_err(|_| format!("Couldn't find toolchain directory {:?}", toolchain_path.display()))? {
             let f = f?;
             if f.file_name().to_string_lossy().starts_with(target) {
                 return Ok(::regular_platform::RegularPlatform::new(
@@ -293,7 +304,7 @@ impl AndroidNdk {
         if let Err(_) = env::var("ANDROID_NDK_HOME") {
             if let Some(home) = env::home_dir() {
                 let mac_place = home.join("Library/Android/sdk/ndk-bundle");
-                if fs::metadata(&mac_place)?.is_dir() {
+                if fs::metadata(&mac_place).map(|m| { m.is_dir() }).unwrap_or(false) {
                     env::set_var("ANDROID_NDK_HOME", &mac_place)
                 }
             } else {
@@ -335,7 +346,8 @@ impl AndroidNdk {
             .join("prebuilt");
 
         let prebuilt_dir = prebuilt_dir
-            .read_dir()?
+            .read_dir()
+            .map_err(|_| format!("Prebuilt toolchain directory not found {}", prebuilt_dir.display()))?
             .next()
             .ok_or("No prebuilt toolchain in your android setup")??;
 

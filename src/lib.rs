@@ -34,6 +34,8 @@ pub mod regular_platform;
 pub mod ssh;
 mod shim;
 
+use std::fmt::Debug;
+use std::fmt::Display;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
@@ -44,7 +46,7 @@ pub trait PlatformManager {
     fn devices(&self) -> Result<Vec<Box<Device>>>;
 }
 
-pub trait Device: std::fmt::Debug {
+pub trait Device: Debug + Display {
     fn name(&self) -> &str;
     fn id(&self) -> &str;
     fn rustc_triple_guess(&self) -> Option<String>;

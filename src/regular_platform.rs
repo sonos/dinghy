@@ -22,7 +22,7 @@ impl RegularPlatform {
         let mut bin: Option<path::PathBuf> = None;
         let mut prefix: Option<String> = None;
 
-        for file in toolchain_path.join("bin").read_dir().map_err(|_| format!("Couldn't find toolchain directory {:?}", toolchain_path.display()))? {
+        for file in toolchain_path.join("bin").read_dir().map_err(|_| format!("Couldn't find toolchain directory {}", toolchain_path.display()))? {
             let file = file?;
             if file.file_name().to_string_lossy().ends_with("-gcc")
                 || file.file_name().to_string_lossy().ends_with("-gcc.exe")
