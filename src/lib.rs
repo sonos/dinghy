@@ -1,4 +1,5 @@
 extern crate cargo;
+extern crate clap;
 #[cfg(target_os = "macos")]
 extern crate core_foundation;
 #[cfg(target_os = "macos")]
@@ -23,6 +24,7 @@ extern crate tempdir;
 extern crate toml;
 extern crate walkdir;
 
+pub mod cli;
 #[cfg(target_os = "macos")]
 pub mod ios;
 pub mod config;
