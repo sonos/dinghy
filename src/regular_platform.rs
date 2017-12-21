@@ -1,6 +1,7 @@
 use std::{env, path};
 
 use {Result, Platform};
+use std::ascii::AsciiExt;
 use std::ffi::OsStr;
 use itertools::Itertools;
 use walkdir::WalkDir;
@@ -89,6 +90,12 @@ impl Platform for RegularPlatform {
             env::set_var(k, v);
         }
 
+        fn envify(name: &str) -> String {
+            name.chars().map(|c| c.to_ascii_uppercase()).map(|c| {
+                if c == '-' {'_'} else {c}
+            }).collect()
+        }
+
         let wd_path = ::cargo::util::important_paths::find_root_manifest_for_wd(None, &env::current_dir()?)?;
         let root = wd_path.parent().ok_or("building at / ?")?;
         let path = env::var("PATH").unwrap();
@@ -105,13 +112,13 @@ impl Platform for RegularPlatform {
         set_env("TARGET_SYSROOT", &self.sysroot.clone());
         set_env("TARGET_AR", &self.binary("ar"));
         set_env("PKG_CONFIG_ALLOW_CROSS", "1");
-        set_env("PKG_CONFIG_LIBDIR", WalkDir::new(self.root.to_string_lossy().as_ref())
+        set_env(format!("{}_PKG_CONFIG_LIBDIR", envify(self.rustc_triple()?.as_str())), WalkDir::new(self.root.to_string_lossy().as_ref())
             .into_iter()
             .filter_map(|e| e.ok()) // Ignore unreadable files, maybe could warn...
             .filter(|e| e.file_name() == "pkgconfig" && e.file_type().is_dir())
             .map(|e| e.path().to_string_lossy().into_owned())
             .join(":"));
-        set_env("PKG_CONFIG_SYSROOT_DIR", &self.sysroot.clone());
+        set_env(format!("{}_PKG_CONFIG_SYSROOT_DIR", envify(self.rustc_triple()?.as_str())), &self.sysroot.clone());
         Ok(())
     }
 }
