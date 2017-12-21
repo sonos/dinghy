@@ -24,18 +24,19 @@ extern crate tempdir;
 extern crate toml;
 extern crate walkdir;
 
+pub mod android;
 pub mod cli;
+pub mod config;
+pub mod errors;
 #[cfg(target_os = "macos")]
 pub mod ios;
-pub mod config;
-
-pub mod android;
-pub mod ssh;
-pub mod errors;
-mod shim;
 pub mod regular_platform;
+pub mod ssh;
+mod shim;
 
-use std::{fs, path};
+use std::fs;
+use std::path::Path;
+use std::path::PathBuf;
 
 use errors::*;
 
@@ -58,11 +59,11 @@ pub trait Device: std::fmt::Debug {
 
     fn start_remote_lldb(&self) -> Result<String>;
 
-    fn make_app(&self, source: &path::Path, app: &path::Path) -> Result<path::PathBuf>;
-    fn install_app(&self, path: &path::Path) -> Result<()>;
-    fn clean_app(&self, path: &path::Path) -> Result<()>;
-    fn run_app(&self, app: &path::Path, args: &[&str], envs: &[&str]) -> Result<()>;
-    fn debug_app(&self, app: &path::Path, args: &[&str], envs: &[&str]) -> Result<()>;
+    fn make_app(&self, source: &Path, app: &Path) -> Result<PathBuf>;
+    fn install_app(&self, path: &Path) -> Result<()>;
+    fn clean_app(&self, path: &Path) -> Result<()>;
+    fn run_app(&self, app: &Path, args: &[&str], envs: &[&str]) -> Result<()>;
+    fn debug_app(&self, app: &Path, args: &[&str], envs: &[&str]) -> Result<()>;
 }
 
 pub trait Platform : std::fmt::Debug {
@@ -135,7 +136,7 @@ pub mod ios {
     }
 }
 
-fn make_linux_app(root: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
+fn make_linux_app(root: &Path, exe: &Path) -> Result<PathBuf> {
     let app_name = "dinghy";
     let app_path = exe.parent().unwrap().join("dinghy").join(app_name);
     debug!("Making bundle {:?} for {:?}", app_path, exe);
@@ -148,14 +149,14 @@ fn make_linux_app(root: &path::Path, exe: &path::Path) -> Result<path::PathBuf> 
     Ok(app_path.into())
 }
 
-fn copy_test_data<S: AsRef<path::Path>, T: AsRef<path::Path>>(root: S, app_path: T) -> Result<()> {
+fn copy_test_data<S: AsRef<Path>, T: AsRef<Path>>(root: S, app_path: T) -> Result<()> {
     let app_path = app_path.as_ref();
     fs::create_dir_all(app_path.join("test_data"))?;
     let conf = config::config(root.as_ref())?;
     for td in conf.test_data {
-        let root = path::PathBuf::from("/");
+        let root = PathBuf::from("/");
         let file = td.base.parent().unwrap_or(&root).join(&td.source);
-        if path::Path::new(&file).exists() {
+        if Path::new(&file).exists() {
             let metadata = file.metadata()?;
             let dst = app_path.join("test_data").join(td.target);
             if metadata.is_dir() {
@@ -173,7 +174,7 @@ fn copy_test_data<S: AsRef<path::Path>, T: AsRef<path::Path>>(root: S, app_path:
     Ok(())
 }
 
-fn rec_copy<P1: AsRef<path::Path>, P2: AsRef<path::Path>>(
+fn rec_copy<P1: AsRef<Path>, P2: AsRef<Path>>(
     src: P1,
     dst: P2,
     copy_ignored_test_data: bool,
