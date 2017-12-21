@@ -3,8 +3,11 @@ use errors::*;
 use {Device, PlatformManager, Platform};
 
 use config::{ Configuration, SshDeviceConfiguration};
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SshDevice {
     id: String,
     conf: sync::Arc<Configuration>,
@@ -27,7 +30,7 @@ impl Device for SshDevice {
         None
     }
     fn platform(&self) -> Result<Box<Platform>> {
-        debug!("building platform for {:?}", self);
+        debug!("building platform for {}", self);
         match self.ssh_config().platform {
             Some(ref pf_name) => {
             let pf = &self.conf.platforms.get(pf_name).ok_or(format!("platform {} not found", pf_name))?;
@@ -153,6 +156,14 @@ impl Device for SshDevice {
     }
     fn debug_app(&self, _app_path: &path::Path, _args: &[&str], _envs: &[&str]) -> Result<()> {
         unimplemented!()
+    }
+}
+
+impl Display for SshDevice {
+    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
+        fmt.write_str("SshDevice ")?;
+        fmt.write_str(format!("{:?}", self.conf.ssh_devices).as_str())?;
+        Ok(())
     }
 }
 

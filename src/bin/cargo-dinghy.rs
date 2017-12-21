@@ -137,7 +137,7 @@ fn maybe_device_from_cli(matches: &clap::ArgMatches) -> Result<Option<Box<dinghy
         .devices()?
         .into_iter()
         .filter(|d| match matches.value_of("DEVICE") {
-            Some(filter) => format!("{:?}", d)
+            Some(filter) => format!("{}", d)
                 .to_lowercase()
                 .contains(&filter.to_lowercase()),
             None => true,
@@ -183,25 +183,14 @@ fn platform_from_cli(
 
 fn run(matches: clap::ArgMatches) -> Result<()> {
     let conf = ::dinghy::config::config(env::current_dir().unwrap())?;
+    let platform = platform_from_cli(&conf, &matches)?;
 
     match matches.subcommand() {
-        ("devices", Some(_matches)) => {
-            let dinghy = dinghy::Dinghy::probe()?;
-            thread::sleep(time::Duration::from_millis(100));
-            let devices = dinghy.devices()?;
-            for d in devices {
-                println!("{:?}", d);
-            }
-            Ok(())
-        }
-        ("run", Some(subs)) => prepare_and_run(&conf, &matches, "run", subs),
-        ("test", Some(subs)) => prepare_and_run(&conf, &matches, "test", subs),
-        ("bench", Some(subs)) => prepare_and_run(&conf, &matches, "bench", subs),
-        ("build", Some(subs)) => {
-            let pf = platform_from_cli(&conf, &matches)?;
-            build(&*pf, cargo::ops::CompileMode::Build, subs)?;
-            Ok(())
-        }
+        ("devices", Some(_matches)) => { devices() }
+        ("run", Some(subs)) => prepare_and_run(&conf, &matches, &*platform, "run", subs),
+        ("test", Some(subs)) => prepare_and_run(&conf, &matches, &*platform, "test", subs),
+        ("bench", Some(subs)) => prepare_and_run(&conf, &matches, &*platform, "bench", subs),
+        ("build", Some(subs)) => { build(&*platform, cargo::ops::CompileMode::Build, subs).and(Ok(())) }
         ("lldbproxy", Some(_matches)) => {
             let lldb = device_from_cli(&conf, &matches)?.start_remote_lldb()?;
             println!("lldb running at: {}", lldb);
@@ -211,6 +200,15 @@ fn run(matches: clap::ArgMatches) -> Result<()> {
         }
         (sub, _) => Err(format!("Unknown subcommand {}", sub))?,
     }
+}
+
+fn devices() -> Result<()> {
+    let dinghy = dinghy::Dinghy::probe()?;
+    thread::sleep(time::Duration::from_millis(100));
+    for d in dinghy.devices()? {
+        println!("{}", d);
+    }
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -223,6 +221,7 @@ struct Runnable {
 fn prepare_and_run(
     conf: &Configuration,
     matches: &clap::ArgMatches,
+    platform: &dinghy::Platform,
     subcommand: &str,
     sub: &clap::ArgMatches,
 ) -> Result<()> {
@@ -232,9 +231,8 @@ fn prepare_and_run(
         "bench" => cargo::ops::CompileMode::Bench,
         _ => cargo::ops::CompileMode::Build,
     };
-    let pf = platform_from_cli(conf, matches)?;
-    debug!("Platform {:?}", pf);
-    let runnable = build(&*pf, mode, sub)?;
+    debug!("Platform {:?}", platform);
+    let runnable = build(&*platform, mode, sub)?;
     let args = sub.values_of("ARGS")
         .map(|vs| vs.map(|s| s.to_string()).collect())
         .unwrap_or(vec![]);
@@ -269,11 +267,11 @@ fn prepare_and_run(
 
 
 fn build(
-    pf: &dinghy::Platform,
+    platform: &dinghy::Platform,
     mode: cargo::ops::CompileMode,
     matches: &clap::ArgMatches,
 ) -> Result<Vec<Runnable>> {
-    info!("Building for platform {:?}", pf);
+    info!("Building for platform {:?}", platform);
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
     let cfg = cargo::util::config::Config::default()?;
     let features: Vec<String> = matches
@@ -282,7 +280,7 @@ fn build(
         .split(" ")
         .map(|s| s.into())
         .collect();
-    pf.setup_env()?;
+    platform.setup_env()?;
     cfg.configure(
         matches.occurrences_of("VERBOSE") as u32,
         None,
@@ -338,7 +336,7 @@ fn build(
         &packages,
     )?;
 
-    let triple = pf.rustc_triple()?;
+    let triple = platform.rustc_triple()?;
     debug!("rustc target triple: {}", triple);
     let options = cargo::ops::CompileOptions {
         config: &cfg,
