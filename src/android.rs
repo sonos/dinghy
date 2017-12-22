@@ -3,6 +3,9 @@ use std::process::{Command, Stdio};
 
 use errors::*;
 use {Device, Platform, PlatformManager};
+//use PlatformAreCompatible;
+use PlatformVisitor;
+use regular_platform::RegularPlatform;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -41,6 +44,12 @@ impl AndroidDevice {
         };
         debug!("device: {:?}", device);
         Ok(device)
+    }
+}
+
+impl PlatformVisitor for AndroidDevice {
+    fn visit_regular_platform(&self, _platform: &RegularPlatform) -> bool {
+        self.supported_targets.contains(&_platform.tc_triple.as_str())
     }
 }
 
@@ -277,6 +286,9 @@ pub struct AndroidNdk {
     prebuilt_dir: path::PathBuf,
 }
 
+//impl PlatformAreCompatible for AndroidNdk {}
+impl PlatformVisitor for AndroidNdk {}
+
 impl Platform for AndroidNdk {
     fn id(&self) -> String {
         format!("{}-linux-androideabi", self.arch)
@@ -297,6 +309,13 @@ impl Platform for AndroidNdk {
             .join(format!("{}-gcc", self.gcc_prefix));
         Ok(format!("{:?} {}", gcc, ::shim::GLOB_ARGS))
     }
+
+    fn is_compatible_with(&self, device: &Device) -> bool {
+        device.visit_android_ndk(self)
+    }
+//    fn accept<V: PlatformVisitor>(&self, device: &V) {
+//        device.visit_host_platform(self)
+//    }
 }
 
 impl AndroidNdk {

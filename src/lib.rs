@@ -28,6 +28,7 @@ pub mod android;
 pub mod cli;
 pub mod config;
 pub mod errors;
+pub mod host;
 #[cfg(target_os = "macos")]
 pub mod ios;
 pub mod regular_platform;
@@ -39,6 +40,8 @@ use std::fmt::Display;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
+use std::thread::sleep;
+use std::time::Duration;
 
 use errors::*;
 
@@ -46,7 +49,21 @@ pub trait PlatformManager {
     fn devices(&self) -> Result<Vec<Box<Device>>>;
 }
 
-pub trait Device: Debug + Display {
+pub trait PlatformVisitor {
+    fn visit_regular_platform(&self, _platform: &regular_platform::RegularPlatform) -> bool {
+        false
+    }
+
+    fn visit_host_platform(&self, _platform: &host::HostPlatform) -> bool {
+        false
+    }
+
+    fn visit_android_ndk(&self, _platform: &android::AndroidNdk) -> bool {
+        false
+    }
+}
+
+pub trait Device: Debug + Display + PlatformVisitor {
     fn name(&self) -> &str;
     fn id(&self) -> &str;
     fn rustc_triple_guess(&self) -> Option<String>;
@@ -68,6 +85,59 @@ pub trait Device: Debug + Display {
     fn debug_app(&self, app: &Path, args: &[&str], envs: &[&str]) -> Result<()>;
 }
 
+//pub trait PlatformVisitor {
+////    fn visit_regular_platform(&self, platform: &regular_platform::RegularPlatform);
+////    fn visit_host_platform(&self, platform: &host::HostPlatform);
+////    fn visit_android_ndk(&self, platform: &android::AndroidNdk);
+////}
+////
+////impl PlatformVisitor {
+//    fn visit_regular_platform(&self, platform: &regular_platform::RegularPlatform) {
+//        unimplemented!()
+//    }
+//    fn visit_host_platform(&self, platform: &host::HostPlatform) {
+//        unimplemented!()
+//    }
+//    fn visit_android_ndk(&self, platform: &android::AndroidNdk) {
+//        unimplemented!()
+//    }
+//}
+
+//impl Platform {
+//    pub fn as_platform_visitor(&self) -> &PlatformVisitor {
+//        self
+//    }
+//}
+//
+//pub trait PlatformAreCompatible: PlatformVisitor {
+//}
+//
+//impl PlatformAreCompatible {
+//    pub fn is_similar_to(platform: &Platform) -> PlatformAreCompatible {
+//
+//    }
+//}
+
+//impl PlatformVisitor for PlatformAreCompatible {
+//    fn visit_regular_platform(&self, _platform: &regular_platform::RegularPlatform) {
+//        unimplemented!()
+//    }
+//
+//    fn visit_host_platform(&self, _platform: &host::HostPlatform) {
+//        unimplemented!()
+//    }
+//
+//    fn visit_android_ndk(&self, _platform: &android::AndroidNdk) {
+//        unimplemented!()
+//    }
+//}
+//pub trait PlatformVisitor {
+//    fn visit_regular_platform(&self, platform: &regular_platform::RegularPlatform);
+//    fn visit_host_platform(&self, platform: &host::HostPlatform);
+//    fn visit_android_ndk(&self, platform: &android::AndroidNdk);
+//}
+//
+/*+ PlatformVisitor*/
 pub trait Platform : std::fmt::Debug {
     fn id(&self) -> String;
     fn cc_command(&self) -> Result<String>;
@@ -91,6 +161,9 @@ pub trait Platform : std::fmt::Debug {
     fn setup_more_env(&self) -> Result<()> {
         Ok(())
     }
+
+    fn is_compatible_with(&self, device: &Device) -> bool;
+//    fn accept<V: PlatformVisitor>(&self, device: &V);
 }
 
 pub struct Dinghy {
@@ -101,6 +174,9 @@ impl Dinghy {
     pub fn probe() -> Result<Dinghy> {
         let conf = std::sync::Arc::new(config::config(::std::env::current_dir().unwrap())?);
         let mut managers: Vec<Box<PlatformManager>> = vec![];
+        if let Some(host) = host::HostManager::probe() {
+            managers.push(Box::new(host) as Box<PlatformManager>)
+        }
         if let Some(ios) = ios::IosManager::new()? {
             managers.push(Box::new(ios) as Box<PlatformManager>)
         }
@@ -114,6 +190,7 @@ impl Dinghy {
     }
 
     pub fn devices(&self) -> Result<Vec<Box<Device>>> {
+        sleep(Duration::from_millis(100));
         let mut v = vec![];
         for m in &self.managers {
             v.extend(m.devices()?);

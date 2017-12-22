@@ -16,7 +16,11 @@ use clap::SubCommand;
 use dinghy::cli::SnipsClapExt;
 use dinghy::config::Configuration;
 use dinghy::errors::*;
+use dinghy::host::HostPlatform;
 use dinghy::regular_platform::RegularPlatform;
+use dinghy::Device;
+use dinghy::Platform;
+//use dinghy::PlatformAreCompatible;
 
 
 fn main() {
@@ -31,6 +35,8 @@ fn main() {
             .device()
             .verbose()
             .platform()
+
+            .subcommand(SubCommand::with_name("all-devices"))
 
             .subcommand(SubCommand::with_name("bench")
                 .lib()
@@ -123,76 +129,20 @@ fn main() {
     }
 }
 
-fn device_from_cli(
-    _conf: &Configuration,
-    matches: &clap::ArgMatches,
-) -> Result<Box<dinghy::Device>> {
-    Ok(maybe_device_from_cli(matches)?.ok_or("No device found")?)
-}
-
-fn maybe_device_from_cli(matches: &clap::ArgMatches) -> Result<Option<Box<dinghy::Device>>> {
-    let dinghy = dinghy::Dinghy::probe()?;
-    thread::sleep(time::Duration::from_millis(100));
-    let devices = dinghy
-        .devices()?
-        .into_iter()
-        .filter(|d| match matches.value_of("DEVICE") {
-            Some(filter) => format!("{}", d)
-                .to_lowercase()
-                .contains(&filter.to_lowercase()),
-            None => true,
-        })
-        .collect::<Vec<_>>();
-    let device = devices.into_iter().next();
-    if let Some(device) = device {
-        info!("Picked device: {}", device.name());
-        Ok(Some(device))
-    } else {
-        info!("No device found");
-        Ok(None)
-    }
-}
-
-fn default_platform_from_cli(
-    conf: &Configuration,
-    matches: &clap::ArgMatches,
-) -> Result<Box<dinghy::Platform>> {
-    if let Some(pf) = matches.value_of("PLATFORM") {
-        println!("platforms: {:?}", conf.platforms);
-        let cf = conf.platforms
-            .get(pf)
-            .ok_or(format!("platform {} not found in conf", pf))?;
-        return RegularPlatform::new(
-            pf.to_string(),
-            cf.rustc_triple.clone().unwrap(),
-            cf.toolchain.clone().unwrap(),
-        );
-    }
-    if let Some(dev) = maybe_device_from_cli(matches)? {
-        return dev.platform();
-    }
-    Err("Could not guess a platform")?
-}
-
-fn platform_from_cli(
-    conf: &Configuration,
-    matches: &clap::ArgMatches,
-) -> Result<Box<dinghy::Platform>> {
-    default_platform_from_cli(conf, matches)
-}
-
 fn run(matches: clap::ArgMatches) -> Result<()> {
     let conf = ::dinghy::config::config(env::current_dir().unwrap())?;
     let platform = platform_from_cli(&conf, &matches)?;
+    let devices = dinghy::Dinghy::probe()?.devices()?;
 
     match matches.subcommand() {
-        ("devices", Some(_matches)) => { devices() }
-        ("run", Some(subs)) => prepare_and_run(&conf, &matches, &*platform, "run", subs),
-        ("test", Some(subs)) => prepare_and_run(&conf, &matches, &*platform, "test", subs),
-        ("bench", Some(subs)) => prepare_and_run(&conf, &matches, &*platform, "bench", subs),
+        ("all-devices", Some(_matches)) => { show_devices(devices, None) }
+        ("devices", Some(_matches)) => { show_devices(devices, Some(platform)) }
+        ("run", Some(subs)) => prepare_and_run(&matches, &*platform, devices, "run", subs),
+        ("test", Some(subs)) => prepare_and_run(&matches, &*platform, devices, "test", subs),
+        ("bench", Some(subs)) => prepare_and_run(&matches, &*platform, devices, "bench", subs),
         ("build", Some(subs)) => { build(&*platform, cargo::ops::CompileMode::Build, subs).and(Ok(())) }
         ("lldbproxy", Some(_matches)) => {
-            let lldb = device_from_cli(&conf, &matches)?.start_remote_lldb()?;
+            let lldb = find_main_device_for_platform(&*platform, devices, &matches)?.start_remote_lldb()?;
             println!("lldb running at: {}", lldb);
             loop {
                 thread::sleep(time::Duration::from_millis(100));
@@ -202,11 +152,145 @@ fn run(matches: clap::ArgMatches) -> Result<()> {
     }
 }
 
-fn devices() -> Result<()> {
-    let dinghy = dinghy::Dinghy::probe()?;
-    thread::sleep(time::Duration::from_millis(100));
-    for d in dinghy.devices()? {
-        println!("{}", d);
+fn platform_from_cli(
+    conf: &Configuration,
+    matches: &clap::ArgMatches,
+) -> Result<Box<Platform>> {
+//    let all_devices = dinghy::Dinghy::probe()?.devices()?;
+//        .filter(|device| platform.is_compatible_with(device.as_ref()))
+//        .collect::<Vec<_>>();
+
+    Ok(match matches.value_of("PLATFORM") {
+        Some(platform_name) => {
+            let cf = conf.platforms
+                .get(platform_name)
+                .ok_or(format!("platform {} not found in conf", platform_name))?;
+            RegularPlatform::new(
+                platform_name.to_string(),
+                cf.rustc_triple.clone().unwrap(),
+                cf.toolchain.clone().unwrap(),
+            )
+        }
+        None => HostPlatform::new(),
+    }?)
+}
+//
+//fn devices_from_cli(
+//    conf: &Configuration,
+//    matches: &clap::ArgMatches,
+//) -> Result<(Box<Platform>, Vec<Box<Device>>)> {
+//    Ok(dinghy::Dinghy::probe()?.devices()?)
+//}
+
+//fn devices_from_cli2(
+//    conf: &Configuration,
+//    matches: &clap::ArgMatches,
+//) -> Result<(Box<dinghy::Platform>, Vec<Box<Device>>)> {
+//    let first_matching_device = dinghy::Dinghy::probe()?.devices()?
+//        .into_iter()
+//        .filter(|device| platform.is_compatible_with(device.as_ref()))
+//        .filter(|device| match matches.value_of("DEVICE") {
+//            Some(filter) => format!("{}", device)
+//                .to_lowercase()
+//                .contains(&filter.to_lowercase()),
+//            None => true,
+//        })
+//        .collect::<Vec<_>>();
+////        .next();
+//
+//    Ok((platform, first_matching_device))
+//}
+
+fn find_devices_for_platform(
+    platform: &Platform,
+    devices: Vec<Box<Device>>,
+    matches: &clap::ArgMatches,
+) -> Result<Vec<Box<dinghy::Device>>> {
+    Ok(devices.into_iter()
+        .filter(|device| platform.is_compatible_with(device.as_ref()))
+        .filter(|device| match matches.value_of("DEVICE") {
+            Some(filter) => format!("{}", device)
+                .to_lowercase()
+                .contains(&filter.to_lowercase()),
+            None => true,
+        })
+        .collect::<Vec<_>>())
+}
+
+fn find_main_device_for_platform(
+    platform: &Platform,
+    devices: Vec<Box<Device>>,
+    matches: &clap::ArgMatches,
+) -> Result<Box<dinghy::Device>> {
+    find_devices_for_platform(platform, devices, matches)?
+        .into_iter()
+        .next()
+        .ok_or("No device found".into())
+}
+
+//fn platform_from_cli(
+//    conf: &Configuration,
+//    matches: &clap::ArgMatches,
+//) -> Result<(Box<dinghy::Platform>, Option<Box<dinghy::Device>>)> {
+//    if let Some(platform) = matches.value_of("PLATFORM") {
+//        let cf = conf.platforms
+//            .get(platform)
+//            .ok_or(format!("platform {} not found in conf", platform))?;
+//        RegularPlatform::new(
+//            platform.to_string(),
+//            cf.rustc_triple.clone().unwrap(),
+//            cf.toolchain.clone().unwrap(),
+//        )
+//    } else {
+//        HostPlatform::new()
+//    }
+//}
+//
+
+//fn maybe_device_from_cli(matches: &clap::ArgMatches) -> Result<Option<Box<dinghy::Device>>> {
+//    let dinghy = dinghy::Dinghy::probe()?;
+//    thread::sleep(time::Duration::from_millis(100));
+//    let devices = dinghy
+//        .devices()?
+//        .into_iter()
+//        .filter(|d| match matches.value_of("DEVICE") {
+//            Some(filter) => format!("{}", d)
+//                .to_lowercase()
+//                .contains(&filter.to_lowercase()),
+//            None => true,
+//        })
+//        .collect::<Vec<_>>();
+//
+//    let device = devices.into_iter().next();
+//    if let Some(device) = device {
+//        info!("Picked device: {}", device.name());
+//        Ok(Some(device))
+//    } else {
+//        info!("No device found");
+//        Ok(None)
+//    }
+//}
+//
+//fn show_devices(platform: &dinghy::Platform) -> Result<()> {
+//    let dinghy = dinghy::Dinghy::probe()?;
+//    thread::sleep(time::Duration::from_millis(100));
+//    for d in dinghy.devices()? {
+//        if !platform.is_compatible_with(d.as_ref()) {
+//            println!("{}", d);
+//        }
+//    }
+//    Ok(())
+//}
+
+fn show_devices(devices: Vec<Box<Device>>, platform: Option<Box<Platform>>) -> Result<()> {
+    let devices = devices.into_iter()
+        .filter(|device| platform.as_ref().map_or(true, |it| it.is_compatible_with(device.as_ref())))
+        .collect::<Vec<_>>();
+
+    if devices.is_empty() {
+        println!("No matching device found");
+    } else {
+        for device in devices { println!("{}", device); }
     }
     Ok(())
 }
@@ -219,13 +303,13 @@ struct Runnable {
 }
 
 fn prepare_and_run(
-    conf: &Configuration,
     matches: &clap::ArgMatches,
     platform: &dinghy::Platform,
+    devices: Vec<Box<Device>>,
     subcommand: &str,
     sub: &clap::ArgMatches,
 ) -> Result<()> {
-    let d = device_from_cli(&conf, &matches)?;
+    let d = find_main_device_for_platform(platform, devices, &matches)?;
     let mode = match subcommand {
         "test" => cargo::ops::CompileMode::Test,
         "bench" => cargo::ops::CompileMode::Bench,

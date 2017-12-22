@@ -3,6 +3,8 @@ use errors::*;
 use {Device, PlatformManager, Platform};
 
 use config::{ Configuration, SshDeviceConfiguration};
+use PlatformVisitor;
+use regular_platform::RegularPlatform;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -16,6 +18,12 @@ pub struct SshDevice {
 impl SshDevice {
     fn ssh_config(&self) -> &SshDeviceConfiguration {
         &self.conf.ssh_devices[&self.id]
+    }
+}
+
+impl PlatformVisitor for SshDevice {
+    fn visit_regular_platform(&self, platform: &RegularPlatform) -> bool {
+        self.ssh_config().platform.as_ref().map_or(false, |it| *it == platform.id)
     }
 }
 

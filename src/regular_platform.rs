@@ -1,6 +1,8 @@
 use std::{env, path};
 
 use {Result, Platform};
+//use PlatformAreCompatible;
+use Device;
 use std::ascii::AsciiExt;
 use std::ffi::OsStr;
 use itertools::Itertools;
@@ -8,12 +10,12 @@ use walkdir::WalkDir;
 
 #[derive(Debug)]
 pub struct RegularPlatform {
-    id: String,
-    root: path::PathBuf,
-    bin: path::PathBuf,
-    rustc_triple: String,
-    tc_triple: String,
-    sysroot: String,
+    pub id: String,
+    pub root: path::PathBuf,
+    pub bin: path::PathBuf,
+    pub rustc_triple: String,
+    pub tc_triple: String,
+    pub sysroot: String,
 }
 
 impl RegularPlatform {
@@ -63,6 +65,9 @@ impl ::std::fmt::Display for RegularPlatform {
         write!(f, "{:?}", self.root)
     }
 }
+
+//impl PlatformAreCompatible for RegularPlatform {}
+//impl PlatformVisitor for RegularPlatform {}
 
 impl Platform for RegularPlatform {
     fn id(&self) -> String {
@@ -121,6 +126,13 @@ impl Platform for RegularPlatform {
         set_env(format!("{}_PKG_CONFIG_SYSROOT_DIR", envify(self.rustc_triple()?.as_str())), &self.sysroot.clone());
         Ok(())
     }
+
+    fn is_compatible_with(&self, device: &Device) -> bool {
+        device.visit_regular_platform(self)
+    }
+//    fn accept<V: PlatformVisitor>(&self, device: &V) {
+//        device.visit_host_platform(self)
+//    }
 }
 
 fn sysroot_in_toolchain<P: AsRef<path::Path>>(toolchain_path: P) -> Result<String> {
