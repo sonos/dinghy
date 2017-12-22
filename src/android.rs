@@ -1,21 +1,26 @@
-use std::{env, fs, path};
+use std::{env, path};
 use std::process::{Command, Stdio};
 
+use config::Configuration;
 use errors::*;
 use {Device, Platform, PlatformManager};
+use DeviceCompatibility;
+use regular_platform::RegularPlatform;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct AndroidDevice {
     adb: String,
     id: String,
     supported_targets: Vec<&'static str>,
+    conf: Arc<Configuration>,
 }
 
 impl AndroidDevice {
-    fn from_id(adb: String, id: &str) -> Result<AndroidDevice> {
+    fn from_id(adb: String, id: &str, conf: Arc<Configuration>) -> Result<AndroidDevice> {
         let getprop_output = Command::new(&adb)
             .args(&["-s", id, "shell", "getprop", "ro.product.cpu.abilist"])
             .output()?;
@@ -35,12 +40,19 @@ impl AndroidDevice {
             .collect::<Vec<_>>();
 
         let device = AndroidDevice {
-            adb: adb,
+            adb,
             id: id.into(),
             supported_targets: supported_targets,
+            conf,
         };
         debug!("device: {:?}", device);
         Ok(device)
+    }
+}
+
+impl DeviceCompatibility for AndroidDevice {
+    fn is_compatible_with_regular_platform(&self, platform: &RegularPlatform) -> bool {
+        self.supported_targets.contains(&platform.toolchain.tc_triple.as_str())
     }
 }
 
@@ -66,10 +78,26 @@ impl Device for AndroidDevice {
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
+//    fn platform(&self) -> Result<Box<Platform>> {
+//        let triple = self.rustc_triple_guess()
+//            .ok_or("Could not guess an android platform")?;
+//        toolchain(&triple) // TODO XXX
+//    }
     fn platform(&self) -> Result<Box<Platform>> {
-        let triple = self.rustc_triple_guess()
-            .ok_or("Could not guess an android platform")?;
-        toolchain(&triple)
+        debug!("building platform for {}", self);
+//  TODO XXX       self.conf
+//        match self.ssh_config().platform {
+//            Some(ref pf_name) => {
+//                let pf = &self.conf.platforms.get(pf_name).ok_or(format!("platform {} not found", pf_name))?;
+//                ::regular_platform::RegularPlatform::new(self.id.clone(), pf.rustc_triple.clone().unwrap(), pf.toolchain.clone().unwrap())
+//            },
+//            None => {
+//                let tc = self.ssh_config().toolchain.clone().ok_or(format!("device {} has neither platform nor toolchain specified", self.name()))?;
+//                let target = self.ssh_config().target.clone().ok_or(format!("device {} has neither platform nor target specified", self.name()))?;
+//                ::regular_platform::RegularPlatform::new(self.id.clone(), target, tc)
+//            }
+//        }
+        unimplemented!()
     }
     fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
         use std::fs;
@@ -179,8 +207,9 @@ impl Device for AndroidDevice {
 
 impl Display for AndroidDevice {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        fmt.write_str(format!("{:?}", self).as_str())?;
-        Ok(())
+        Ok(fmt.write_str(format!("Android {{ \"id\": \"{}\", \"supported_targets\": {:?} }}",
+                                 self.id,
+                                 self.supported_targets).as_str())?)
     }
 }
 
@@ -212,6 +241,7 @@ fn adb() -> Result<String> {
 
 pub struct AndroidManager {
     adb: String,
+    conf: Arc<Configuration>,
 }
 
 impl PlatformManager for AndroidManager {
@@ -221,7 +251,7 @@ impl PlatformManager for AndroidManager {
         let device_regex = ::regex::Regex::new(r#"^(\S+)\tdevice\r?$"#)?;
         for line in String::from_utf8(result.stdout)?.split("\n").skip(1) {
             if let Some(caps) = device_regex.captures(line) {
-                let d = AndroidDevice::from_id(self.adb.clone(), &caps[1])?;
+                let d = AndroidDevice::from_id(self.adb.clone(), &caps[1], self.conf.clone())?;
                 debug!("Discovered Android device {:?}", d);
                 devices.push(Box::new(d) as Box<Device>);
             }
@@ -231,167 +261,16 @@ impl PlatformManager for AndroidManager {
 }
 
 impl AndroidManager {
-    pub fn probe() -> Option<AndroidManager> {
+    pub fn probe(conf: Arc<Configuration>) -> Option<AndroidManager> {
         match adb() {
             Ok(adb) => {
                 info!("Using {}", adb);
-                Some(AndroidManager { adb })
+                Some(AndroidManager { adb, conf })
             }
             Err(_) => {
                 info!("adb not found in path, android disabled");
                 None
             }
         }
-    }
-}
-
-fn toolchain_path() -> Result<path::PathBuf> {
-    let user_home = env::home_dir().ok_or("no home dir found'")?;
-    Ok(user_home.join(".dinghy").join("android-toolchains"))
-}
-
-fn toolchain(target: &str) -> Result<Box<Platform>> {
-    let toolchain_path = toolchain_path()?;
-    if toolchain_path.exists() {
-        for f in toolchain_path.read_dir().map_err(|_| format!("Couldn't find toolchain directory {:?}", toolchain_path.display()))? {
-            let f = f?;
-            if f.file_name().to_string_lossy().starts_with(target) {
-                return Ok(::regular_platform::RegularPlatform::new(
-                    target.into(),
-                    target.into(),
-                    f.path(),
-                )?);
-            }
-        }
-    }
-    AndroidNdk::for_target(target)
-}
-
-#[derive(Debug)]
-pub struct AndroidNdk {
-    toolchain: String,
-    gcc_prefix: String,
-    arch: String,
-    home: String,
-    api: String,
-    prebuilt_dir: path::PathBuf,
-}
-
-impl Platform for AndroidNdk {
-    fn id(&self) -> String {
-        format!("{}-linux-androideabi", self.arch)
-    }
-    fn rustc_triple(&self) -> Result<String> {
-        Ok(format!("{}-linux-androideabi", self.arch))
-    }
-    fn cc_command(&self) -> Result<String> {
-        let gcc = self.prebuilt_dir
-            .join("bin")
-            .join(format!("{}-gcc", self.gcc_prefix));
-        Ok(format!("{:?} {}", gcc, ::shim::GLOB_ARGS))
-    }
-
-    fn linker_command(&self) -> Result<String> {
-        let gcc = self.prebuilt_dir
-            .join("bin")
-            .join(format!("{}-gcc", self.gcc_prefix));
-        Ok(format!("{:?} {}", gcc, ::shim::GLOB_ARGS))
-    }
-}
-
-impl AndroidNdk {
-    fn for_target(device_target: &str) -> Result<Box<Platform>> {
-        if let Err(_) = env::var("ANDROID_NDK_HOME") {
-            if let Some(home) = env::home_dir() {
-                let mac_place = home.join("Library/Android/sdk/ndk-bundle");
-                if fs::metadata(&mac_place).map(|m| { m.is_dir() }).unwrap_or(false) {
-                    env::set_var("ANDROID_NDK_HOME", &mac_place)
-                }
-            } else {
-                Err(
-                    "Android target detected, but could not find (or guess) ANDROID_NDK_HOME or a toolchain. \
-                     You need to set it up.",
-                )?
-            }
-        }
-
-        let (toolchain, gcc, arch) = Self::ndk_details(device_target)?;
-
-        let home = env::var("ANDROID_NDK_HOME")
-            .map_err(|_| "environment variable ANDROID_NDK_HOME is required")?;
-
-        let api = env::var("ANDROID_API").unwrap_or(Self::default_api_for_arch(arch)?.into());
-        let wanted_tc = toolchain_path()?.join(format!("{}_{}", toolchain, api));
-
-        warn!(
-            "Using ndk as a toolchain for: {}. This only works for pure rust builds.",
-            device_target
-        );
-        warn!("If your build has non-rust dependencies (like C or C++ libraries), consider building a standalone toolchain.");
-        warn!("For instance:");
-        warn!(
-            "  python {:?} --arch {} --api {} --install-dir {:?}",
-            path::Path::new(&home)
-                .join("build")
-                .join("tools")
-                .join("make_standalone_toolchain.py"),
-            arch.split("-").last().unwrap(),
-            api.split("-").last().unwrap(),
-            wanted_tc
-        );
-
-        let prebuilt_dir = path::Path::new(&home)
-            .join("toolchains")
-            .join(format!("{}-4.9", toolchain))
-            .join("prebuilt");
-
-        let prebuilt_dir = prebuilt_dir
-            .read_dir()
-            .map_err(|_| format!("Prebuilt toolchain directory not found {}", prebuilt_dir.display()))?
-            .next()
-            .ok_or("No prebuilt toolchain in your android setup")??;
-
-        Ok(Box::new(AndroidNdk {
-            toolchain: toolchain.into(),
-            gcc_prefix: gcc.into(),
-            arch: arch.into(),
-            home: home.into(),
-            api: api.into(),
-            prebuilt_dir: prebuilt_dir.path().into(),
-        }))
-    }
-
-    fn ndk_details(rust_target: &str) -> Result<(&str, &str, &str)> {
-        Ok(match rust_target {
-            "armv7-linux-androideabi" => {
-                ("arm-linux-androideabi", "arm-linux-androideabi", "arch-arm")
-            }
-            "aarch64-linux-android" => (rust_target, rust_target, "arch-arm64"),
-            "i686-linux-android" => ("x86", rust_target, "arch-x86"),
-            _ => (rust_target, rust_target, "arch-arm"),
-        })
-    }
-
-    fn default_api_for_arch(android_arch: &str) -> Result<&'static str> {
-        Ok(match android_arch {
-            "arch-arm" => "android-18",
-            "arch-arm64" => "android-21",
-            "arch-mips" => "android-18",
-            "arch-mips64" => "android-21",
-            "arch-x86" => "android-18",
-            "arch-x86_64" => "android-21",
-            _ => {
-                return Err(Error::from(format!(
-                    "Unknown android arch {}",
-                    android_arch
-                )))
-            }
-        })
-    }
-}
-
-impl ::std::fmt::Display for AndroidNdk {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::result::Result<(), ::std::fmt::Error> {
-        write!(f, "AndroidNdk")
     }
 }

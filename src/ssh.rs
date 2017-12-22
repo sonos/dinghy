@@ -3,6 +3,8 @@ use errors::*;
 use {Device, PlatformManager, Platform};
 
 use config::{ Configuration, SshDeviceConfiguration};
+use DeviceCompatibility;
+use regular_platform::RegularPlatform;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -16,6 +18,12 @@ pub struct SshDevice {
 impl SshDevice {
     fn ssh_config(&self) -> &SshDeviceConfiguration {
         &self.conf.ssh_devices[&self.id]
+    }
+}
+
+impl DeviceCompatibility for SshDevice {
+    fn is_compatible_with_regular_platform(&self, platform: &RegularPlatform) -> bool {
+        self.ssh_config().platform.as_ref().map_or(false, |it| *it == platform.id)
     }
 }
 
@@ -161,9 +169,12 @@ impl Device for SshDevice {
 
 impl Display for SshDevice {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        fmt.write_str("SshDevice ")?;
-        fmt.write_str(format!("{:?}", self.conf.ssh_devices).as_str())?;
-        Ok(())
+        let ssh_config = self.ssh_config();
+        Ok(fmt.write_str(format!("Ssh {{ \"id\": \"{}\", \"hostname\": \"{}\", \"username\": \"{}\", \"port\": \"{}\" }}",
+                                 self.id,
+                                 ssh_config.hostname,
+                                 ssh_config.username,
+                                 ssh_config.port.as_ref().map_or("none".to_string(), |it| it.to_string())).as_str())?)
     }
 }
 
