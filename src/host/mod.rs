@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use Device;
 use Platform;
 use PlatformManager;
-use PlatformVisitor;
+use PlatformCompatibility;
 use Result;
 
 pub struct HostManager {}
@@ -91,8 +91,8 @@ impl Display for HostDevice {
     }
 }
 
-impl PlatformVisitor for HostDevice {
-    fn visit_host_platform(&self, _platform: &HostPlatform) -> bool {
+impl PlatformCompatibility for HostDevice {
+    fn is_compatible_with_host_platform(&self, _platform: &HostPlatform) -> bool {
         true
     }
 }
@@ -123,6 +123,6 @@ impl Platform for HostPlatform {
     }
 
     fn is_compatible_with(&self, device: &Device) -> bool {
-        device.visit_host_platform(self)
+        device.is_compatible_with_host_platform(self)
     }
 }

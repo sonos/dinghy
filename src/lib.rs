@@ -49,17 +49,17 @@ pub trait PlatformManager {
     fn devices(&self) -> Result<Vec<Box<Device>>>;
 }
 
-pub trait PlatformVisitor {
-    fn visit_regular_platform(&self, _platform: &regular_platform::RegularPlatform) -> bool {
+pub trait PlatformCompatibility {
+    fn is_compatible_with_regular_platform(&self, _platform: &regular_platform::RegularPlatform) -> bool {
         false
     }
 
-    fn visit_host_platform(&self, _platform: &host::HostPlatform) -> bool {
+    fn is_compatible_with_host_platform(&self, _platform: &host::HostPlatform) -> bool {
         false
     }
 }
 
-pub trait Device: Debug + Display + PlatformVisitor {
+pub trait Device: Debug + Display + PlatformCompatibility {
     fn name(&self) -> &str;
     fn id(&self) -> &str;
     fn rustc_triple_guess(&self) -> Option<String>;
@@ -106,7 +106,6 @@ pub trait Platform : std::fmt::Debug {
     }
 
     fn is_compatible_with(&self, device: &Device) -> bool;
-//    fn accept<V: PlatformVisitor>(&self, device: &V);
 }
 
 pub struct Dinghy {

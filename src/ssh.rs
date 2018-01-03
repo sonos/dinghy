@@ -3,7 +3,7 @@ use errors::*;
 use {Device, PlatformManager, Platform};
 
 use config::{ Configuration, SshDeviceConfiguration};
-use PlatformVisitor;
+use PlatformCompatibility;
 use regular_platform::RegularPlatform;
 use std::fmt;
 use std::fmt::Display;
@@ -21,8 +21,8 @@ impl SshDevice {
     }
 }
 
-impl PlatformVisitor for SshDevice {
-    fn visit_regular_platform(&self, platform: &RegularPlatform) -> bool {
+impl PlatformCompatibility for SshDevice {
+    fn is_compatible_with_regular_platform(&self, platform: &RegularPlatform) -> bool {
         self.ssh_config().platform.as_ref().map_or(false, |it| *it == platform.id)
     }
 }

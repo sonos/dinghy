@@ -124,7 +124,7 @@ impl Platform for RegularPlatform {
     }
 
     fn is_compatible_with(&self, device: &Device) -> bool {
-        device.visit_regular_platform(self)
+        device.is_compatible_with_regular_platform(self)
     }
 }
 
