@@ -169,9 +169,12 @@ impl Device for SshDevice {
 
 impl Display for SshDevice {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        fmt.write_str("SshDevice ")?;
-        fmt.write_str(format!("{:?}", self.conf.ssh_devices).as_str())?;
-        Ok(())
+        let ssh_config = self.ssh_config();
+        Ok(fmt.write_str(format!("Ssh {{ \"id\": \"{}\", \"hostname\": \"{}\", \"username\": \"{}\", \"port\": \"{}\" }}",
+                                 self.id,
+                                 ssh_config.hostname,
+                                 ssh_config.username,
+                                 ssh_config.port.as_ref().map_or("none".to_string(), |it| it.to_string())).as_str())?)
     }
 }
 

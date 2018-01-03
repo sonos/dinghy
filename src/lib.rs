@@ -57,10 +57,6 @@ pub trait PlatformVisitor {
     fn visit_host_platform(&self, _platform: &host::HostPlatform) -> bool {
         false
     }
-
-    fn visit_android_ndk(&self, _platform: &android::AndroidNdk) -> bool {
-        false
-    }
 }
 
 pub trait Device: Debug + Display + PlatformVisitor {
@@ -127,7 +123,7 @@ impl Dinghy {
         if let Some(ios) = ios::IosManager::new()? {
             managers.push(Box::new(ios) as Box<PlatformManager>)
         }
-        if let Some(android) = android::AndroidManager::probe() {
+        if let Some(android) = android::AndroidManager::probe(conf.clone()) {
             managers.push(Box::new(android) as Box<PlatformManager>)
         }
         if let Some(config) = ssh::SshDeviceManager::probe(conf.clone()) {

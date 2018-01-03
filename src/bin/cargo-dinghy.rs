@@ -170,6 +170,33 @@ fn platform_from_cli(
     }?)
 }
 
+fn find_devices_for_platform(
+    platform: &Platform,
+    devices: Vec<Box<Device>>,
+    matches: &clap::ArgMatches,
+) -> Result<Vec<Box<dinghy::Device>>> {
+    Ok(devices.into_iter()
+        .filter(|device| platform.is_compatible_with(device.as_ref()))
+        .filter(|device| match matches.value_of("DEVICE") {
+            Some(filter) => format!("{}", device)
+                .to_lowercase()
+                .contains(&filter.to_lowercase()),
+            None => true,
+        })
+        .collect::<Vec<_>>())
+}
+
+fn find_main_device_for_platform(
+    platform: &Platform,
+    devices: Vec<Box<Device>>,
+    matches: &clap::ArgMatches,
+) -> Result<Box<dinghy::Device>> {
+    find_devices_for_platform(platform, devices, matches)?
+        .into_iter()
+        .next()
+        .ok_or("No device found".into())
+}
+
 fn show_devices(devices: Vec<Box<Device>>, platform: Option<Box<Platform>>) -> Result<()> {
     let devices = devices.into_iter()
         .filter(|device| platform.as_ref().map_or(true, |it| it.is_compatible_with(device.as_ref())))

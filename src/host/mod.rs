@@ -87,8 +87,7 @@ impl Device for HostDevice {
 
 impl Display for HostDevice {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        fmt.write_str(format!("{:?}", self).as_str())?;
-        Ok(())
+        Ok(fmt.write_str(format!("Host {{ }}").as_str())?)
     }
 }
 
