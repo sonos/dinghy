@@ -1,7 +1,6 @@
 use std::{env, path};
 
 use {Result, Platform};
-//use PlatformAreCompatible;
 use Device;
 use std::ascii::AsciiExt;
 use std::ffi::OsStr;
@@ -66,9 +65,6 @@ impl ::std::fmt::Display for RegularPlatform {
     }
 }
 
-//impl PlatformAreCompatible for RegularPlatform {}
-//impl PlatformVisitor for RegularPlatform {}
-
 impl Platform for RegularPlatform {
     fn id(&self) -> String {
         self.id.clone()
@@ -130,9 +126,6 @@ impl Platform for RegularPlatform {
     fn is_compatible_with(&self, device: &Device) -> bool {
         device.visit_regular_platform(self)
     }
-//    fn accept<V: PlatformVisitor>(&self, device: &V) {
-//        device.visit_host_platform(self)
-//    }
 }
 
 fn sysroot_in_toolchain<P: AsRef<path::Path>>(toolchain_path: P) -> Result<String> {

@@ -20,7 +20,6 @@ use dinghy::host::HostPlatform;
 use dinghy::regular_platform::RegularPlatform;
 use dinghy::Device;
 use dinghy::Platform;
-//use dinghy::PlatformAreCompatible;
 
 
 fn main() {
@@ -156,10 +155,6 @@ fn platform_from_cli(
     conf: &Configuration,
     matches: &clap::ArgMatches,
 ) -> Result<Box<Platform>> {
-//    let all_devices = dinghy::Dinghy::probe()?.devices()?;
-//        .filter(|device| platform.is_compatible_with(device.as_ref()))
-//        .collect::<Vec<_>>();
-
     Ok(match matches.value_of("PLATFORM") {
         Some(platform_name) => {
             let cf = conf.platforms
@@ -174,113 +169,6 @@ fn platform_from_cli(
         None => HostPlatform::new(),
     }?)
 }
-//
-//fn devices_from_cli(
-//    conf: &Configuration,
-//    matches: &clap::ArgMatches,
-//) -> Result<(Box<Platform>, Vec<Box<Device>>)> {
-//    Ok(dinghy::Dinghy::probe()?.devices()?)
-//}
-
-//fn devices_from_cli2(
-//    conf: &Configuration,
-//    matches: &clap::ArgMatches,
-//) -> Result<(Box<dinghy::Platform>, Vec<Box<Device>>)> {
-//    let first_matching_device = dinghy::Dinghy::probe()?.devices()?
-//        .into_iter()
-//        .filter(|device| platform.is_compatible_with(device.as_ref()))
-//        .filter(|device| match matches.value_of("DEVICE") {
-//            Some(filter) => format!("{}", device)
-//                .to_lowercase()
-//                .contains(&filter.to_lowercase()),
-//            None => true,
-//        })
-//        .collect::<Vec<_>>();
-////        .next();
-//
-//    Ok((platform, first_matching_device))
-//}
-
-fn find_devices_for_platform(
-    platform: &Platform,
-    devices: Vec<Box<Device>>,
-    matches: &clap::ArgMatches,
-) -> Result<Vec<Box<dinghy::Device>>> {
-    Ok(devices.into_iter()
-        .filter(|device| platform.is_compatible_with(device.as_ref()))
-        .filter(|device| match matches.value_of("DEVICE") {
-            Some(filter) => format!("{}", device)
-                .to_lowercase()
-                .contains(&filter.to_lowercase()),
-            None => true,
-        })
-        .collect::<Vec<_>>())
-}
-
-fn find_main_device_for_platform(
-    platform: &Platform,
-    devices: Vec<Box<Device>>,
-    matches: &clap::ArgMatches,
-) -> Result<Box<dinghy::Device>> {
-    find_devices_for_platform(platform, devices, matches)?
-        .into_iter()
-        .next()
-        .ok_or("No device found".into())
-}
-
-//fn platform_from_cli(
-//    conf: &Configuration,
-//    matches: &clap::ArgMatches,
-//) -> Result<(Box<dinghy::Platform>, Option<Box<dinghy::Device>>)> {
-//    if let Some(platform) = matches.value_of("PLATFORM") {
-//        let cf = conf.platforms
-//            .get(platform)
-//            .ok_or(format!("platform {} not found in conf", platform))?;
-//        RegularPlatform::new(
-//            platform.to_string(),
-//            cf.rustc_triple.clone().unwrap(),
-//            cf.toolchain.clone().unwrap(),
-//        )
-//    } else {
-//        HostPlatform::new()
-//    }
-//}
-//
-
-//fn maybe_device_from_cli(matches: &clap::ArgMatches) -> Result<Option<Box<dinghy::Device>>> {
-//    let dinghy = dinghy::Dinghy::probe()?;
-//    thread::sleep(time::Duration::from_millis(100));
-//    let devices = dinghy
-//        .devices()?
-//        .into_iter()
-//        .filter(|d| match matches.value_of("DEVICE") {
-//            Some(filter) => format!("{}", d)
-//                .to_lowercase()
-//                .contains(&filter.to_lowercase()),
-//            None => true,
-//        })
-//        .collect::<Vec<_>>();
-//
-//    let device = devices.into_iter().next();
-//    if let Some(device) = device {
-//        info!("Picked device: {}", device.name());
-//        Ok(Some(device))
-//    } else {
-//        info!("No device found");
-//        Ok(None)
-//    }
-//}
-//
-//fn show_devices(platform: &dinghy::Platform) -> Result<()> {
-//    let dinghy = dinghy::Dinghy::probe()?;
-//    thread::sleep(time::Duration::from_millis(100));
-//    for d in dinghy.devices()? {
-//        if !platform.is_compatible_with(d.as_ref()) {
-//            println!("{}", d);
-//        }
-//    }
-//    Ok(())
-//}
 
 fn show_devices(devices: Vec<Box<Device>>, platform: Option<Box<Platform>>) -> Result<()> {
     let devices = devices.into_iter()

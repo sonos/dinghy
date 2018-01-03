@@ -7,7 +7,6 @@ use std::path::PathBuf;
 use Device;
 use Platform;
 use PlatformManager;
-//use PlatformAreCompatible;
 use PlatformVisitor;
 use Result;
 
@@ -99,9 +98,6 @@ impl PlatformVisitor for HostDevice {
     }
 }
 
-//impl PlatformAreCompatible for HostPlatform {}
-//impl PlatformVisitor for HostPlatform {}
-
 impl Platform for HostPlatform {
     fn id(&self) -> String {
         unimplemented!()
@@ -130,8 +126,4 @@ impl Platform for HostPlatform {
     fn is_compatible_with(&self, device: &Device) -> bool {
         device.visit_host_platform(self)
     }
-
-//    fn accept<V: PlatformVisitor>(&self, device: &V) {
-//        device.visit_host_platform(self)
-//    }
 }

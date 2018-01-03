@@ -85,59 +85,6 @@ pub trait Device: Debug + Display + PlatformVisitor {
     fn debug_app(&self, app: &Path, args: &[&str], envs: &[&str]) -> Result<()>;
 }
 
-//pub trait PlatformVisitor {
-////    fn visit_regular_platform(&self, platform: &regular_platform::RegularPlatform);
-////    fn visit_host_platform(&self, platform: &host::HostPlatform);
-////    fn visit_android_ndk(&self, platform: &android::AndroidNdk);
-////}
-////
-////impl PlatformVisitor {
-//    fn visit_regular_platform(&self, platform: &regular_platform::RegularPlatform) {
-//        unimplemented!()
-//    }
-//    fn visit_host_platform(&self, platform: &host::HostPlatform) {
-//        unimplemented!()
-//    }
-//    fn visit_android_ndk(&self, platform: &android::AndroidNdk) {
-//        unimplemented!()
-//    }
-//}
-
-//impl Platform {
-//    pub fn as_platform_visitor(&self) -> &PlatformVisitor {
-//        self
-//    }
-//}
-//
-//pub trait PlatformAreCompatible: PlatformVisitor {
-//}
-//
-//impl PlatformAreCompatible {
-//    pub fn is_similar_to(platform: &Platform) -> PlatformAreCompatible {
-//
-//    }
-//}
-
-//impl PlatformVisitor for PlatformAreCompatible {
-//    fn visit_regular_platform(&self, _platform: &regular_platform::RegularPlatform) {
-//        unimplemented!()
-//    }
-//
-//    fn visit_host_platform(&self, _platform: &host::HostPlatform) {
-//        unimplemented!()
-//    }
-//
-//    fn visit_android_ndk(&self, _platform: &android::AndroidNdk) {
-//        unimplemented!()
-//    }
-//}
-//pub trait PlatformVisitor {
-//    fn visit_regular_platform(&self, platform: &regular_platform::RegularPlatform);
-//    fn visit_host_platform(&self, platform: &host::HostPlatform);
-//    fn visit_android_ndk(&self, platform: &android::AndroidNdk);
-//}
-//
-/*+ PlatformVisitor*/
 pub trait Platform : std::fmt::Debug {
     fn id(&self) -> String;
     fn cc_command(&self) -> Result<String>;

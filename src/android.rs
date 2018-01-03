@@ -3,7 +3,6 @@ use std::process::{Command, Stdio};
 
 use errors::*;
 use {Device, Platform, PlatformManager};
-//use PlatformAreCompatible;
 use PlatformVisitor;
 use regular_platform::RegularPlatform;
 use std::fmt;
@@ -286,7 +285,6 @@ pub struct AndroidNdk {
     prebuilt_dir: path::PathBuf,
 }
 
-//impl PlatformAreCompatible for AndroidNdk {}
 impl PlatformVisitor for AndroidNdk {}
 
 impl Platform for AndroidNdk {
@@ -313,9 +311,6 @@ impl Platform for AndroidNdk {
     fn is_compatible_with(&self, device: &Device) -> bool {
         device.visit_android_ndk(self)
     }
-//    fn accept<V: PlatformVisitor>(&self, device: &V) {
-//        device.visit_host_platform(self)
-//    }
 }
 
 impl AndroidNdk {
