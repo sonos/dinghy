@@ -7,11 +7,11 @@ extern crate log;
 extern crate pretty_env_logger;
 
 use std::env;
-use std::path;
+//use std::path;
 use std::thread;
 use std::time;
 
-use cargo::util::important_paths::find_root_manifest_for_wd;
+//use cargo::util::important_paths::find_root_manifest_for_wd;
 use clap::SubCommand;
 use dinghy::cli::SnipsClapExt;
 use dinghy::config::Configuration;
@@ -20,6 +20,8 @@ use dinghy::host::HostPlatform;
 use dinghy::regular_platform::RegularPlatform;
 use dinghy::Device;
 use dinghy::Platform;
+use dinghy::Runnable;
+use std::env::current_dir;
 
 
 fn main() {
@@ -129,7 +131,7 @@ fn main() {
 }
 
 fn run(matches: clap::ArgMatches) -> Result<()> {
-    let conf = ::dinghy::config::config(env::current_dir().unwrap())?;
+    let conf = ::dinghy::config::config(current_dir().unwrap())?;
     let platform = platform_from_cli(&conf, &matches)?;
     let devices = dinghy::Dinghy::probe()?.devices()?;
 
@@ -210,13 +212,6 @@ fn show_devices(devices: Vec<Box<Device>>, platform: Option<Box<Platform>>) -> R
     Ok(())
 }
 
-#[derive(Debug)]
-struct Runnable {
-    name: String,
-    exe: path::PathBuf,
-    source: path::PathBuf,
-}
-
 fn prepare_and_run(
     matches: &clap::ArgMatches,
     platform: &dinghy::Platform,
@@ -264,119 +259,119 @@ fn prepare_and_run(
     Ok(())
 }
 
-
 fn build(
-    platform: &dinghy::Platform,
-    mode: cargo::ops::CompileMode,
-    matches: &clap::ArgMatches,
+    _platform: &dinghy::Platform,
+    _mode: cargo::ops::CompileMode,
+    _matches: &clap::ArgMatches,
 ) -> Result<Vec<Runnable>> {
-    info!("Building for platform {:?}", platform);
-    let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
-    let cfg = cargo::util::config::Config::default()?;
-    let features: Vec<String> = matches
-        .value_of("FEATURES")
-        .unwrap_or("")
-        .split(" ")
-        .map(|s| s.into())
-        .collect();
-    platform.setup_env()?;
-    cfg.configure(
-        matches.occurrences_of("VERBOSE") as u32,
-        None,
-        &None,
-        false,
-        false,
-        &[],
-    )?;
-    let wd = cargo::core::Workspace::new(&wd_path, &cfg)?;
-    let bins = matches
-        .values_of("BIN")
-        .map(|vs| vs.map(|s| s.to_string()).collect())
-        .unwrap_or(vec![]);
-    let tests = matches
-        .values_of("TEST")
-        .map(|vs| vs.map(|s| s.to_string()).collect())
-        .unwrap_or(vec![]);
-    let examples = matches
-        .values_of("EXAMPLE")
-        .map(|vs| vs.map(|s| s.to_string()).collect())
-        .unwrap_or(vec![]);
-    let benches = matches
-        .values_of("BENCH")
-        .map(|vs| vs.map(|s| s.to_string()).collect())
-        .unwrap_or(vec![]);
-    let jobs = matches
-        .value_of("JOBS")
-        .map(|v| v.parse().unwrap());
-    let filter = cargo::ops::CompileFilter::new(
-        matches.is_present("LIB"),
-        &bins,
-        false,
-        &tests,
-        false,
-        &examples,
-        false,
-        &benches,
-        false,
-        false,
-    );
-    let excludes = matches
-        .values_of("EXCLUDE")
-        .map(|vs| vs.map(|s| s.to_string()).collect())
-        .unwrap_or(vec![]);
-    let packages = matches
-        .values_of("SPEC")
-        .map(|vs| vs.map(|s| s.to_string()).collect())
-        .unwrap_or(vec![]);
-    let spec = cargo::ops::Packages::from_flags(
-        wd.is_virtual(),
-        matches.is_present("ALL"),
-        &excludes,
-        &packages,
-    )?;
-
-    let triple = platform.rustc_triple()?;
-    debug!("rustc target triple: {}", triple);
-    let options = cargo::ops::CompileOptions {
-        config: &cfg,
-        jobs,
-        target: Some(&triple),
-        features: &*features,
-        all_features: matches.is_present("ALL_FEATURES"),
-        no_default_features: matches.is_present("NO_DEFAULT_FEATURES"),
-        spec: spec,
-        filter: filter,
-        release: mode == cargo::ops::CompileMode::Bench || matches.is_present("RELEASE"),
-        mode: mode,
-        message_format: cargo::ops::MessageFormat::Human,
-        target_rustdoc_args: None,
-        target_rustc_args: None,
-    };
-    let compilation = cargo::ops::compile(&wd, &options)?;
-    if mode == cargo::ops::CompileMode::Build {
-        Ok(compilation
-            .binaries
-            .into_iter()
-            .take(1)
-            .map(|t| {
-                Runnable {
-                    name: "main".into(),
-                    exe: t,
-                    source: path::PathBuf::from("."),
-                }
-            })
-            .collect::<Vec<_>>())
-    } else {
-        Ok(compilation
-            .tests
-            .into_iter()
-            .map(|(pkg, _, name, exe)| {
-                Runnable {
-                    name: name,
-                    source: pkg.root().to_path_buf(),
-                    exe: exe,
-                }
-            })
-            .collect::<Vec<_>>())
-    }
+//    info!("Building for platform {:?}", platform);
+//    let wd_path = find_root_manifest_for_wd(None, &current_dir()?)?;
+//    let cfg = cargo::util::config::Config::default()?;
+//    let features: Vec<String> = matches
+//        .value_of("FEATURES")
+//        .unwrap_or("")
+//        .split(" ")
+//        .map(|s| s.into())
+//        .collect();
+//    platform.setup_env()?;
+//    cfg.configure(
+//        matches.occurrences_of("VERBOSE") as u32,
+//        None,
+//        &None,
+//        false,
+//        false,
+//        &[],
+//    )?;
+//    let wd = cargo::core::Workspace::new(&wd_path, &cfg)?;
+//    let bins = matches
+//        .values_of("BIN")
+//        .map(|vs| vs.map(|s| s.to_string()).collect())
+//        .unwrap_or(vec![]);
+//    let tests = matches
+//        .values_of("TEST")
+//        .map(|vs| vs.map(|s| s.to_string()).collect())
+//        .unwrap_or(vec![]);
+//    let examples = matches
+//        .values_of("EXAMPLE")
+//        .map(|vs| vs.map(|s| s.to_string()).collect())
+//        .unwrap_or(vec![]);
+//    let benches = matches
+//        .values_of("BENCH")
+//        .map(|vs| vs.map(|s| s.to_string()).collect())
+//        .unwrap_or(vec![]);
+//    let jobs = matches
+//        .value_of("JOBS")
+//        .map(|v| v.parse().unwrap());
+//    let filter = cargo::ops::CompileFilter::new(
+//        matches.is_present("LIB"),
+//        &bins,
+//        false,
+//        &tests,
+//        false,
+//        &examples,
+//        false,
+//        &benches,
+//        false,
+//        false,
+//    );
+//    let excludes = matches
+//        .values_of("EXCLUDE")
+//        .map(|vs| vs.map(|s| s.to_string()).collect())
+//        .unwrap_or(vec![]);
+//    let packages = matches
+//        .values_of("SPEC")
+//        .map(|vs| vs.map(|s| s.to_string()).collect())
+//        .unwrap_or(vec![]);
+//    let spec = cargo::ops::Packages::from_flags(
+//        wd.is_virtual(),
+//        matches.is_present("ALL"),
+//        &excludes,
+//        &packages,
+//    )?;
+//
+//    let triple = platform.rustc_triple()?;
+//    debug!("rustc target triple: {}", triple);
+//    let options = cargo::ops::CompileOptions {
+//        config: &cfg,
+//        jobs,
+//        target: Some(&triple),
+//        features: &*features,
+//        all_features: matches.is_present("ALL_FEATURES"),
+//        no_default_features: matches.is_present("NO_DEFAULT_FEATURES"),
+//        spec: spec,
+//        filter: filter,
+//        release: mode == cargo::ops::CompileMode::Bench || matches.is_present("RELEASE"),
+//        mode: mode,
+//        message_format: cargo::ops::MessageFormat::Human,
+//        target_rustdoc_args: None,
+//        target_rustc_args: None,
+//    };
+//    let compilation = cargo::ops::compile(&wd, &options)?;
+//    if mode == cargo::ops::CompileMode::Build {
+//        Ok(compilation
+//            .binaries
+//            .into_iter()
+//            .take(1)
+//            .map(|t| {
+//                Runnable {
+//                    name: "main".into(),
+//                    exe: t,
+//                    source: path::PathBuf::from("."),
+//                }
+//            })
+//            .collect::<Vec<_>>())
+//    } else {
+//        Ok(compilation
+//            .tests
+//            .into_iter()
+//            .map(|(pkg, _, name, exe)| {
+//                Runnable {
+//                    name: name,
+//                    source: pkg.root().to_path_buf(),
+//                    exe: exe,
+//                }
+//            })
+//            .collect::<Vec<_>>())
+//    }
+    unimplemented!()
 }

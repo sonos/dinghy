@@ -26,6 +26,7 @@ extern crate walkdir;
 
 pub mod android;
 pub mod cli;
+pub mod cargo_facade;
 pub mod config;
 pub mod errors;
 pub mod host;
@@ -33,7 +34,7 @@ pub mod host;
 pub mod ios;
 pub mod regular_platform;
 pub mod ssh;
-mod shim;
+mod toolchain;
 
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -81,29 +82,17 @@ pub trait Device: Debug + Display + PlatformCompatibility {
     fn debug_app(&self, app: &Path, args: &[&str], envs: &[&str]) -> Result<()>;
 }
 
-pub trait Platform : std::fmt::Debug {
+#[derive(Debug)]
+pub struct Runnable {
+    pub name: String,
+    pub exe: PathBuf,
+    pub source: PathBuf,
+}
+
+pub trait Platform: std::fmt::Debug {
+    fn build(&self, matches: &clap::ArgMatches) -> Result<Vec<Runnable>>;
+
     fn id(&self) -> String;
-    fn cc_command(&self) -> Result<String>;
-    fn linker_command(&self) -> Result<String>;
-    fn rustc_triple(&self) -> Result<String>;
-    fn setup_env(&self) -> Result<()> {
-        debug!("setup environment for cargo build ({:?})", self);
-        let triple = self.rustc_triple()?;
-        let var_name = format!(
-            "CARGO_TARGET_{}_LINKER",
-            triple.replace("-", "_").to_uppercase()
-        );
-        debug!("linker: {:?}", self.linker_command()?);
-        shim::setup_shim(&triple, &self.id(), &var_name, "linker", &self.linker_command()?)?;
-        shim::setup_shim(&triple, &self.id(), "TARGET_CC", "cc", &self.cc_command()?)?;
-        debug!("setup more env");
-        self.setup_more_env()?;
-        debug!("done setup env");
-        Ok(())
-    }
-    fn setup_more_env(&self) -> Result<()> {
-        Ok(())
-    }
 
     fn is_compatible_with(&self, device: &Device) -> bool;
 }
@@ -144,12 +133,15 @@ impl Dinghy {
 #[cfg(not(target_os = "macos"))]
 pub mod ios {
     pub struct IosManager {}
+
     pub struct IosDevice {}
+
     impl ::PlatformManager for IosManager {
         fn devices(&self) -> ::errors::Result<Vec<Box<::Device>>> {
             Ok(vec![])
         }
     }
+
     impl IosManager {
         pub fn new() -> ::errors::Result<Option<IosManager>> {
             Ok((None))
@@ -226,9 +218,9 @@ fn rec_copy<P1: AsRef<Path>, P2: AsRef<Path>>(
             }
             if !target.exists() || target.metadata()?.len() != entry.metadata()?.len()
                 || target.metadata()?.modified()? < entry.metadata()?.modified()?
-            {
-                fs::copy(entry.path(), &target)?;
-            }
+                {
+                    fs::copy(entry.path(), &target)?;
+                }
         }
     }
     Ok(())

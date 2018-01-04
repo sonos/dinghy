@@ -1,14 +1,16 @@
+use cargo_facade::CargoFacade;
+use clap::ArgMatches;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::path::Path;
 use std::path::PathBuf;
-
 use Device;
 use Platform;
 use PlatformManager;
 use PlatformCompatibility;
 use Result;
+use Runnable;
 
 pub struct HostManager {}
 
@@ -98,28 +100,13 @@ impl PlatformCompatibility for HostDevice {
 }
 
 impl Platform for HostPlatform {
+    fn build(&self, matches: &ArgMatches) -> Result<Vec<Runnable>> {
+        let rustc_triple = None;
+        CargoFacade::from_args(matches).build(rustc_triple)
+    }
+
     fn id(&self) -> String {
-        unimplemented!()
-    }
-
-    fn cc_command(&self) -> Result<String> {
-        unimplemented!()
-    }
-
-    fn linker_command(&self) -> Result<String> {
-        unimplemented!()
-    }
-
-    fn rustc_triple(&self) -> Result<String> {
-        unimplemented!()
-    }
-
-    fn setup_env(&self) -> Result<()> {
-        unimplemented!()
-    }
-
-    fn setup_more_env(&self) -> Result<()> {
-        unimplemented!()
+        "host".to_string()
     }
 
     fn is_compatible_with(&self, device: &Device) -> bool {
