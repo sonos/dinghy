@@ -8,6 +8,7 @@ use cargo::util::config::Config as CompileConfig;
 use cargo::ops as CargoOps;
 use cargo::ops::Packages as CompilePackages;
 use clap::ArgMatches;
+use cli::arg_as_string_vec;
 use std::env::current_dir;
 use std::path::PathBuf;
 use Result;
@@ -123,10 +124,4 @@ impl CargoFacade {
     pub fn build(&self, compile_mode: CompileMode, rustc_triple: Option<&str>) -> Result<Vec<Runnable>> {
         (self.build_command)(compile_mode, rustc_triple)
     }
-}
-
-fn arg_as_string_vec(matches: &ArgMatches, option: &str) -> Vec<String> {
-    matches.values_of(option)
-        .map(|vs| vs.map(|s| s.to_string()).collect())
-        .unwrap_or(vec![])
 }

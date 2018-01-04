@@ -1,4 +1,5 @@
 extern crate cargo;
+#[macro_use]
 extern crate clap;
 #[cfg(target_os = "macos")]
 extern crate core_foundation;
