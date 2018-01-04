@@ -1,4 +1,5 @@
 use cargo_facade::CargoFacade;
+use cargo_facade::CompileMode;
 use clap::ArgMatches;
 use toolchain::ToolchainConfig;
 use std::path;
@@ -76,7 +77,7 @@ fn sysroot_in_toolchain<P: AsRef<path::Path>>(toolchain_path: P) -> Result<Strin
 }
 
 impl Platform for RegularPlatform {
-    fn build(&self, matches: &ArgMatches) -> Result<Vec<Runnable>> {
+    fn build(&self, compile_mode: CompileMode, matches: &ArgMatches) -> Result<Vec<Runnable>> {
         self.toolchain.setup_ar(self.toolchain.executable("ar").as_str())?;
         self.toolchain.setup_cc(self.id.as_str(), self.toolchain.executable("gcc").as_str())?;
         self.toolchain.setup_linker(self.id.as_str(),
@@ -87,7 +88,8 @@ impl Platform for RegularPlatform {
         self.toolchain.setup_sysroot();
         self.toolchain.shim_executables(self.id.as_str())?;
 
-        CargoFacade::from_args(matches).build(Some(self.toolchain.rustc_triple.as_str()))
+        CargoFacade::from_args(matches).build(compile_mode,
+                                              Some(self.toolchain.rustc_triple.as_str()))
     }
 
     fn id(&self) -> String {

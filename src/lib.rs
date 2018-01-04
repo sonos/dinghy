@@ -36,6 +36,7 @@ pub mod regular_platform;
 pub mod ssh;
 mod toolchain;
 
+use cargo_facade::CompileMode;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fs;
@@ -90,7 +91,7 @@ pub struct Runnable {
 }
 
 pub trait Platform: std::fmt::Debug {
-    fn build(&self, matches: &clap::ArgMatches) -> Result<Vec<Runnable>>;
+    fn build(&self, compile_mode: CompileMode, matches: &clap::ArgMatches) -> Result<Vec<Runnable>>;
 
     fn id(&self) -> String;
 
