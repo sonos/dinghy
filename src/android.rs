@@ -1,26 +1,25 @@
 use std::{env, path};
 use std::process::{Command, Stdio};
 
-use config::Configuration;
 use errors::*;
-use {Device, Platform, PlatformManager};
+use Device;
+use PlatformManager;
 use DeviceCompatibility;
+use project::Project;
 use regular_platform::RegularPlatform;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
-use std::sync::Arc;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct AndroidDevice {
     adb: String,
     id: String,
     supported_targets: Vec<&'static str>,
-    conf: Arc<Configuration>,
 }
 
 impl AndroidDevice {
-    fn from_id(adb: String, id: &str, conf: Arc<Configuration>) -> Result<AndroidDevice> {
+    fn from_id(adb: String, id: &str) -> Result<AndroidDevice> {
         let getprop_output = Command::new(&adb)
             .args(&["-s", id, "shell", "getprop", "ro.product.cpu.abilist"])
             .output()?;
@@ -43,7 +42,6 @@ impl AndroidDevice {
             adb,
             id: id.into(),
             supported_targets: supported_targets,
-            conf,
         };
         debug!("device: {:?}", device);
         Ok(device)
@@ -78,28 +76,7 @@ impl Device for AndroidDevice {
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
-//    fn platform(&self) -> Result<Box<Platform>> {
-//        let triple = self.rustc_triple_guess()
-//            .ok_or("Could not guess an android platform")?;
-//        toolchain(&triple) // TODO XXX
-//    }
-    fn platform(&self) -> Result<Box<Platform>> {
-        debug!("building platform for {}", self);
-//  TODO XXX       self.conf
-//        match self.ssh_config().platform {
-//            Some(ref pf_name) => {
-//                let pf = &self.conf.platforms.get(pf_name).ok_or(format!("platform {} not found", pf_name))?;
-//                ::regular_platform::RegularPlatform::new(self.id.clone(), pf.rustc_triple.clone().unwrap(), pf.toolchain.clone().unwrap())
-//            },
-//            None => {
-//                let tc = self.ssh_config().toolchain.clone().ok_or(format!("device {} has neither platform nor toolchain specified", self.name()))?;
-//                let target = self.ssh_config().target.clone().ok_or(format!("device {} has neither platform nor target specified", self.name()))?;
-//                ::regular_platform::RegularPlatform::new(self.id.clone(), target, tc)
-//            }
-//        }
-        unimplemented!()
-    }
-    fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
+    fn make_app(&self, project: &Project, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
         use std::fs;
         let exe_file_name = exe.file_name()
             .expect("app should be a file in android mode");
@@ -117,10 +94,10 @@ impl Device for AndroidDevice {
         fs::copy(&exe, &bundled_exe_path)?;
 
         debug!("Copying src to bundle");
-        ::rec_copy(source, &bundle_path, false)?;
+        project.rec_copy(source, &bundle_path, false)?;
 
         debug!("Copying test_data to bundle");
-        ::copy_test_data(source, &bundle_path)?;
+        project.copy_test_data(&bundle_path)?;
 
         Ok(bundled_exe_path.into())
     }
@@ -241,7 +218,6 @@ fn adb() -> Result<String> {
 
 pub struct AndroidManager {
     adb: String,
-    conf: Arc<Configuration>,
 }
 
 impl PlatformManager for AndroidManager {
@@ -251,7 +227,7 @@ impl PlatformManager for AndroidManager {
         let device_regex = ::regex::Regex::new(r#"^(\S+)\tdevice\r?$"#)?;
         for line in String::from_utf8(result.stdout)?.split("\n").skip(1) {
             if let Some(caps) = device_regex.captures(line) {
-                let d = AndroidDevice::from_id(self.adb.clone(), &caps[1], self.conf.clone())?;
+                let d = AndroidDevice::from_id(self.adb.clone(), &caps[1])?;
                 debug!("Discovered Android device {:?}", d);
                 devices.push(Box::new(d) as Box<Device>);
             }
@@ -261,11 +237,11 @@ impl PlatformManager for AndroidManager {
 }
 
 impl AndroidManager {
-    pub fn probe(conf: Arc<Configuration>) -> Option<AndroidManager> {
+    pub fn probe() -> Option<AndroidManager> {
         match adb() {
             Ok(adb) => {
                 info!("Using {}", adb);
-                Some(AndroidManager { adb, conf })
+                Some(AndroidManager { adb })
             }
             Err(_) => {
                 info!("adb not found in path, android disabled");

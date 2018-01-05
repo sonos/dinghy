@@ -33,15 +33,16 @@ pub mod errors;
 pub mod host;
 #[cfg(target_os = "macos")]
 pub mod ios;
+pub mod project;
 pub mod regular_platform;
 pub mod ssh;
 mod toolchain;
 
 use cargo_facade::CompileMode;
+use config::Configuration;
+use project::Project;
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::fs;
-use std::env::current_dir;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -80,11 +81,10 @@ pub trait Device: Debug + Display + DeviceCompatibility {
             true
         }
     }
-    fn platform(&self) -> Result<Box<Platform>>;
 
     fn start_remote_lldb(&self) -> Result<String>;
 
-    fn make_app(&self, source: &Path, app: &Path) -> Result<PathBuf>;
+    fn make_app(&self, project: &Project, source: &Path, app: &Path) -> Result<PathBuf>;
     fn install_app(&self, path: &Path) -> Result<()>;
     fn clean_app(&self, path: &Path) -> Result<()>;
     fn run_app(&self, app: &Path, args: &[&str], envs: &[&str]) -> Result<()>;
@@ -111,13 +111,12 @@ pub struct Dinghy {
 }
 
 impl Dinghy {
-    pub fn probe() -> Result<Dinghy> {
-        let conf = Arc::new(config::config(current_dir().unwrap())?);
+    pub fn probe(conf: &Arc<Configuration>) -> Result<Dinghy> {
         let mut managers: Vec<Box<PlatformManager>> = vec![];
         if let Some(host) = host::HostManager::probe() {
             managers.push(Box::new(host))
         }
-        if let Some(android) = android::AndroidManager::probe(conf.clone()) {
+        if let Some(android) = android::AndroidManager::probe() {
             managers.push(Box::new(android))
         }
         if let Some(ssh) = ssh::SshDeviceManager::probe(conf.clone()) {
@@ -147,81 +146,4 @@ impl Dinghy {
         }
         Ok(v)
     }
-}
-
-fn make_linux_app(root: &Path, exe: &Path) -> Result<PathBuf> {
-    let app_name = "dinghy";
-    let app_path = exe.parent().unwrap().join("dinghy").join(app_name);
-    debug!("Making bundle {:?} for {:?}", app_path, exe);
-    fs::create_dir_all(&app_path)?;
-    fs::copy(&exe, app_path.join(app_name))?;
-    debug!("Copying src to bundle");
-    ::rec_copy(root, &app_path, false)?;
-    debug!("Copying test_data to bundle");
-    ::copy_test_data(root, &app_path)?;
-    Ok(app_path.into())
-}
-
-fn copy_test_data<S: AsRef<Path>, T: AsRef<Path>>(root: S, app_path: T) -> Result<()> {
-    let app_path = app_path.as_ref();
-    fs::create_dir_all(app_path.join("test_data"))?;
-    let conf = config::config(root.as_ref())?;
-    for td in conf.test_data {
-        let root = PathBuf::from("/");
-        let file = td.base.parent().unwrap_or(&root).join(&td.source);
-        if Path::new(&file).exists() {
-            let metadata = file.metadata()?;
-            let dst = app_path.join("test_data").join(td.target);
-            if metadata.is_dir() {
-                ::rec_copy(file, dst, td.copy_git_ignored)?;
-            } else {
-                fs::copy(file, dst)?;
-            }
-        } else {
-            warn!(
-                "configuration required test_data `{:?}` but it could not be found",
-                td
-            );
-        }
-    }
-    Ok(())
-}
-
-fn rec_copy<P1: AsRef<Path>, P2: AsRef<Path>>(
-    src: P1,
-    dst: P2,
-    copy_ignored_test_data: bool,
-) -> Result<()> {
-    let src = src.as_ref();
-    let dst = dst.as_ref();
-    let ignore_file = src.join(".dinghyignore");
-    fs::create_dir_all(&dst)?;
-    let mut walker = ignore::WalkBuilder::new(src);
-    walker.git_ignore(!copy_ignored_test_data);
-    walker.add_ignore(ignore_file);
-    for entry in walker.build() {
-        let entry = entry?;
-        let metadata = entry.metadata()?;
-        let path = entry.path().strip_prefix(src)?;
-        if path.components().any(|comp| comp.as_ref() == "target") {
-            continue;
-        }
-        let target = dst.join(path);
-        if metadata.is_dir() {
-            if target.exists() && !target.is_dir() {
-                fs::remove_dir_all(&target)?;
-            }
-            &fs::create_dir_all(&target)?;
-        } else {
-            if target.exists() && !target.is_file() {
-                fs::remove_dir_all(&target)?;
-            }
-            if !target.exists() || target.metadata()?.len() != entry.metadata()?.len()
-                || target.metadata()?.modified()? < entry.metadata()?.modified()?
-                {
-                    fs::copy(entry.path(), &target)?;
-                }
-        }
-    }
-    Ok(())
 }

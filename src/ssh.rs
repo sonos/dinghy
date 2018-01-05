@@ -1,29 +1,27 @@
-use std::{path, process, sync};
-use errors::*;
-use {Device, PlatformManager, Platform};
-
 use config::{ Configuration, SshDeviceConfiguration};
-use DeviceCompatibility;
+use errors::*;
+use project::Project;
 use regular_platform::RegularPlatform;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::fs;
+use std::path::Path;
+use std::path::PathBuf;
+use std::process;
+use std::sync::Arc;
+use DeviceCompatibility;
+use {Device, PlatformManager};
 
 #[derive(Debug, Clone)]
 pub struct SshDevice {
     id: String,
-    conf: sync::Arc<Configuration>,
-}
-
-impl SshDevice {
-    fn ssh_config(&self) -> &SshDeviceConfiguration {
-        &self.conf.ssh_devices[&self.id]
-    }
+    conf: SshDeviceConfiguration,
 }
 
 impl DeviceCompatibility for SshDevice {
     fn is_compatible_with_regular_platform(&self, platform: &RegularPlatform) -> bool {
-        self.ssh_config().platform.as_ref().map_or(false, |it| *it == platform.id)
+        self.conf.platform.as_ref().map_or(false, |it| *it == platform.id)
     }
 }
 
@@ -37,30 +35,25 @@ impl Device for SshDevice {
     fn rustc_triple_guess(&self) -> Option<String> {
         None
     }
-    fn platform(&self) -> Result<Box<Platform>> {
-        debug!("building platform for {}", self);
-        match self.ssh_config().platform {
-            Some(ref pf_name) => {
-            let pf = &self.conf.platforms.get(pf_name).ok_or(format!("platform {} not found", pf_name))?;
-            ::regular_platform::RegularPlatform::new(self.id.clone(), pf.rustc_triple.clone().unwrap(), pf.toolchain.clone().unwrap())
-            },
-            None => {
-                let tc = self.ssh_config().toolchain.clone().ok_or(format!("device {} has neither platform nor toolchain specified", self.name()))?;
-                let target = self.ssh_config().target.clone().ok_or(format!("device {} has neither platform nor target specified", self.name()))?;
-                ::regular_platform::RegularPlatform::new(self.id.clone(), target, tc)
-            }
-        }
-    }
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
-    fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
-        ::make_linux_app(source, exe)
+    fn make_app(&self, project: &Project, source: &Path, exe: &Path) -> Result<PathBuf> {
+        let app_name = "dinghy";
+        let app_path = exe.parent().unwrap().join("dinghy").join(app_name);
+        debug!("Making bundle {:?} for {:?}", app_path, exe);
+        fs::create_dir_all(&app_path)?;
+        fs::copy(&exe, app_path.join(app_name))?;
+        debug!("Copying src to bundle");
+        project.rec_copy(source, &app_path, false)?;
+        debug!("Copying test_data to bundle");
+        project.copy_test_data(&app_path)?;
+        Ok(app_path.into())
     }
-    fn install_app(&self, app: &path::Path) -> Result<()> {
-        let user_at_host = format!("{}@{}", self.ssh_config().username, self.ssh_config().hostname);
-        let prefix = self.ssh_config().path.clone().unwrap_or("/tmp".into());
-        let _stat = if let Some(port) = self.ssh_config().port {
+    fn install_app(&self, app: &Path) -> Result<()> {
+        let user_at_host = format!("{}@{}", self.conf.username, self.conf.hostname);
+        let prefix = self.conf.path.clone().unwrap_or("/tmp".into());
+        let _stat = if let Some(port) = self.conf.port {
             process::Command::new("ssh")
                 .args(&[
                     &*user_at_host,
@@ -95,7 +88,7 @@ impl Device for SshDevice {
         );
         let mut command = process::Command::new("/usr/bin/rsync");
         command.arg("-a").arg("-v");
-        if let Some(port) = self.ssh_config().port {
+        if let Some(port) = self.conf.port {
             command.arg(&*format!("ssh -p {}", port));
         };
         command
@@ -111,12 +104,12 @@ impl Device for SshDevice {
         }
         Ok(())
     }
-    fn clean_app(&self, app_path: &path::Path) -> Result<()> {
-        let user_at_host = format!("{}@{}", self.ssh_config().username, self.ssh_config().hostname);
-        let prefix = self.ssh_config().path.clone().unwrap_or("/tmp".into());
+    fn clean_app(&self, app_path: &Path) -> Result<()> {
+        let user_at_host = format!("{}@{}", self.conf.username, self.conf.hostname);
+        let prefix = self.conf.path.clone().unwrap_or("/tmp".into());
         let app_name = app_path.file_name().unwrap();
-        let path = path::PathBuf::from(prefix).join("dinghy").join(app_name);
-        let stat = if let Some(port) = self.ssh_config().port {
+        let path = PathBuf::from(prefix).join("dinghy").join(app_name);
+        let stat = if let Some(port) = self.conf.port {
             process::Command::new("ssh")
                 .arg(user_at_host)
                 .arg("-p")
@@ -134,14 +127,14 @@ impl Device for SshDevice {
         }
         Ok(())
     }
-    fn run_app(&self, app_path: &path::Path, args: &[&str], envs: &[&str]) -> Result<()> {
-        let user_at_host = format!("{}@{}", self.ssh_config().username, self.ssh_config().hostname);
-        let prefix = self.ssh_config().path.clone().unwrap_or("/tmp".into());
+    fn run_app(&self, app_path: &Path, args: &[&str], envs: &[&str]) -> Result<()> {
+        let user_at_host = format!("{}@{}", self.conf.username, self.conf.hostname);
+        let prefix = self.conf.path.clone().unwrap_or("/tmp".into());
         let app_name = app_path.file_name().unwrap();
-        let path = path::PathBuf::from(prefix).join("dinghy").join(app_name);
+        let path = PathBuf::from(prefix).join("dinghy").join(app_name);
         let exe = path.join(&app_name);
         let mut command = process::Command::new("ssh");
-        if let Some(port) = self.ssh_config().port {
+        if let Some(port) = self.conf.port {
             command.arg("-p").arg(&*format!("{}", port));
         }
         if ::isatty::stdout_isatty() {
@@ -162,28 +155,27 @@ impl Device for SshDevice {
         }
         Ok(())
     }
-    fn debug_app(&self, _app_path: &path::Path, _args: &[&str], _envs: &[&str]) -> Result<()> {
+    fn debug_app(&self, _app_path: &Path, _args: &[&str], _envs: &[&str]) -> Result<()> {
         unimplemented!()
     }
 }
 
 impl Display for SshDevice {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        let ssh_config = self.ssh_config();
         Ok(fmt.write_str(format!("Ssh {{ \"id\": \"{}\", \"hostname\": \"{}\", \"username\": \"{}\", \"port\": \"{}\" }}",
                                  self.id,
-                                 ssh_config.hostname,
-                                 ssh_config.username,
-                                 ssh_config.port.as_ref().map_or("none".to_string(), |it| it.to_string())).as_str())?)
+                                 self.conf.hostname,
+                                 self.conf.username,
+                                 self.conf.port.as_ref().map_or("none".to_string(), |it| it.to_string())).as_str())?)
     }
 }
 
 pub struct SshDeviceManager {
-    conf: sync::Arc<Configuration>
+    conf: Arc<Configuration>
 }
 
 impl SshDeviceManager {
-    pub fn probe(conf: sync::Arc<Configuration>) -> Option<SshDeviceManager> {
+    pub fn probe(conf: Arc<Configuration>) -> Option<SshDeviceManager> {
         Some(SshDeviceManager {conf})
     }
 }
@@ -192,10 +184,10 @@ impl PlatformManager for SshDeviceManager {
     fn devices(&self) -> Result<Vec<Box<Device>>> {
         Ok(self.conf.ssh_devices
             .iter()
-            .map(|(k, _)| {
+            .map(|(k, conf)| {
                 Box::new(SshDevice {
                     id: k.clone(),
-                    conf: self.conf.clone(),
+                    conf: conf.clone(),
                 }) as _
             })
             .collect())
