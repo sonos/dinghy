@@ -56,10 +56,6 @@ impl Device for HostDevice {
         "HOST"
     }
 
-    fn rustc_triple_guess(&self) -> Option<String> {
-        None
-    }
-
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }

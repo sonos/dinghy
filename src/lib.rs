@@ -71,24 +71,14 @@ pub trait DeviceCompatibility {
 }
 
 pub trait Device: Debug + Display + DeviceCompatibility {
-    fn name(&self) -> &str;
-    fn id(&self) -> &str;
-    fn rustc_triple_guess(&self) -> Option<String>;
-    fn can_run(&self, target: &str) -> bool {
-        if let Some(t) = self.rustc_triple_guess() {
-            t == target
-        } else {
-            true
-        }
-    }
-
-    fn start_remote_lldb(&self) -> Result<String>;
-
-    fn make_app(&self, project: &Project, source: &Path, app: &Path) -> Result<PathBuf>;
-    fn install_app(&self, path: &Path) -> Result<()>;
     fn clean_app(&self, path: &Path) -> Result<()>;
-    fn run_app(&self, app: &Path, args: &[&str], envs: &[&str]) -> Result<()>;
     fn debug_app(&self, app: &Path, args: &[&str], envs: &[&str]) -> Result<()>;
+    fn id(&self) -> &str;
+    fn install_app(&self, path: &Path) -> Result<()>;
+    fn make_app(&self, project: &Project, source: &Path, app: &Path) -> Result<PathBuf>;
+    fn name(&self) -> &str;
+    fn run_app(&self, app: &Path, args: &[&str], envs: &[&str]) -> Result<()>;
+    fn start_remote_lldb(&self) -> Result<String>;
 }
 
 #[derive(Debug)]

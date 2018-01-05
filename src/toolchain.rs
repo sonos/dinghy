@@ -16,13 +16,43 @@ static GLOB_ARGS: &str = r#""$@""#;
 #[cfg(target_os = "windows")]
 static GLOB_ARGS: &str = r#"%*"#;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
+pub struct Toolchain {
+    pub rustc_triple: String,
+}
+
+#[derive(Clone, Debug)]
 pub struct ToolchainConfig {
     pub bin: PathBuf,
     pub root: PathBuf,
     pub rustc_triple: String,
     pub sysroot: String,
     pub tc_triple: String,
+}
+
+impl Toolchain {
+    pub fn setup_ar(&self, ar_command: &str) -> Result<()> {
+        set_env("TARGET_AR", ar_command);
+        Ok(())
+    }
+
+    pub fn setup_cc(&self, id: &str, compiler_command: &str) -> Result<()> {
+        Ok(ToolchainConfig::setup_shim(
+            self.rustc_triple.as_str(),
+            id,
+            "TARGET_CC",
+            "cc",
+            format!("{} {}", compiler_command, GLOB_ARGS).as_str())?)
+    }
+
+    pub fn setup_linker(&self, id: &str, linker_command: &str) -> Result<()> {
+        Ok(ToolchainConfig::setup_shim(
+            self.rustc_triple.as_str(),
+            id,
+            format!("CARGO_TARGET_{}_LINKER", envify(self.rustc_triple.as_str())).as_str(),
+            "linker",
+            format!("{} {}", linker_command, GLOB_ARGS).as_str())?)
+    }
 }
 
 impl ToolchainConfig {
@@ -71,26 +101,15 @@ impl ToolchainConfig {
     }
 
     pub fn setup_ar(&self, ar_command: &str) -> Result<()> {
-        set_env("TARGET_AR", ar_command);
-        Ok(())
+        self.as_toolchain().setup_ar(ar_command)
     }
 
     pub fn setup_cc(&self, id: &str, compiler_command: &str) -> Result<()> {
-        Ok(ToolchainConfig::setup_shim(
-            self.rustc_triple.as_str(),
-            id,
-            "TARGET_CC",
-            "cc",
-            format!("{} {}", compiler_command, GLOB_ARGS).as_str())?)
+        self.as_toolchain().setup_cc(id, compiler_command)
     }
 
     pub fn setup_linker(&self, id: &str, linker_command: &str) -> Result<()> {
-        Ok(ToolchainConfig::setup_shim(
-            self.rustc_triple.as_str(),
-            id,
-            format!("CARGO_TARGET_{}_LINKER", envify(self.rustc_triple.as_str())).as_str(),
-            "linker",
-            format!("{} {}", linker_command, GLOB_ARGS).as_str())?)
+        self.as_toolchain().setup_linker(id, linker_command)
     }
 
     fn setup_shim(rustc_triple: &str, id: &str, var: &str, name: &str, shell: &str) -> Result<()> {
@@ -132,6 +151,10 @@ impl ToolchainConfig {
             .join(format!("{}-{}", self.tc_triple, name_without_triple))
             .to_string_lossy()
             .to_string()
+    }
+
+    fn as_toolchain(&self) -> Toolchain {
+        Toolchain { rustc_triple: self.rustc_triple.clone() }
     }
 }
 
