@@ -1,6 +1,7 @@
 use cargo_facade::CargoFacade;
 use cargo_facade::CompileMode;
 use clap::ArgMatches;
+use std::fmt::Display;
 use toolchain::ToolchainConfig;
 use std::path;
 use Device;
@@ -52,7 +53,7 @@ impl RegularPlatform {
     }
 }
 
-impl ::std::fmt::Display for RegularPlatform {
+impl Display for RegularPlatform {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::result::Result<(), ::std::fmt::Error> {
         write!(f, "{:?}", self.toolchain.root)
     }
@@ -88,8 +89,8 @@ impl Platform for RegularPlatform {
         self.toolchain.setup_sysroot();
         self.toolchain.shim_executables(self.id.as_str())?;
 
-        CargoFacade::from_args(matches).build(compile_mode,
-                                              Some(self.toolchain.rustc_triple.as_str()))
+        CargoFacade::from_args(matches)
+            .build(compile_mode, Some(self.toolchain.rustc_triple.as_str()))
     }
 
     fn id(&self) -> String {

@@ -1,7 +1,15 @@
+use cargo_facade::CargoFacade;
+use cargo_facade::CompileMode;
+use clap::ArgMatches;
+use errors::*;
+use project::Project;
 use std::{fs, mem, path, process, ptr, sync, thread};
 use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 use std::time::Duration;
-use errors::*;
+use toolchain::Toolchain;
 
 use libc::*;
 
@@ -15,8 +23,11 @@ use core_foundation::boolean::CFBoolean;
 use core_foundation_sys::number::kCFBooleanTrue;
 
 mod mobiledevice_sys;
+
 use self::mobiledevice_sys::*;
 use {Device, PlatformManager, Platform};
+use DeviceCompatibility;
+use Runnable;
 
 mod xcode;
 
@@ -27,6 +38,7 @@ pub struct IosDevice {
     id: String,
     name: String,
     arch_cpu: &'static str,
+    rustc_triple: String,
 }
 
 #[derive(Debug, Clone)]
@@ -61,25 +73,6 @@ impl Device for IosDevice {
     fn id(&self) -> &str {
         &*self.id
     }
-    fn rustc_triple_guess(&self) -> Option<String> {
-        Some(format!("{}-apple-ios", self.arch_cpu))
-    }
-    fn can_run(&self, target: &str) -> bool {
-        if !target.ends_with("-apple-ios") {
-            return false;
-        }
-        if Some(target) == self.rustc_triple_guess().as_ref().map(|a| &**a) {
-            return true;
-        }
-        if target == "armv7-apple-ios" && (self.arch_cpu == "armv7s" || self.arch_cpu == "aarch64")
-        {
-            return true;
-        }
-        if target == "armv7s-apple-ios" && (self.arch_cpu == "aarch64") {
-            return true;
-        }
-        return false;
-    }
     fn start_remote_lldb(&self) -> Result<String> {
         let _ = ensure_session(self.ptr);
         let fd = start_remote_debug_server(self.ptr)?;
@@ -87,9 +80,6 @@ impl Device for IosDevice {
         let proxy = start_lldb_proxy(fd)?;
         debug!("start lldb");
         Ok(format!("localhost:{}", proxy))
-    }
-    fn platform(&self) -> Result<Box<Platform>> {
-        Ok(Box::new(IosToolchain { sim: false, rustc_triple: self.rustc_triple_guess().ok_or("")? }))
     }
     fn make_app(&self, project: &Project, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
         let signing = xcode::look_for_signature_settings(&*self.id)?
@@ -106,7 +96,7 @@ impl Device for IosDevice {
         let target = magic.split(" ").last().ok_or("empty magic")?;
         let app = xcode::wrap_as_app(
             target,
-            name.to_str().ok_or("conversion to string")?,
+            project,
             source,
             exe,
             app_id,
@@ -153,6 +143,7 @@ impl IosDevice {
             name: name,
             id: id,
             arch_cpu: cpu.into(),
+            rustc_triple: format!("{}-apple-ios", cpu),
         })
     }
 }
@@ -164,14 +155,9 @@ impl Device for IosSimDevice {
     fn id(&self) -> &str {
         &*self.id
     }
-    fn rustc_triple_guess(&self) -> Option<String> {
-        Some("x86_64-apple-ios".to_string())
-    }
+
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
-    }
-    fn platform(&self) -> Result<Box<Platform>> {
-        Ok(Box::new(IosToolchain { sim: true, rustc_triple: self.rustc_triple_guess().unwrap() }))
     }
     fn make_app(&self, project: &Project, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
         let name = exe.file_name().expect("root ?");
@@ -184,7 +170,7 @@ impl Device for IosSimDevice {
         let target = magic.split(" ").last().ok_or("empty magic")?;
         let app = xcode::wrap_as_app(
             target,
-            name.to_str().ok_or("conversion to string")?,
+            project,
             source,
             exe,
             "Dinghy",
@@ -233,23 +219,55 @@ impl Device for IosSimDevice {
     }
 }
 
+impl Display for IosDevice {
+    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
+        Ok(fmt.write_str(format!("IosDevice {{ \"id\": \"{}\", \"name\": {}, \"arch_cpu\": {} }}",
+                                 self.id,
+                                 self.name,
+                                 self.arch_cpu).as_str())?)
+    }
+}
+
+impl Display for IosSimDevice {
+    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
+        Ok(fmt.write_str(format!("IosSimDevice {{ \"id\": \"{}\", \"name\": {}, \"os\": {} }}",
+                                 self.id,
+                                 self.name,
+                                 self.os).as_str())?)
+    }
+}
+
+impl DeviceCompatibility for IosDevice {
+    fn is_compatible_with_ios_platform(&self, platform: &IosToolchain) -> bool {
+        if platform.sim { return false; }
+
+        if platform.toolchain.rustc_triple == self.rustc_triple.as_str() {
+            return true;
+        }
+        if platform.toolchain.rustc_triple == "armv7-apple-ios" && (self.arch_cpu == "armv7s" || self.arch_cpu == "aarch64") {
+            return true;
+        }
+        if platform.toolchain.rustc_triple == "armv7s-apple-ios" && self.arch_cpu == "aarch64" {
+            return true;
+        }
+        return false;
+    }
+}
+
+impl DeviceCompatibility for IosSimDevice {
+    fn is_compatible_with_ios_platform(&self, platform: &IosToolchain) -> bool {
+        platform.sim && platform.toolchain.rustc_triple == "x86_64-apple-ios"
+    }
+}
+
 
 #[derive(Debug)]
 pub struct IosToolchain {
-    rustc_triple: String,
     sim: bool,
+    toolchain: Toolchain,
 }
 
-impl Platform for IosToolchain {
-    fn id(&self) -> String {
-        self.rustc_triple.to_string()
-    }
-    fn rustc_triple(&self) -> Result<String> {
-        Ok(self.rustc_triple.clone())
-    }
-    fn cc_command(&self) -> Result<String> {
-        Ok("cc".into())
-    }
+impl IosToolchain {
     fn linker_command(&self) -> Result<String> {
         let sdk_name = if self.sim {
             "iphonesimulator"
@@ -259,12 +277,31 @@ impl Platform for IosToolchain {
         let xcrun = process::Command::new("xcrun")
             .args(&["--sdk", sdk_name, "--show-sdk-path"])
             .output()?;
-        let sdk_path = String::from_utf8(xcrun.stdout)?;
-        Ok(format!(r#"cc -isysroot {} "$@""#, &*sdk_path.trim_right()))
+        Ok(String::from_utf8(xcrun.stdout)?.trim_right().to_string())
     }
 }
 
-impl ::std::fmt::Display for IosToolchain {
+impl Platform for IosToolchain {
+    fn build(&self, compile_mode: CompileMode, matches: &ArgMatches) -> Result<Vec<Runnable>> {
+        self.toolchain.setup_cc(self.id().as_str(), "gcc")?;
+        self.toolchain.setup_linker(self.id().as_str(),
+                                    format!("cc -isysroot {}",
+                                            self.linker_command()?.as_str()).as_str())?;
+
+        CargoFacade::from_args(matches)
+            .build(compile_mode, Some(self.toolchain.rustc_triple.as_str()))
+    }
+
+    fn id(&self) -> String {
+        self.toolchain.rustc_triple.to_string()
+    }
+
+    fn is_compatible_with(&self, device: &Device) -> bool {
+        device.is_compatible_with_ios_platform(self)
+    }
+}
+
+impl Display for IosToolchain {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::result::Result<(), ::std::fmt::Error> {
         if self.sim {
             write!(f, "XCode targetting Ios Simulator")

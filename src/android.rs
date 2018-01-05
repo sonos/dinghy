@@ -61,18 +61,6 @@ impl Device for AndroidDevice {
     fn id(&self) -> &str {
         &*self.id
     }
-    fn rustc_triple_guess(&self) -> Option<String> {
-        // Prefer arm-linux-androideabi if valid because it's Tier 1
-        self.supported_targets
-            .iter()
-            .filter(|&s| s == &"arm-linux-androideabi")
-            .next()
-            .or_else(|| self.supported_targets.get(0))
-            .map(|it| it.to_string())
-    }
-    fn can_run(&self, target: &str) -> bool {
-        self.supported_targets.iter().any(|&t| t == target)
-    }
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
