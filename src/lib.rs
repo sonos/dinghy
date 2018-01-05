@@ -41,8 +41,10 @@ use cargo_facade::CompileMode;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fs;
+use std::env::current_dir;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -58,6 +60,11 @@ pub trait PlatformCompatibility {
     }
 
     fn is_compatible_with_host_platform(&self, _platform: &host::HostPlatform) -> bool {
+        false
+    }
+
+    #[cfg(target_os = "macos")]
+    fn is_compatible_with_ios_platform(&self, _platform: &ios::IosToolchain) -> bool {
         false
     }
 }
@@ -105,21 +112,31 @@ pub struct Dinghy {
 
 impl Dinghy {
     pub fn probe() -> Result<Dinghy> {
-        let conf = std::sync::Arc::new(config::config(::std::env::current_dir().unwrap())?);
+        let conf = Arc::new(config::config(current_dir().unwrap())?);
         let mut managers: Vec<Box<PlatformManager>> = vec![];
         if let Some(host) = host::HostManager::probe() {
-            managers.push(Box::new(host) as Box<PlatformManager>)
-        }
-        if let Some(ios) = ios::IosManager::new()? {
-            managers.push(Box::new(ios) as Box<PlatformManager>)
+            managers.push(Box::new(host))
         }
         if let Some(android) = android::AndroidManager::probe(conf.clone()) {
-            managers.push(Box::new(android) as Box<PlatformManager>)
+            managers.push(Box::new(android))
         }
-        if let Some(config) = ssh::SshDeviceManager::probe(conf.clone()) {
-            managers.push(Box::new(config) as Box<PlatformManager>)
+        if let Some(ssh) = ssh::SshDeviceManager::probe(conf.clone()) {
+            managers.push(Box::new(ssh))
+        }
+        if let Some(ios) = Dinghy::new_ios_manager() {
+            managers.push(ios)
         }
         Ok(Dinghy { managers: managers })
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn new_ios_manager() -> Option<Box<PlatformManager>> {
+        None
+    }
+
+    #[cfg(target_os = "macos")]
+    fn new_ios_manager() -> Option<Box<ios::IosManager>> {
+        ios::IosManager::new().unwrap_or(None).map(|it| Box::new(it) as Box<ios::IosManager>)
     }
 
     pub fn devices(&self) -> Result<Vec<Box<Device>>> {
@@ -129,25 +146,6 @@ impl Dinghy {
             v.extend(m.devices()?);
         }
         Ok(v)
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-pub mod ios {
-    pub struct IosManager {}
-
-    pub struct IosDevice {}
-
-    impl ::PlatformManager for IosManager {
-        fn devices(&self) -> ::errors::Result<Vec<Box<::Device>>> {
-            Ok(vec![])
-        }
-    }
-
-    impl IosManager {
-        pub fn new() -> ::errors::Result<Option<IosManager>> {
-            Ok((None))
-        }
     }
 }
 
