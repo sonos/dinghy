@@ -1,6 +1,7 @@
 use cargo_facade::CargoFacade;
 use cargo_facade::CompileMode;
 use clap::ArgMatches;
+use project::Project;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -59,15 +60,11 @@ impl Device for HostDevice {
         None
     }
 
-    fn platform(&self) -> Result<Box<Platform>> {
-        HostPlatform::new()
-    }
-
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
 
-    fn make_app(&self, _source: &Path, _app: &Path) -> Result<PathBuf> {
+    fn make_app(&self, _project: &Project, _source: &Path, _app: &Path) -> Result<PathBuf> {
         unimplemented!()
     }
 

@@ -1,7 +1,7 @@
+use errors::*;
+use project_fs;
 use std::{env, fs, io, path, process};
 use std::io::Write;
-
-use errors::*;
 use super::{SignatureSettings, SigningIdentity};
 
 pub fn wrap_as_app<P1, P2, P3>(
@@ -44,8 +44,8 @@ where
     )?;
     writeln!(plist, r#"</dict></plist>"#)?;
 
-    ::rec_copy(&source, &app_path, false)?;
-    ::copy_test_data(source, &app_path)?;
+    project_fs::rec_copy(&source, &app_path, false)?;
+    project_fs::copy_test_data(conf, &app_path)?;
     Ok(app_path)
 }
 

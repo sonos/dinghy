@@ -15,10 +15,13 @@ use dinghy::cli::CargoDinghyCli;
 use dinghy::config::Configuration;
 use dinghy::errors::*;
 use dinghy::host::HostPlatform;
+use dinghy::project::Project;
 use dinghy::regular_platform::RegularPlatform;
 use dinghy::Device;
+use dinghy::Dinghy;
 use dinghy::Platform;
 use std::env::current_dir;
+use std::sync::Arc;
 
 
 fn main() {
@@ -45,16 +48,17 @@ fn main() {
 }
 
 fn run(matches: clap::ArgMatches) -> Result<()> {
-    let conf = ::dinghy::config::config(current_dir().unwrap())?;
+    let conf = Arc::new(::dinghy::config::config(current_dir().unwrap())?);
     let platform = platform_from_cli(&conf, &matches)?;
-    let devices = dinghy::Dinghy::probe()?.devices()?;
+    let project = Project::new(&conf);
+    let devices = Dinghy::probe(&conf)?.devices()?;
 
     match matches.subcommand() {
         ("all-devices", Some(_matches)) => { show_devices(devices, None) }
         ("devices", Some(_matches)) => { show_devices(devices, Some(platform)) }
-        ("run", Some(subs)) => prepare_and_run(&matches, &*platform, devices, "run", subs),
-        ("test", Some(subs)) => prepare_and_run(&matches, &*platform, devices, "test", subs),
-        ("bench", Some(subs)) => prepare_and_run(&matches, &*platform, devices, "bench", subs),
+        ("run", Some(subs)) => prepare_and_run(&matches, &project, &*platform, devices, "run", subs),
+        ("test", Some(subs)) => prepare_and_run(&matches, &project, &*platform, devices, "test", subs),
+        ("bench", Some(subs)) => prepare_and_run(&matches, &project, &*platform, devices, "bench", subs),
         ("build", Some(sub_args)) => { platform.build(CompileMode::Build, sub_args).and(Ok(())) }
         ("lldbproxy", Some(_matches)) => {
             let lldb = find_main_device_for_platform(&*platform, devices, &matches)?.start_remote_lldb()?;
@@ -98,6 +102,7 @@ fn show_devices(devices: Vec<Box<Device>>, platform: Option<Box<Platform>>) -> R
 
 fn prepare_and_run(
     matches: &clap::ArgMatches,
+    project: &Project,
     platform: &dinghy::Platform,
     devices: Vec<Box<Device>>,
     subcommand: &str,
@@ -116,7 +121,7 @@ fn prepare_and_run(
     let envs = arg_as_string_vec(sub_args, "ENVS");
 
     for runnable in runnable_list {
-        let app = device.make_app(&runnable.source, &runnable.exe)?;
+        let app = device.make_app(project, &runnable.source, &runnable.exe)?;
         device.install_app(&app.as_ref())?;
         if sub_args.is_present("DEBUGGER") {
             println!("DEBUGGER");

@@ -91,7 +91,7 @@ impl Device for IosDevice {
     fn platform(&self) -> Result<Box<Platform>> {
         Ok(Box::new(IosToolchain { sim: false, rustc_triple: self.rustc_triple_guess().ok_or("")? }))
     }
-    fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
+    fn make_app(&self, project: &Project, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
         let signing = xcode::look_for_signature_settings(&*self.id)?
             .pop()
             .ok_or("no signing identity found")?;
@@ -173,7 +173,7 @@ impl Device for IosSimDevice {
     fn platform(&self) -> Result<Box<Platform>> {
         Ok(Box::new(IosToolchain { sim: true, rustc_triple: self.rustc_triple_guess().unwrap() }))
     }
-    fn make_app(&self, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
+    fn make_app(&self, project: &Project, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
         let name = exe.file_name().expect("root ?");
         let parent = exe.parent().expect("no parents? too sad...");
         let loc = parent.join("dinghy").join(name);
