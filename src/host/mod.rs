@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use Device;
 use Platform;
 use PlatformManager;
-use PlatformCompatibility;
+use DeviceCompatibility;
 use Result;
 use Runnable;
 
@@ -94,7 +94,7 @@ impl Display for HostDevice {
     }
 }
 
-impl PlatformCompatibility for HostDevice {
+impl DeviceCompatibility for HostDevice {
     fn is_compatible_with_host_platform(&self, _platform: &HostPlatform) -> bool {
         true
     }

@@ -4,7 +4,7 @@ use std::process::{Command, Stdio};
 use config::Configuration;
 use errors::*;
 use {Device, Platform, PlatformManager};
-use PlatformCompatibility;
+use DeviceCompatibility;
 use regular_platform::RegularPlatform;
 use std::fmt;
 use std::fmt::Display;
@@ -50,7 +50,7 @@ impl AndroidDevice {
     }
 }
 
-impl PlatformCompatibility for AndroidDevice {
+impl DeviceCompatibility for AndroidDevice {
     fn is_compatible_with_regular_platform(&self, platform: &RegularPlatform) -> bool {
         self.supported_targets.contains(&platform.toolchain.tc_triple.as_str())
     }

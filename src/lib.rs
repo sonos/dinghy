@@ -54,7 +54,7 @@ pub trait PlatformManager {
     fn devices(&self) -> Result<Vec<Box<Device>>>;
 }
 
-pub trait PlatformCompatibility {
+pub trait DeviceCompatibility {
     fn is_compatible_with_regular_platform(&self, _platform: &regular_platform::RegularPlatform) -> bool {
         false
     }
@@ -69,7 +69,7 @@ pub trait PlatformCompatibility {
     }
 }
 
-pub trait Device: Debug + Display + PlatformCompatibility {
+pub trait Device: Debug + Display + DeviceCompatibility {
     fn name(&self) -> &str;
     fn id(&self) -> &str;
     fn rustc_triple_guess(&self) -> Option<String>;
