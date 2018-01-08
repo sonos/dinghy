@@ -63,7 +63,7 @@ fn run_command(args: ArgMatches) -> Result<()> {
         ("lldbproxy", Some(_)) => run_lldb(device),
         ("run", Some(sub_args)) => prepare_and_run(device, project, platform, "run", sub_args),
         ("test", Some(sub_args)) => prepare_and_run(device, project, platform, "test", sub_args),
-        (sub, _) => Err(format!("Unknown subcommand {}", sub))?,
+        (sub, _) => Err(format!("Unknown dinghy command '{}'", sub))?,
     }
 }
 

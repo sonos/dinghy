@@ -28,8 +28,8 @@ pub struct DetailedTestDataConfiguration {
 
 impl<'de> de::Deserialize<'de> for TestDataConfiguration {
     fn deserialize<D>(deserializer: D) -> result::Result<Self, D::Error>
-    where
-        D: de::Deserializer<'de>,
+        where
+            D: de::Deserializer<'de>,
     {
         struct TestDataVisitor;
 
@@ -45,8 +45,8 @@ impl<'de> de::Deserialize<'de> for TestDataConfiguration {
             }
 
             fn visit_str<E>(self, s: &str) -> result::Result<Self::Value, E>
-            where
-                E: de::Error,
+                where
+                    E: de::Error,
             {
                 Ok(TestDataConfiguration {
                     source: s.to_owned(),
@@ -55,8 +55,8 @@ impl<'de> de::Deserialize<'de> for TestDataConfiguration {
             }
 
             fn visit_map<V>(self, map: V) -> result::Result<Self::Value, V::Error>
-            where
-                V: de::MapAccess<'de>,
+                where
+                    V: de::MapAccess<'de>,
             {
                 let mvd = de::value::MapAccessDeserializer::new(map);
                 let detailed = DetailedTestDataConfiguration::deserialize(mvd)?;
@@ -90,7 +90,7 @@ pub struct PlatformConfiguration {
     pub rustc_triple: Option<String>,
     pub toolchain: Option<String>,
     pub sysroot: Option<String>,
-    pub overlays: collections::HashMap<String,OverlayConfiguration>
+    pub overlays: Option<collections::HashMap<String, OverlayConfiguration>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
