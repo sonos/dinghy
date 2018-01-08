@@ -1,6 +1,6 @@
 extern crate cargo;
 extern crate clap;
-extern crate dinghy;
+extern crate dinghy_lib;
 extern crate itertools;
 #[macro_use]
 extern crate log;
@@ -12,15 +12,15 @@ use std::time;
 
 use cargo::ops::CompileMode;
 use clap::ArgMatches;
-use dinghy::cli::arg_as_string_vec;
-use dinghy::cli::CargoDinghyCli;
-use dinghy::errors::*;
-use dinghy::host::HostDevice;
-use dinghy::host::HostPlatform;
-use dinghy::project::Project;
-use dinghy::Device;
-use dinghy::Dinghy;
-use dinghy::Platform;
+use dinghy_lib::cli::arg_as_string_vec;
+use dinghy_lib::cli::CargoDinghyCli;
+use dinghy_lib::errors::*;
+use dinghy_lib::host::HostDevice;
+use dinghy_lib::host::HostPlatform;
+use dinghy_lib::project::Project;
+use dinghy_lib::Device;
+use dinghy_lib::Dinghy;
+use dinghy_lib::Platform;
 use itertools::Itertools;
 use std::env::current_dir;
 use std::sync::Arc;
@@ -50,7 +50,7 @@ fn main() {
 }
 
 fn run_command(args: ArgMatches) -> Result<()> {
-    let conf = Arc::new(::dinghy::config::config(current_dir().unwrap())?);
+    let conf = Arc::new(::dinghy_lib::config::config(current_dir().unwrap())?);
     let dinghy = Dinghy::probe(&conf)?;
     let project = Project::new(&conf);
     let (platform, device) = select_platform_and_device_from_cli(&args, &dinghy)?;

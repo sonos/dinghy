@@ -1,9 +1,8 @@
 use cargo::util::important_paths::find_root_manifest_for_wd;
+use dinghy_helper::DinghyHelper;
 use errors::*;
 use itertools::Itertools;
 use std::{env, fs, path};
-use std::ffi::OsStr;
-use std::fmt::Display;
 use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -31,7 +30,7 @@ pub struct ToolchainConfig {
 
 impl Toolchain {
     pub fn setup_ar(&self, ar_command: &str) -> Result<()> {
-        set_env("TARGET_AR", ar_command);
+        DinghyHelper::set_env("TARGET_AR", ar_command);
         Ok(())
     }
 
@@ -48,30 +47,40 @@ impl Toolchain {
         Ok(ToolchainConfig::setup_shim(
             self.rustc_triple.as_str(),
             id,
-            format!("CARGO_TARGET_{}_LINKER", envify(self.rustc_triple.as_str())).as_str(),
+            format!("CARGO_TARGET_{}_LINKER", DinghyHelper::envify(self.rustc_triple.as_str())).as_str(),
             "linker",
             format!("{} {}", linker_command, GLOB_ARGS).as_str())?)
     }
 }
 
 impl ToolchainConfig {
-    pub fn setup_pkg_config(&self) {
-        set_env("PKG_CONFIG_ALLOW_CROSS", "1");
+    pub fn setup_pkg_config(&self) -> Result<()> {
+        DinghyHelper::set_env("PKG_CONFIG_ALLOW_CROSS", "1");
 
-        set_env(format!("PKG_CONFIG_LIBDIR_{}", self.rustc_triple.as_str()),
-                WalkDir::new(self.root.to_string_lossy().as_ref())
-                    .into_iter()
-                    .filter_map(|e| e.ok()) // Ignore unreadable files, maybe could warn...
-                    .filter(|e| e.file_name() == "pkgconfig" && e.file_type().is_dir())
-                    .map(|e| e.path().to_string_lossy().into_owned())
-                    .join(":"));
+        DinghyHelper::set_target_env(
+            "PKG_CONFIG_LIBPATH",
+            self.rustc_triple.as_str(),
+            "");
 
-        set_env(format!("PKG_CONFIG_SYSROOT_DIR_{}", self.rustc_triple.as_str()),
-                &self.sysroot.clone());
+        DinghyHelper::append_path_target_env(
+            "PKG_CONFIG_LIBDIR",
+            self.rustc_triple.as_str(),
+            WalkDir::new(self.root.to_string_lossy().as_ref())
+                .into_iter()
+                .filter_map(|e| e.ok()) // Ignore unreadable files, maybe could warn...
+                .filter(|e| e.file_name() == "pkgconfig" && e.file_type().is_dir())
+                .map(|e| e.path().to_string_lossy().into_owned())
+                .join(":"));
+
+        DinghyHelper::set_target_env(
+            "PKG_CONFIG_SYSROOT_DIR",
+            self.rustc_triple.as_str(),
+            &self.sysroot.clone());
+        Ok(())
     }
 
     pub fn setup_sysroot(&self) {
-        set_env("TARGET_SYSROOT", &self.sysroot.as_str());
+        DinghyHelper::set_env("TARGET_SYSROOT", &self.sysroot.as_str());
     }
 
     pub fn shim_executables(&self, id: &str) -> Result<()> {
@@ -94,7 +103,7 @@ impl ToolchainConfig {
                                          rustified_exe,
                                          &format!("{} {}", exe_path, GLOB_ARGS))?;
         }
-        append_env("PATH", ":", shims_path.to_string_lossy().as_ref());
+        DinghyHelper::append_path_to_env("PATH", shims_path.to_string_lossy().as_ref());
         Ok(())
     }
 
@@ -154,25 +163,4 @@ impl ToolchainConfig {
     fn as_toolchain(&self) -> Toolchain {
         Toolchain { rustc_triple: self.rustc_triple.clone() }
     }
-}
-
-
-fn set_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(k: K, v: V) {
-    info!("Setting environment variable {:?}='{:?}'", k.as_ref(), v.as_ref());
-    env::set_var(k, v);
-}
-
-fn append_env<K: AsRef<OsStr>, S: AsRef<OsStr>, V: AsRef<OsStr>>(key: K, separator: S, value: V)
-    where S: Display, V: Display {
-    let env_var_value = env::var(key.as_ref()).unwrap();
-    info!("Appending {} to environment variable '{:?}'", value, key.as_ref());
-    set_env(key.as_ref(), format!("{}{}{}", env_var_value, separator, value));
-}
-
-fn envify(name: &str) -> String {
-    // Same as name.replace("-", "_").to_uppercase()
-    name.chars()
-        .map(|c| c.to_ascii_uppercase())
-        .map(|c| { if c == '-' { '_' } else { c } })
-        .collect()
 }

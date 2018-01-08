@@ -5,6 +5,7 @@ extern crate clap;
 extern crate core_foundation;
 #[cfg(target_os = "macos")]
 extern crate core_foundation_sys;
+extern crate dinghy_helper;
 #[macro_use]
 extern crate error_chain;
 extern crate ignore;
