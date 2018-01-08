@@ -108,6 +108,9 @@ impl Device for IosDevice {
     fn install_app(&self, app: &path::Path) -> Result<()> {
         install_app(self.ptr, app)
     }
+    fn platform(&self) -> Result<Box<Platform>> {
+        unimplemented!()
+    }
     fn run_app(&self, app_path: &path::Path, args: &[&str], _envs: &[&str]) -> Result<()> {
         let lldb_proxy = self.start_remote_lldb()?;
         run_remote(self.ptr, &lldb_proxy, app_path, args, false)
@@ -196,6 +199,9 @@ impl Device for IosSimDevice {
             Err("failed to install")?
         }
     }
+    fn platform(&self) -> Result<Box<Platform>> {
+        unimplemented!()
+    }
     fn run_app(&self, _app_path: &path::Path, args: &[&str], _envs: &[&str]) -> Result<()> {
         let install_path = String::from_utf8(
             process::Command::new("xcrun")
@@ -238,7 +244,7 @@ impl Display for IosSimDevice {
 }
 
 impl DeviceCompatibility for IosDevice {
-    fn is_compatible_with_ios_platform(&self, platform: &IosToolchain) -> bool {
+    fn is_compatible_with_ios_platform(&self, platform: &IosPlatform) -> bool {
         if platform.sim { return false; }
 
         if platform.toolchain.rustc_triple == self.rustc_triple.as_str() {
@@ -255,19 +261,28 @@ impl DeviceCompatibility for IosDevice {
 }
 
 impl DeviceCompatibility for IosSimDevice {
-    fn is_compatible_with_ios_platform(&self, platform: &IosToolchain) -> bool {
+    fn is_compatible_with_ios_platform(&self, platform: &IosPlatform) -> bool {
         platform.sim && platform.toolchain.rustc_triple == "x86_64-apple-ios"
     }
 }
 
 
 #[derive(Debug)]
-pub struct IosToolchain {
+pub struct IosPlatform {
     sim: bool,
     toolchain: Toolchain,
 }
 
-impl IosToolchain {
+impl IosPlatform {
+    pub fn new(rustc_triple: String) -> Result<Box<Platform>> {
+        Ok(Box::new(IosPlatform {
+            sim: false,
+            toolchain: Toolchain {
+                rustc_triple
+            },
+        }))
+    }
+
     fn linker_command(&self) -> Result<String> {
         let sdk_name = if self.sim {
             "iphonesimulator"
@@ -281,7 +296,7 @@ impl IosToolchain {
     }
 }
 
-impl Platform for IosToolchain {
+impl Platform for IosPlatform {
     fn build(&self, compile_mode: CompileMode, matches: &ArgMatches) -> Result<Vec<Runnable>> {
         self.toolchain.setup_cc(self.id().as_str(), "gcc")?;
         self.toolchain.setup_linker(self.id().as_str(),
@@ -301,7 +316,7 @@ impl Platform for IosToolchain {
     }
 }
 
-impl Display for IosToolchain {
+impl Display for IosPlatform {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::result::Result<(), ::std::fmt::Error> {
         if self.sim {
             write!(f, "XCode targetting Ios Simulator")
