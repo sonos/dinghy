@@ -2,7 +2,6 @@ use cargo::util::important_paths::find_root_manifest_for_wd;
 use errors::*;
 use itertools::Itertools;
 use std::{env, fs, path};
-use std::ascii::AsciiExt;
 use std::ffi::OsStr;
 use std::fmt::Display;
 use std::io::Write;
@@ -59,7 +58,7 @@ impl ToolchainConfig {
     pub fn setup_pkg_config(&self) {
         set_env("PKG_CONFIG_ALLOW_CROSS", "1");
 
-        set_env(format!("{}_PKG_CONFIG_LIBDIR", envify(self.rustc_triple.as_str())),
+        set_env(format!("PKG_CONFIG_LIBDIR_{}", self.rustc_triple.as_str()),
                 WalkDir::new(self.root.to_string_lossy().as_ref())
                     .into_iter()
                     .filter_map(|e| e.ok()) // Ignore unreadable files, maybe could warn...
@@ -67,7 +66,7 @@ impl ToolchainConfig {
                     .map(|e| e.path().to_string_lossy().into_owned())
                     .join(":"));
 
-        set_env(format!("{}_PKG_CONFIG_SYSROOT_DIR", envify(self.rustc_triple.as_str())),
+        set_env(format!("PKG_CONFIG_SYSROOT_DIR_{}", self.rustc_triple.as_str()),
                 &self.sysroot.clone());
     }
 
