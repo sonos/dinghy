@@ -1,6 +1,7 @@
 extern crate cargo;
 extern crate clap;
 extern crate dinghy;
+extern crate itertools;
 #[macro_use]
 extern crate log;
 extern crate pretty_env_logger;
@@ -10,16 +11,17 @@ use std::thread;
 use std::time;
 
 use cargo::ops::CompileMode;
+use clap::ArgMatches;
 use dinghy::cli::arg_as_string_vec;
 use dinghy::cli::CargoDinghyCli;
-use dinghy::config::Configuration;
 use dinghy::errors::*;
+use dinghy::host::HostDevice;
 use dinghy::host::HostPlatform;
 use dinghy::project::Project;
-use dinghy::regular_platform::RegularPlatform;
 use dinghy::Device;
 use dinghy::Dinghy;
 use dinghy::Platform;
+use itertools::Itertools;
 use std::env::current_dir;
 use std::sync::Arc;
 
@@ -41,74 +43,41 @@ fn main() {
     };
     pretty_env_logger::init().unwrap();
 
-    if let Err(e) = run(matches) {
+    if let Err(e) = run_command(matches) {
         println!("{}", e);
         std::process::exit(1);
     }
 }
 
-fn run(matches: clap::ArgMatches) -> Result<()> {
+fn run_command(args: ArgMatches) -> Result<()> {
     let conf = Arc::new(::dinghy::config::config(current_dir().unwrap())?);
-    let platform = platform_from_cli(&conf, &matches)?;
+    let dinghy = Dinghy::probe(&conf)?;
     let project = Project::new(&conf);
-    let devices = Dinghy::probe(&conf)?.devices()?;
+    let (platform, device) = select_platform_and_device_from_cli(&args, &dinghy)?;
 
-    match matches.subcommand() {
-        ("all-devices", Some(_matches)) => { show_devices(devices, None) }
-        ("devices", Some(_matches)) => { show_devices(devices, Some(platform)) }
-        ("run", Some(subs)) => prepare_and_run(&matches, &project, &*platform, devices, "run", subs),
-        ("test", Some(subs)) => prepare_and_run(&matches, &project, &*platform, devices, "test", subs),
-        ("bench", Some(subs)) => prepare_and_run(&matches, &project, &*platform, devices, "bench", subs),
-        ("build", Some(sub_args)) => { platform.build(CompileMode::Build, sub_args).and(Ok(())) }
-        ("lldbproxy", Some(_matches)) => {
-            let lldb = find_main_device_for_platform(&*platform, devices, &matches)?.start_remote_lldb()?;
-            println!("lldb running at: {}", lldb);
-            loop {
-                thread::sleep(time::Duration::from_millis(100));
-            }
-        }
+    match args.subcommand() {
+        ("all-devices", Some(_)) => show_devices(&dinghy, None),
+        ("bench", Some(sub_args)) => prepare_and_run(device, project, platform, "bench", sub_args),
+        ("build", Some(sub_args)) => build(platform, sub_args),
+        ("devices", Some(_)) => show_devices(&dinghy, Some(platform)),
+        ("lldbproxy", Some(_)) => run_lldb(device),
+        ("run", Some(sub_args)) => prepare_and_run(device, project, platform, "run", sub_args),
+        ("test", Some(sub_args)) => prepare_and_run(device, project, platform, "test", sub_args),
         (sub, _) => Err(format!("Unknown subcommand {}", sub))?,
     }
 }
 
-fn platform_from_cli(conf: &Configuration, matches: &clap::ArgMatches) -> Result<Box<Platform>> {
-    Ok(match matches.value_of("PLATFORM") {
-        Some(platform_name) => {
-            let cf = conf.platforms
-                .get(platform_name)
-                .ok_or(format!("platform {} not found in conf", platform_name))?;
-            RegularPlatform::new(
-                platform_name.to_string(),
-                cf.rustc_triple.clone().unwrap(),
-                cf.toolchain.clone().unwrap(),
-            )
-        }
-        None => HostPlatform::new(),
-    }?)
-}
-
-fn show_devices(devices: Vec<Box<Device>>, platform: Option<Box<Platform>>) -> Result<()> {
-    let devices = devices.into_iter()
-        .filter(|device| platform.as_ref().map_or(true, |it| it.is_compatible_with(device.as_ref())))
-        .collect::<Vec<_>>();
-
-    if devices.is_empty() {
-        println!("No matching device found");
-    } else {
-        for device in devices { println!("{}", device); }
-    }
-    Ok(())
+fn build(platform: Arc<Box<Platform>>, sub_args: &ArgMatches) -> Result<()> {
+    platform.build(CompileMode::Build, sub_args).and(Ok(()))
 }
 
 fn prepare_and_run(
-    matches: &clap::ArgMatches,
-    project: &Project,
-    platform: &dinghy::Platform,
-    devices: Vec<Box<Device>>,
+    device: Arc<Box<Device>>,
+    project: Project,
+    platform: Arc<Box<Platform>>,
     subcommand: &str,
-    sub_args: &clap::ArgMatches,
+    sub_args: &ArgMatches,
 ) -> Result<()> {
-    let device = find_main_device_for_platform(platform, devices, &matches)?;
     let mode = match subcommand {
         "test" => CompileMode::Test,
         "bench" => CompileMode::Bench,
@@ -121,7 +90,7 @@ fn prepare_and_run(
     let envs = arg_as_string_vec(sub_args, "ENVS");
 
     for runnable in runnable_list {
-        let app = device.make_app(project, &runnable.source, &runnable.exe)?;
+        let app = device.make_app(&project, &runnable.source, &runnable.exe)?;
         device.install_app(&app.as_ref())?;
         if sub_args.is_present("DEBUGGER") {
             println!("DEBUGGER");
@@ -144,29 +113,57 @@ fn prepare_and_run(
     Ok(())
 }
 
-fn find_main_device_for_platform(
-    platform: &Platform,
-    devices: Vec<Box<Device>>,
-    matches: &clap::ArgMatches,
-) -> Result<Box<dinghy::Device>> {
-    find_all_devices_for_platform(platform, devices, matches)?
-        .into_iter()
-        .next()
-        .ok_or("No device found".into())
+fn run_lldb(device: Arc<Box<Device>>) -> Result<()> {
+    let lldb = device.start_remote_lldb()?;
+    println!("lldb running at: {}", lldb);
+    loop {
+        thread::sleep(time::Duration::from_millis(100));
+    }
 }
 
-fn find_all_devices_for_platform(
-    platform: &Platform,
-    devices: Vec<Box<Device>>,
-    matches: &clap::ArgMatches,
-) -> Result<Vec<Box<dinghy::Device>>> {
-    Ok(devices.into_iter()
-        .filter(|device| platform.is_compatible_with(device.as_ref()))
-        .filter(|device| match matches.value_of("DEVICE") {
-            Some(filter) => format!("{}", device)
-                .to_lowercase()
-                .contains(&filter.to_lowercase()),
-            None => true,
-        })
-        .collect::<Vec<_>>())
+fn show_devices(dinghy: &Dinghy, platform: Option<Arc<Box<Platform>>>) -> Result<()> {
+    let devices = dinghy.devices().into_iter()
+        .filter(|device| platform.as_ref().map_or(true, |it| it.is_compatible_with(&***device)))
+        .collect::<Vec<_>>();
+
+    if devices.is_empty() {
+        println!("No matching device found");
+    } else {
+        for device in devices { println!("{}", device); }
+    }
+    Ok(())
+}
+
+fn select_platform_and_device_from_cli(matches: &ArgMatches, dinghy: &Dinghy) -> Result<(Arc<Box<Platform>>, Arc<Box<Device>>)> {
+    if let Some(platform_name) = matches.value_of("PLATFORM") {
+        let platform: Result<Arc<Box<Platform>>> = dinghy
+            .platform_by_name(platform_name)
+            .ok_or(format!("No '{}' platform found", platform_name).into());
+        let platform = platform?; // Rust and type inference = 💩💩💩
+
+        let device: Result<Arc<Box<Device>>> = dinghy
+            .devices().into_iter()
+            .filter(|device| matches.value_of("DEVICE")
+                .map(|filter| format!("{}", device).to_lowercase().contains(&filter.to_lowercase()))
+                .unwrap_or(true))
+            .filter(|it| platform.is_compatible_with(&**it.as_ref()))
+            .next().ok_or("No device found".into());
+
+        Ok((platform, device?))
+    } else if let Some(device_filter) = matches.value_of("DEVICE") {
+        let filtered_devices = dinghy
+            .devices().into_iter()
+            .filter(move |it| format!("{}", it).to_lowercase().contains(&device_filter.to_lowercase()))
+            .collect_vec();
+
+        // Would need some ordering here to make sure we select the most relevant platform... or else fail if we have several.
+        let platform: Result<Arc<Box<Platform>>> = dinghy
+            .platforms().into_iter()
+            .filter(|it| filtered_devices.iter().find(|device| it.is_compatible_with((***device).as_ref())).is_some())
+            .next().ok_or("No device found".into());
+
+        Ok((platform?, Arc::new(Box::new(HostDevice::new()))))
+    } else {
+        Ok((Arc::new(HostPlatform::new()?), Arc::new(Box::new(HostDevice::new()))))
+    }
 }

@@ -2,14 +2,15 @@ use std::{env, path};
 use std::process::{Command, Stdio};
 
 use errors::*;
-use Device;
-use PlatformManager;
-use DeviceCompatibility;
 use project::Project;
 use regular_platform::RegularPlatform;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use Device;
+use PlatformManager;
+use DeviceCompatibility;
+use Platform;
 
 #[derive(Debug)]
 pub struct AndroidDevice {
@@ -139,6 +140,9 @@ impl Device for AndroidDevice {
         }
 
         Ok(())
+    }
+    fn platform(&self) -> Result<Box<Platform>> {
+        unimplemented!()
     }
     fn run_app(&self, exe: &path::Path, args: &[&str], envs: &[&str]) -> Result<()> {
         let exe_name = exe.file_name()

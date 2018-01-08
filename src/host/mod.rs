@@ -42,7 +42,7 @@ impl HostPlatform {
 pub struct HostDevice {}
 
 impl HostDevice {
-    fn new() -> Self {
+    pub fn new() -> Self {
         HostDevice {}
     }
 }
@@ -70,6 +70,10 @@ impl Device for HostDevice {
 
     fn clean_app(&self, _path: &Path) -> Result<()> {
         unimplemented!()
+    }
+
+    fn platform(&self) -> Result<Box<Platform>> {
+        Ok(HostPlatform::new()?)
     }
 
     fn run_app(&self, _app: &Path, _args: &[&str], _envs: &[&str]) -> Result<()> {

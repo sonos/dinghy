@@ -12,6 +12,7 @@ use std::process;
 use std::sync::Arc;
 use DeviceCompatibility;
 use {Device, PlatformManager};
+use Platform;
 
 #[derive(Debug, Clone)]
 pub struct SshDevice {
@@ -123,6 +124,9 @@ impl Device for SshDevice {
             Err("test fail.")?
         }
         Ok(())
+    }
+    fn platform(&self) -> Result<Box<Platform>> {
+        unimplemented!()
     }
     fn run_app(&self, app_path: &Path, args: &[&str], envs: &[&str]) -> Result<()> {
         let user_at_host = format!("{}@{}", self.conf.username, self.conf.hostname);

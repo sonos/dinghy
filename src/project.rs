@@ -8,7 +8,6 @@ use Result;
 
 #[derive(Debug)]
 pub struct Project {
-//    conf: Configuration
     conf: Arc<Configuration>
 }
 
