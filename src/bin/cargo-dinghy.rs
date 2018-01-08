@@ -72,12 +72,13 @@ fn build(platform: Arc<Box<Platform>>, sub_args: &ArgMatches) -> Result<()> {
 }
 
 fn prepare_and_run(
-    device: Arc<Box<Device>>,
+    device: Option<Arc<Box<Device>>>,
     project: Project,
     platform: Arc<Box<Platform>>,
     subcommand: &str,
     sub_args: &ArgMatches,
 ) -> Result<()> {
+    let device = device.ok_or("No device found")?;
     let mode = match subcommand {
         "test" => CompileMode::Test,
         "bench" => CompileMode::Bench,
@@ -113,7 +114,8 @@ fn prepare_and_run(
     Ok(())
 }
 
-fn run_lldb(device: Arc<Box<Device>>) -> Result<()> {
+fn run_lldb(device: Option<Arc<Box<Device>>>) -> Result<()> {
+    let device = device.ok_or("No device found")?;
     let lldb = device.start_remote_lldb()?;
     println!("lldb running at: {}", lldb);
     loop {
@@ -134,22 +136,21 @@ fn show_devices(dinghy: &Dinghy, platform: Option<Arc<Box<Platform>>>) -> Result
     Ok(())
 }
 
-fn select_platform_and_device_from_cli(matches: &ArgMatches, dinghy: &Dinghy) -> Result<(Arc<Box<Platform>>, Arc<Box<Device>>)> {
+fn select_platform_and_device_from_cli(matches: &ArgMatches, dinghy: &Dinghy) -> Result<(Arc<Box<Platform>>, Option<Arc<Box<Device>>>)> {
     if let Some(platform_name) = matches.value_of("PLATFORM") {
-        let platform: Result<Arc<Box<Platform>>> = dinghy
+        let platform = dinghy
             .platform_by_name(platform_name)
-            .ok_or(format!("No '{}' platform found", platform_name).into());
-        let platform = platform?; // Rust and type inference = 💩💩💩
+            .ok_or(format!("No '{}' platform found", platform_name))?;
 
-        let device: Result<Arc<Box<Device>>> = dinghy
+        let device = dinghy
             .devices().into_iter()
             .filter(|device| matches.value_of("DEVICE")
                 .map(|filter| format!("{}", device).to_lowercase().contains(&filter.to_lowercase()))
                 .unwrap_or(true))
             .filter(|it| platform.is_compatible_with(&**it.as_ref()))
-            .next().ok_or("No device found".into());
+            .next();
 
-        Ok((platform, device?))
+        Ok((platform, device))
     } else if let Some(device_filter) = matches.value_of("DEVICE") {
         let filtered_devices = dinghy
             .devices().into_iter()
@@ -162,8 +163,8 @@ fn select_platform_and_device_from_cli(matches: &ArgMatches, dinghy: &Dinghy) ->
             .filter(|it| filtered_devices.iter().find(|device| it.is_compatible_with((***device).as_ref())).is_some())
             .next().ok_or("No device found".into());
 
-        Ok((platform?, Arc::new(Box::new(HostDevice::new()))))
+        Ok((platform?, Some(Arc::new(Box::new(HostDevice::new())))))
     } else {
-        Ok((Arc::new(HostPlatform::new()?), Arc::new(Box::new(HostDevice::new()))))
+        Ok((Arc::new(HostPlatform::new()?), Some(Arc::new(Box::new(HostDevice::new())))))
     }
 }

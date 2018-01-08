@@ -88,7 +88,6 @@ impl ToolchainConfig {
 
             let rustified_exe = &exe_file_name.to_string_lossy().replace(self.tc_triple.as_str(),
                                                                          self.rustc_triple.as_str());
-            println!("toolchain: {} -> {}", exe_path, rustified_exe);
             info!("toolchain: {} -> {}", exe_path, rustified_exe);
             ToolchainConfig::create_shim(root,
                                          self.rustc_triple.as_str(),
@@ -161,7 +160,6 @@ impl ToolchainConfig {
 
 fn set_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(k: K, v: V) {
     info!("Setting environment variable {:?}='{:?}'", k.as_ref(), v.as_ref());
-    println!("Setting environment variable {:?}='{:?}'", k.as_ref(), v.as_ref());
     env::set_var(k, v);
 }
 
