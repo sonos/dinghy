@@ -17,9 +17,11 @@ impl CargoDinghyCli {
                 .verbose()
                 .platform()
 
-                .subcommand(SubCommand::with_name("all-devices"))
+                .subcommand(SubCommand::with_name("all-devices")
+                    .about("List all devices that can be used with Dinghy"))
 
                 .subcommand(SubCommand::with_name("bench")
+                    .about("Run the benchmarks")
                     .lib()
                     .bin()
                     .example()
@@ -38,6 +40,7 @@ impl CargoDinghyCli {
                     .additional_args())
 
                 .subcommand(SubCommand::with_name("build")
+                    .about("Compile the current project")
                     .package()
                     .all()
                     .exclude()
@@ -55,11 +58,14 @@ impl CargoDinghyCli {
                     .verbose()
                     .additional_args())
 
-                .subcommand(SubCommand::with_name("devices"))
+                .subcommand(SubCommand::with_name("devices")
+                    .about("List devices that can be used with Dinghy for the selected platform"))
 
-                .subcommand(SubCommand::with_name("lldbproxy"))
+                .subcommand(SubCommand::with_name("lldbproxy")
+                    .about("Debug through lldb"))
 
                 .subcommand(SubCommand::with_name("run")
+                    .about("Build and execute src/main.rs")
                     .bin()
                     .example()
                     .package()
@@ -74,6 +80,7 @@ impl CargoDinghyCli {
                     .additional_args())
 
                 .subcommand(SubCommand::with_name("test")
+                    .about("Run the tests")
                     .lib()
                     .bin()
                     .example()
