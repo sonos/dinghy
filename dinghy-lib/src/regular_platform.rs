@@ -85,7 +85,7 @@ impl Platform for RegularPlatform {
                                     format!("{} --sysroot {}",
                                             self.toolchain.executable("gcc").as_str(),
                                             self.toolchain.sysroot.as_str()).as_str())?;
-        self.toolchain.setup_pkg_config();
+        self.toolchain.setup_pkg_config()?  ;
         self.toolchain.setup_sysroot();
         self.toolchain.shim_executables(self.id.as_str())?;
 

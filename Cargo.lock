@@ -331,6 +331,7 @@ dependencies = [
  "clap 2.27.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-foundation 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-foundation-sys 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dinghy-helper 0.2.16-pre",
  "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ignore 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "isatty 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",

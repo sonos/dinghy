@@ -1,11 +1,16 @@
 extern crate bindgen;
-extern crate gcc;
 #[macro_use]
 extern crate error_chain;
+extern crate gcc;
+#[macro_use]
+extern crate log;
 
 use std::env;
 use std::env::current_dir;
+use std::ffi::OsStr;
+use std::ffi::OsString;
 use std::path::PathBuf;
+use std::process::Command;
 
 error_chain! {
     foreign_links {
@@ -14,6 +19,8 @@ error_chain! {
         StringFromUtf8(::std::string::FromUtf8Error);
     }
 }
+
+pub mod os_env;
 
 pub struct DinghyHelper {}
 
@@ -43,8 +50,113 @@ impl DinghyHelper {
         Ok(env::var("TARGET")? != env::var("HOST")?)
     }
 
+    pub fn target_env(var_base: &str) -> Result<String> {
+        if let Ok(target) = env::var("TARGET") {
+            let is_host = env::var("HOST")? == target;
+            DinghyHelper::target_env_from_triple(var_base, target.as_str(), is_host)
+        } else {
+            DinghyHelper::env_var_with_metadata(var_base)
+        }
+    }
+
+    pub fn target_env_from_triple(var_base: &str, triple: &str, host: bool) -> Result<String> {
+        DinghyHelper::env_var_with_metadata(&format!("{}_{}", var_base, triple))
+            .or_else(|_| DinghyHelper::env_var_with_metadata(&format!("{}_{}", var_base, triple.replace("-", "_"))))
+            .or_else(|_| DinghyHelper::env_var_with_metadata(&format!("{}_{}", if host { "HOST" } else { "TARGET" }, var_base)))
+            .or_else(|_| DinghyHelper::env_var_with_metadata(var_base))
+    }
+
+    pub fn set_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(k: K, v: V) {
+        info!("Setting environment variable {:?}='{:?}'", k.as_ref(), v.as_ref());
+        env::set_var(k, v);
+    }
+
+    pub fn set_target_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(k: K, rustc_triple: &str, v: V) {
+        let mut key = OsString::new();
+        key.push(k);
+        key.push("_");
+        key.push(rustc_triple.replace("-", "_"));
+        info!("Setting target environment variable {:?}={:?}", key, v.as_ref());
+        env::set_var(key, v);
+    }
+
+    pub fn append_path_target_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(k: K, rustc_triple: &str, v: V) {
+        let mut target_key = OsString::new();
+        target_key.push(k);
+        target_key.push("_");
+        target_key.push(rustc_triple.replace("-", "_"));
+
+        DinghyHelper::append_path_to_env(target_key, v.as_ref())
+    }
+
+    pub fn append_path_to_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(key: K, value: V) {
+        info!("Appending {:?} to environment variable '{:?}'", value.as_ref(), key.as_ref());
+        let mut formatted_value = OsString::new();
+        if let Ok(initial_value) = env::var(key.as_ref()) {
+            formatted_value.push(initial_value);
+            formatted_value.push(":");
+        }
+        formatted_value.push(value);
+        DinghyHelper::set_env(key.as_ref(), formatted_value);
+    }
+
+    pub fn envify(name: &str) -> String {
+        // Same as name.replace("-", "_").to_uppercase()
+        name.chars()
+            .map(|c| c.to_ascii_uppercase())
+            .map(|c| { if c == '-' { '_' } else { c } })
+            .collect()
+    }
+
+    fn env_var_with_metadata(name: &str) -> Result<String> {
+        println!("cargo:rerun-if-env-changed={}", name);
+        Ok(env::var(name)?)
+    }
+
     fn env_sysroot() -> Result<PathBuf> {
         env::var_os("TARGET_SYSROOT").map(PathBuf::from).chain_err(|| "You must either define a TARGET_SYSROOT or use Dinghy to build.")
+    }
+}
+
+pub trait CommandExt {
+    fn with_pkgconfig(&mut self) -> Result<&mut Command>;
+
+    fn with_toolchain(&mut self) -> Result<&mut Command>;
+}
+
+impl CommandExt for Command {
+    fn with_pkgconfig(&mut self) -> Result<&mut Command> {
+        if DinghyHelper::is_cross_compiling()? {
+            if let Ok(value) = DinghyHelper::target_env("PKG_CONFIG_PATH") {
+                self.env("PKG_CONFIG_PATH", value);
+            }
+            if let Ok(value) = DinghyHelper::target_env("PKG_CONFIG_LIBDIR") {
+                self.env("PKG_CONFIG_LIBDIR", value);
+            }
+            if let Ok(value) = DinghyHelper::target_env("PKG_CONFIG_SYSROOT_DIR") {
+                self.env("PKG_CONFIG_SYSROOT_DIR", value);
+            }
+        }
+        Ok(self)
+    }
+
+    fn with_toolchain(&mut self) -> Result<&mut Command> {
+        if DinghyHelper::is_cross_compiling()? {
+            if let Ok(target) = env::var("TARGET") {
+                self.arg(format!("--host={}", target));
+            }
+            if let Ok(cc) = env::var("TARGET_CC") {
+                self.arg(format!("CC={}", cc));
+            }
+            if let Ok(ar) = env::var("TARGET_AR") {
+                self.arg(format!("AR={}", ar));
+            }
+            if let Ok(sysroot) = env::var("TARGET_SYSROOT") {
+                self.arg(format!("--with-sysroot={}", &sysroot));
+            }
+//            --define-variable=prefix=/foo
+        }
+        Ok(self)
     }
 }
 

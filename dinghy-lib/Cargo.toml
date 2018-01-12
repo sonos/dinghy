@@ -14,6 +14,7 @@ categories = [ "development-tools::cargo-plugins", "development-tools::testing" 
 
 [dependencies]
 error-chain = "0.11"
+dinghy-helper = { path = "../dinghy-helper" }
 log="0.3"
 pretty_env_logger="0.1"
 clap = "2.26"
