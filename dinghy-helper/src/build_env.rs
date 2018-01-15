@@ -29,6 +29,12 @@ pub fn envify_key(name: &str) -> String {
         .collect()
 }
 
+pub fn set_all_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(env: &[(K, V)]) {
+    for env_var in env {
+        set_env(env_var.0.as_ref(), env_var.1.as_ref())
+    }
+}
+
 pub fn set_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(k: K, v: V) {
     debug!("Setting environment variable {:?}={:?}", k.as_ref(), v.as_ref());
     env::set_var(k, v);
