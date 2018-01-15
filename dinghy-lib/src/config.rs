@@ -1,8 +1,9 @@
+use itertools::Itertools;
+use serde::de::{self, Deserialize};
 use std::io::Read;
 use std::{collections, fs, path};
 use std::fmt;
 use std::result;
-use serde::de::{self, Deserialize};
 
 use errors::*;
 
@@ -87,16 +88,27 @@ struct ConfigurationFileContent {
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct PlatformConfiguration {
-    pub rustc_triple: Option<String>,
-    pub toolchain: Option<String>,
-    pub sysroot: Option<String>,
+    pub env: Option<collections::HashMap<String, String>>,
     pub overlays: Option<collections::HashMap<String, OverlayConfiguration>>,
+    pub rustc_triple: Option<String>,
+    pub sysroot: Option<String>,
+    pub toolchain: Option<String>,
+}
+
+impl PlatformConfiguration {
+    pub fn env(&self) -> Vec<(String, String)> {
+        self.env.as_ref()
+            .map(|it| it.iter()
+                .map(|(key, value)| (key.to_string(), value.to_string()))
+                .collect_vec())
+            .unwrap_or(vec![])
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct OverlayConfiguration {
     pub path: String,
-    pub provider: String,
+    pub scope: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

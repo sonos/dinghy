@@ -1,9 +1,10 @@
 use cargo_facade::CargoFacade;
 use cargo_facade::CompileMode;
 use clap::ArgMatches;
+use dinghy_helper::build_env::set_all_env;
 use std::fmt::Display;
-use toolchain::ToolchainConfig;
 use std::path;
+use toolchain::ToolchainConfig;
 use Device;
 use Platform;
 use Result;
@@ -11,12 +12,16 @@ use Runnable;
 
 #[derive(Debug)]
 pub struct RegularPlatform {
+    pub env: Vec<(String, String)>,
     pub id: String,
     pub toolchain: ToolchainConfig,
 }
 
 impl RegularPlatform {
-    pub fn new<P: AsRef<path::Path>>(id: String, rustc_triple: String, toolchain_path: P) -> Result<Box<Platform>> {
+    pub fn new<P: AsRef<path::Path>>(env: Vec<(String, String)>,
+                                     id: String,
+                                     rustc_triple: String,
+                                     toolchain_path: P) -> Result<Box<Platform>> {
         let toolchain_path = toolchain_path.as_ref();
         let toolchain_bin_path = toolchain_path.join("bin");
 
@@ -41,6 +46,7 @@ impl RegularPlatform {
         let sysroot = sysroot_in_toolchain(&toolchain_path)?;
 
         Ok(Box::new(RegularPlatform {
+            env,
             id,
             toolchain: ToolchainConfig {
                 bin,
@@ -79,13 +85,14 @@ fn sysroot_in_toolchain<P: AsRef<path::Path>>(toolchain_path: P) -> Result<Strin
 
 impl Platform for RegularPlatform {
     fn build(&self, compile_mode: CompileMode, matches: &ArgMatches) -> Result<Vec<Runnable>> {
+        set_all_env(self.env.as_slice());
         self.toolchain.setup_ar(self.toolchain.executable("ar").as_str())?;
         self.toolchain.setup_cc(self.id.as_str(), self.toolchain.executable("gcc").as_str())?;
         self.toolchain.setup_linker(self.id.as_str(),
                                     format!("{} --sysroot {}",
                                             self.toolchain.executable("gcc").as_str(),
                                             self.toolchain.sysroot.as_str()).as_str())?;
-        self.toolchain.setup_pkg_config()?  ;
+        self.toolchain.setup_pkg_config()?;
         self.toolchain.setup_sysroot();
         self.toolchain.shim_executables(self.id.as_str())?;
 

@@ -1,5 +1,9 @@
 use cargo::util::important_paths::find_root_manifest_for_wd;
-use dinghy_helper::DinghyHelper;
+use dinghy_helper::build_env::append_path_to_target_env;
+use dinghy_helper::build_env::append_path_to_env;
+use dinghy_helper::build_env::envify_key;
+use dinghy_helper::build_env::set_env;
+use dinghy_helper::build_env::set_target_env;
 use errors::*;
 use itertools::Itertools;
 use std::{env, fs, path};
@@ -30,7 +34,7 @@ pub struct ToolchainConfig {
 
 impl Toolchain {
     pub fn setup_ar(&self, ar_command: &str) -> Result<()> {
-        DinghyHelper::set_env("TARGET_AR", ar_command);
+        set_env("TARGET_AR", ar_command);
         Ok(())
     }
 
@@ -47,7 +51,7 @@ impl Toolchain {
         Ok(ToolchainConfig::setup_shim(
             self.rustc_triple.as_str(),
             id,
-            format!("CARGO_TARGET_{}_LINKER", DinghyHelper::envify(self.rustc_triple.as_str())).as_str(),
+            format!("CARGO_TARGET_{}_LINKER", envify_key(self.rustc_triple.as_str())).as_str(),
             "linker",
             format!("{} {}", linker_command, GLOB_ARGS).as_str())?)
     }
@@ -55,32 +59,29 @@ impl Toolchain {
 
 impl ToolchainConfig {
     pub fn setup_pkg_config(&self) -> Result<()> {
-        DinghyHelper::set_env("PKG_CONFIG_ALLOW_CROSS", "1");
+        set_env("PKG_CONFIG_ALLOW_CROSS", "1");
 
-        DinghyHelper::set_target_env(
-            "PKG_CONFIG_LIBPATH",
-            self.rustc_triple.as_str(),
-            "");
+        set_target_env("PKG_CONFIG_LIBPATH",
+                       self.rustc_triple.as_str(),
+                       "");
 
-        DinghyHelper::append_path_target_env(
-            "PKG_CONFIG_LIBDIR",
-            self.rustc_triple.as_str(),
-            WalkDir::new(self.root.to_string_lossy().as_ref())
-                .into_iter()
-                .filter_map(|e| e.ok()) // Ignore unreadable files, maybe could warn...
-                .filter(|e| e.file_name() == "pkgconfig" && e.file_type().is_dir())
-                .map(|e| e.path().to_string_lossy().into_owned())
-                .join(":"));
+        append_path_to_target_env("PKG_CONFIG_LIBDIR",
+                                  self.rustc_triple.as_str(),
+                                  WalkDir::new(self.root.to_string_lossy().as_ref())
+                                   .into_iter()
+                                   .filter_map(|e| e.ok()) // Ignore unreadable files, maybe could warn...
+                                   .filter(|e| e.file_name() == "pkgconfig" && e.file_type().is_dir())
+                                   .map(|e| e.path().to_string_lossy().into_owned())
+                                   .join(":"));
 
-        DinghyHelper::set_target_env(
-            "PKG_CONFIG_SYSROOT_DIR",
-            self.rustc_triple.as_str(),
-            &self.sysroot.clone());
+        set_target_env("PKG_CONFIG_SYSROOT_DIR",
+                       self.rustc_triple.as_str(),
+                       &self.sysroot.clone());
         Ok(())
     }
 
     pub fn setup_sysroot(&self) {
-        DinghyHelper::set_env("TARGET_SYSROOT", &self.sysroot.as_str());
+        set_env("TARGET_SYSROOT", &self.sysroot.as_str());
     }
 
     pub fn shim_executables(&self, id: &str) -> Result<()> {
@@ -96,14 +97,14 @@ impl ToolchainConfig {
 
             let rustified_exe = &exe_file_name.to_string_lossy().replace(self.tc_triple.as_str(),
                                                                          self.rustc_triple.as_str());
-            info!("toolchain: {} -> {}", exe_path, rustified_exe);
+            trace!("Shim {} -> {}", exe_path, rustified_exe);
             ToolchainConfig::create_shim(root,
                                          self.rustc_triple.as_str(),
                                          id,
                                          rustified_exe,
                                          &format!("{} {}", exe_path, GLOB_ARGS))?;
         }
-        DinghyHelper::append_path_to_env("PATH", shims_path.to_string_lossy().as_ref());
+        append_path_to_env("PATH", shims_path.to_string_lossy().as_ref());
         Ok(())
     }
 
@@ -120,7 +121,7 @@ impl ToolchainConfig {
     }
 
     fn setup_shim(rustc_triple: &str, id: &str, var: &str, name: &str, shell: &str) -> Result<()> {
-        debug!("  * shim for {}: {}", name, shell);
+        trace!("Shim {} -> {}", name, shell);
         let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
         let root = wd_path.parent().ok_or("building at / ?")?;
         let shim = ToolchainConfig::create_shim(&root, rustc_triple, id, name, shell)?;
