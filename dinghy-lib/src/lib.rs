@@ -104,7 +104,7 @@ impl Dinghy {
                         Dinghy::discover_ios_platform(rustc_triple)
                     } else {
                         RegularPlatform::new(
-                            platform_conf.env(),
+                            (*platform_conf).clone(),
                             platform_name.to_string(),
                             rustc_triple.clone(),
                             platform_conf.toolchain.clone().ok_or(format!("Toolchain missing for platform {}", platform_name))?)
