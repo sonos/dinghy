@@ -7,7 +7,7 @@ use std::result;
 
 use errors::*;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct TestData {
     pub base: path::PathBuf,
     pub source: String,
@@ -72,21 +72,21 @@ impl<'de> de::Deserialize<'de> for TestDataConfiguration {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Configuration {
     pub platforms: collections::BTreeMap<String, PlatformConfiguration>,
     pub ssh_devices: collections::BTreeMap<String, SshDeviceConfiguration>,
     pub test_data: Vec<TestData>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
 struct ConfigurationFileContent {
     pub platforms: Option<collections::BTreeMap<String, PlatformConfiguration>>,
     pub ssh_devices: Option<collections::BTreeMap<String, SshDeviceConfiguration>>,
     pub test_data: Option<collections::BTreeMap<String, TestDataConfiguration>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct PlatformConfiguration {
     pub env: Option<collections::HashMap<String, String>>,
     pub overlays: Option<collections::HashMap<String, OverlayConfiguration>>,
@@ -105,10 +105,10 @@ impl PlatformConfiguration {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct OverlayConfiguration {
     pub path: String,
-    pub scope: String,
+    pub scope: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

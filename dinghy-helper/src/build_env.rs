@@ -10,7 +10,9 @@ pub fn append_path_to_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(key: K, value: V) {
         formatted_value.push(":");
     }
     formatted_value.push(value);
-    set_env(key.as_ref(), formatted_value);
+
+    debug!("Appending {:?} to {:?}", formatted_value.as_os_str(), key.as_ref());
+    env::set_var(key.as_ref(), formatted_value);
 }
 
 pub fn append_path_to_target_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(k: K, rustc_triple: &str, v: V) {
@@ -38,6 +40,16 @@ pub fn set_all_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(env: &[(K, V)]) {
 pub fn set_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(k: K, v: V) {
     debug!("Setting environment variable {:?}={:?}", k.as_ref(), v.as_ref());
     env::set_var(k, v);
+}
+
+pub fn set_env_ifndef<K: AsRef<OsStr>, V: AsRef<OsStr>>(k: K, v: V) {
+    if let Ok(current_env_value) = env::var(k.as_ref()) {
+        debug!("Ignoring value {:?} as environment variable {:?} already defined with value {:?}",
+               k.as_ref(), v.as_ref(), current_env_value);
+    } else {
+        debug!("Setting environment variable {:?}={:?}", k.as_ref(), v.as_ref());
+        env::set_var(k, v);
+    }
 }
 
 pub fn set_target_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(k: K, rustc_triple: &str, v: V) {
