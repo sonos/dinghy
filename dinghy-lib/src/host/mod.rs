@@ -1,6 +1,5 @@
 use cargo_facade::CargoFacade;
 use cargo_facade::CompileMode;
-use clap::ArgMatches;
 use project::Project;
 use std::fmt;
 use std::fmt::Display;
@@ -98,9 +97,9 @@ impl DeviceCompatibility for HostDevice {
 }
 
 impl Platform for HostPlatform {
-    fn build(&self, compile_mode: CompileMode, matches: &ArgMatches) -> Result<Vec<Runnable>> {
+    fn build(&self, cargo_facade: &CargoFacade, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
         let rustc_triple = None;
-        CargoFacade::from_args(matches).build(compile_mode, rustc_triple)
+        cargo_facade.build(compile_mode, rustc_triple)
     }
 
     fn id(&self) -> String {

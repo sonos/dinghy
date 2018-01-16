@@ -1,6 +1,5 @@
 use cargo_facade::CargoFacade;
 use cargo_facade::CompileMode;
-use clap::ArgMatches;
 use config::OverlayConfiguration;
 use config::PlatformConfiguration;
 use dinghy_helper::build_env::append_path_to_target_env;
@@ -92,7 +91,7 @@ fn sysroot_in_toolchain<P: AsRef<Path>>(toolchain_path: P) -> Result<String> {
 }
 
 impl Platform for RegularPlatform {
-    fn build(&self, compile_mode: CompileMode, matches: &ArgMatches) -> Result<Vec<Runnable>> {
+    fn build(&self, cargo_facade: &CargoFacade, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
         set_all_env(self.configuration.env().as_slice());
 
         let mut whatever_overlays = vec![];
@@ -210,7 +209,7 @@ impl Platform for RegularPlatform {
         self.toolchain.setup_sysroot();
         self.toolchain.shim_executables(self.id.as_str())?;
 
-        CargoFacade::from_args(matches).build(compile_mode, Some(self.toolchain.rustc_triple.as_str()))
+        cargo_facade.build(compile_mode, Some(self.toolchain.rustc_triple.as_str()))
     }
 
     fn id(&self) -> String {

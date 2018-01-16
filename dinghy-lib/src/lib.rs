@@ -39,6 +39,7 @@ pub mod regular_platform;
 pub mod ssh;
 mod toolchain;
 
+use cargo_facade::CargoFacade;
 use cargo_facade::CompileMode;
 use config::Configuration;
 use config::PlatformConfiguration;
@@ -192,7 +193,7 @@ pub trait DeviceCompatibility {
 }
 
 pub trait Platform: Debug {
-    fn build(&self, compile_mode: CompileMode, matches: &clap::ArgMatches) -> Result<Vec<Runnable>>;
+    fn build(&self, cargo_facade: &CargoFacade, compile_mode: CompileMode) -> Result<Vec<Runnable>>;
 
     fn id(&self) -> String;
 
