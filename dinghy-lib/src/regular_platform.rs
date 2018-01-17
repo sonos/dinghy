@@ -119,85 +119,37 @@ fn sysroot_in_toolchain<P: AsRef<Path>>(toolchain_path: P) -> Result<String> {
 
 impl Platform for RegularPlatform {
     fn build(&self, cargo_facade: &CargoFacade, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
-        set_env("LIBRARY_PATH", ""); // TODO Check if appropriate
-        set_env("LD_LIBRARY_PATH", ""); // TODO Check if appropriate
+        set_all_env(&[
+            ("LIBRARY_PATH", ""),
+            ("LD_LIBRARY_PATH", ""),
+        ]);
         set_all_env(self.configuration.env().as_slice());
 
-        let mut whatever_overlays = self.configuration.overlays.as_ref()
+        let mut overlay_list = self.configuration.overlays.as_ref()
             .unwrap_or(&::std::collections::HashMap::new())
             .into_iter()
             .map(|(id, conf)| (id.to_string(), (*conf).clone()))
             .collect_vec();
         let overlay_dir = home_dir().map(|it| it.join(".dinghy").join("overlay").join(self.id.as_str()));
-//        error!("JJJJJ");
         if let Some(overlay_root_dir) = overlay_dir {
             if overlay_root_dir.is_dir() {
                 if let Ok(overlay_dir_list) = overlay_root_dir.read_dir() {
                     for overlay_dir in overlay_dir_list {
                         if let Ok(overlay_dir) = overlay_dir {
-//                        let id = overlay_dir.file_name().to_string();
-//                        auto_detected_overlays.push((overlay_dir.file_name().into_string(),
-//                                                     overlay_dir.path()));
                             let toto = (overlay_dir.file_name().to_string_lossy().to_string(),//.into_string(),
                                         OverlayConfiguration {
                                             path: overlay_dir.path().to_string_lossy().to_string(),
                                             scope: Some("app".to_string()),
                                         });
-//                            error!("KKKKKK {:?}", &toto);
-                            whatever_overlays.push(toto);
+                            overlay_list.push(toto);
                         }
                     }
                 } else {
                     debug!("Couldn't read overlay directory {}", overlay_root_dir.display());
-//                    ::std::iter::empty()
                 }
             }
         };
-//        error!("LLLLL");
 
-//        Box::new(whatever_overlays.iter()).extend(
-//            Box::new(self.configuration.overlays.as_ref()
-//                .unwrap_or(::std::collections::HashMap::new())
-//                .map(|(id, conf)| (id.to_string(), (*conf).clone()))
-//                .iter())
-//
-//        );
-//        whatever_overlays.append(
-//
-//        );
-//        whatever_overlays.extend(
-//            .map(|it| Box::new(it))
-//        )
-//            .unwrap_or(Box::new(::std::iter::empty()))
-//            .unwrap_or(::std::collections::HashMap::new())
-//        ;
-//        error!("MMMM {:?}", whatever_overlays);
-//        Box::new(whatever_overlays.iter()).extend(
-//            Box::new(self.configuration.overlays.as_ref()
-//                .unwrap_or(::std::collections::HashMap::new())
-//                .map(|(id, conf)| (id.to_string(), (*conf).clone()))
-//                .iter())
-
-//        );
-
-//        whatever_overlays.extend(
-//            self.configuration.overlays.as_ref()
-//                .unwrap_or(::std::collections::HashMap::new())
-//                .map(|(id, conf)| (id.to_string(), (*conf).clone())));
-//        if let Some(home_dir) = home_dir() {
-//            home_dir.join(".dinghy").join("overlay").join(self.id.as_str())
-//                .read_dir()
-//                .map
-//                .filter(|it| it.is_dir())
-//            ;
-//        }
-
-        //        error!("MMMMM1 {:?}", &overlays);
-//        if let Some(overlays) = self.configuration.overlays.as_ref() {
-//            for overlay in overlays
-//            whatever_overlays.iter().extends(overlays);
-//            auto_detected_overlays.iter().extends(overlays);
-//            error!("MMMMM {:?}", &overlays);
         fn contains_pc_file(dir_path: &Path) -> bool {
             if let Ok(path) = dir_path.read_dir() {
                 for file in path {
@@ -213,27 +165,20 @@ impl Platform for RegularPlatform {
 
         let pkg_config_temp_dir = get_or_find_temp_path(cargo_facade, self, self.toolchain.rustc_triple.as_str())?
             .join("pkgconfig");
-//        let _ = delete_dir_contents(pkg_config_temp_dir.as_path());
-//        remove_dir_all(pkg_config_temp_dir)?;
+        remove_dir_all(&pkg_config_temp_dir)?;
         create_dir_all(&pkg_config_temp_dir)?;
         append_path_to_target_env("PKG_CONFIG_LIBDIR",
                                   self.toolchain.rustc_triple.as_ref(),
                                   &pkg_config_temp_dir);
 
-        for (id, conf) in whatever_overlays.into_iter().unique_by(|&(ref id, _)| id.clone()) {
+        for (id, conf) in overlay_list.into_iter().unique_by(|&(ref id, _)| id.clone()) {
             debug!("Overlaying '{}'", id.as_str());
-//                error!("NNNN {:?} {:?}", &id, &conf);
             let mut pkg_config_found = false;
             for pkg_config_path in WalkDir::new(&conf.path)
                 .into_iter()
-//                    .map(|it| {
-//                        error!("PPPPPP {:?}", &it);
-//                        it
-//                    })
                 .filter_map(|e| e.ok()) // Ignore unreadable files, maybe could warn...
                 .filter(|e| (e.file_name() == "pkgconfig" && e.file_type().is_dir()) || contains_pc_file(e.path()))
                 .map(|e| e.path().to_string_lossy().into_owned()) {
-//                    error!("OOOO {:?}", &pkg_config_path);
                 debug!("Discovered pkg-config directory '{}'", pkg_config_path.as_str());
                 pkg_config_found = true;
                 append_path_to_target_env("PKG_CONFIG_LIBDIR",
@@ -281,7 +226,6 @@ impl Platform for RegularPlatform {
             set_env_ifndef(format!("PKG_CONFIG_{}_PREFIX", envify_key(id.as_str())),
                            overlay_pkg_config_path.as_str());
         }
-//        }
 
         self.toolchain.setup_ar(self.toolchain.executable("ar").as_str())?;
         self.toolchain.setup_cc(self.id.as_str(), self.toolchain.executable("gcc").as_str())?;
@@ -297,7 +241,6 @@ impl Platform for RegularPlatform {
                                   self.toolchain.rustc_triple.as_ref(),
                                   &pkg_config_temp_dir);
 
-//        pkg_config_temp_dir.mk
         cargo_facade.build(compile_mode, Some(self.toolchain.rustc_triple.as_str()))
     }
 
