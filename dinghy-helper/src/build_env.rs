@@ -4,14 +4,13 @@ use std::ffi::OsString;
 use super::Result;
 
 pub fn append_path_to_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(key: K, value: V) {
+    debug!("Appending {:?} to {:?}", value.as_ref(), key.as_ref());
     let mut formatted_value = OsString::new();
     if let Ok(initial_value) = env::var(key.as_ref()) {
         formatted_value.push(initial_value);
         formatted_value.push(":");
     }
     formatted_value.push(value);
-
-    debug!("Appending {:?} to {:?}", formatted_value.as_os_str(), key.as_ref());
     env::set_var(key.as_ref(), formatted_value);
 }
 
