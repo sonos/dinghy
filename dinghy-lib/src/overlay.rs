@@ -37,11 +37,11 @@ pub struct Overlayer {
 }
 
 impl Overlayer {
-    pub fn new<P1, P2>(platform_id: &str, rustc_triple: Option<&str>, sysroot: P1, work_dir: P2) -> Self
+    pub fn new<P1, P2>(platform: &Platform, sysroot: P1, work_dir: P2) -> Self
         where P1: AsRef<Path>, P2: AsRef<Path> {
         Overlayer {
-            platform_id: platform_id.to_string(),
-            rustc_triple: rustc_triple.map(|it| it.to_string()),
+            platform_id: platform.id().to_string(),
+            rustc_triple: platform.rustc_triple().map(|it| it.to_string()),
             sysroot: sysroot.as_ref().to_path_buf(),
             work_dir: work_dir.as_ref().to_path_buf(),
         }
@@ -234,8 +234,8 @@ fn path_between<P1: AsRef<Path>, P2: AsRef<Path>>(from: P1, to: P2) -> PathBuf {
     path
 }
 
-pub fn overlay_work_dir(cargo_facade: &CargoFacade, platform: &Platform, rustc_triple: Option<&str>) -> Result<PathBuf> {
+pub fn overlay_work_dir(cargo_facade: &CargoFacade, platform: &Platform) -> Result<PathBuf> {
     Ok(cargo_facade
-        .target_dir(rustc_triple)?
+        .target_dir(platform.rustc_triple())?
         .join(platform.id()))
 }

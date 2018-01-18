@@ -198,6 +198,8 @@ pub trait Platform: Debug {
 
     fn id(&self) -> String;
 
+    fn rustc_triple(&self) -> Option<&str>;
+
     fn is_compatible_with(&self, device: &Device) -> bool;
 }
 
