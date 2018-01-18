@@ -9,13 +9,33 @@ use cargo::ops as CargoOps;
 use cargo::ops::Packages as CompilePackages;
 use clap::ArgMatches;
 use cli::arg_as_string_vec;
+use itertools::Itertools;
+use std::collections::HashSet;
 use std::env::current_dir;
+use std::fs::File;
+use std::io::prelude::*;
+use std::iter::FromIterator;
+use std::path::Path;
 use std::path::PathBuf;
+use toml;
 use Result;
+use ResultExt;
 use Runnable;
 
 pub struct CargoFacade {
     build_command: Box<Fn(CompileMode, Option<&str>) -> Result<Vec<Runnable>>>,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct ProjectMetadata {
+    project_id: String,
+    targets: HashSet<String>,
+}
+
+impl ProjectMetadata {
+    pub fn is_allowed_for(&self, rustc_triple: Option<&str>) -> bool {
+        self.targets.is_empty() || self.targets.contains(rustc_triple.unwrap_or("host"))
+    }
 }
 
 impl CargoFacade {
@@ -62,6 +82,23 @@ impl CargoFacade {
             let wd = Workspace::new(&find_root_manifest_for_wd(None, &current_dir()?)?,
                                     config)?;
 
+            let project_metadata_list: Vec<ProjectMetadata> = wd.members()
+                .map(|member| CargoFacade::read_project_metadata(member.manifest_path()))
+                .filter_map(|metadata_res| match metadata_res {
+                    Err(error) => Some(Err(error)),
+                    Ok(metadata) => if let Some(metadata) = metadata { Some(Ok(metadata)) } else { None },
+                })
+                .collect::<Result<_>>()?;
+
+            let mut all_excludes = excludes.clone();
+            all_excludes.extend(project_metadata_list.iter()
+                .filter(|metadata| !metadata.is_allowed_for(rustc_triple))
+                .filter(|metadata| !excludes.contains(&metadata.project_id))
+                .map(|metadata| {
+                    debug!("Project '{}' is disabled for current target", metadata.project_id);
+                    metadata.project_id.clone()
+                }));
+
             let options = CompileOptions {
                 config,
                 jobs,
@@ -72,7 +109,7 @@ impl CargoFacade {
                 spec: CompilePackages::from_flags(
                     wd.is_virtual(),
                     all,
-                    &excludes,
+                    &all_excludes,
                     &packages,
                 )?,
                 filter: CompileFilter::new(
@@ -119,6 +156,42 @@ impl CargoFacade {
                     .collect::<Vec<_>>())
             }
         })
+    }
+
+    fn read_project_metadata<P: AsRef<Path>>(path: P) -> Result<Option<ProjectMetadata>> {
+        fn read_file_to_string(mut file: File) -> Result<String> {
+            let mut content = String::new();
+            file.read_to_string(&mut content)?;
+            Ok(content)
+        }
+
+        let toml = File::open(&path.as_ref())
+            .chain_err(|| format!("Couldn't open {}", path.as_ref().display()))
+            .and_then(read_file_to_string)
+            .and_then(|toml_content| toml_content.parse::<toml::Value>()
+                .chain_err(|| format!("Couldn'parse {}", path.as_ref().display())))?;
+
+        let project_id = toml.get("package")
+            .and_then(|it| it.get("name"))
+            .and_then(|it| it.as_str());
+
+        let metadata = toml.get("package")
+            .and_then(|it| it.get("metadata"))
+            .and_then(|it| it.get("dinghy"));
+
+        if let (Some(project_id), Some(metadata)) = (project_id, metadata) {
+            Ok(Some(ProjectMetadata {
+                project_id: project_id.to_string(),
+                targets: HashSet::from_iter(metadata.get("allowed_rustc_triples")
+                    .and_then(|targets| targets.as_array())
+                    .unwrap_or(&vec![])
+                    .into_iter()
+                    .filter_map(|target| target.as_str().map(|it| it.to_string()))
+                    .collect_vec()),
+            }))
+        } else {
+            Ok(None)
+        }
     }
 
     pub fn build(&self, compile_mode: CompileMode, rustc_triple: Option<&str>) -> Result<Vec<Runnable>> {
