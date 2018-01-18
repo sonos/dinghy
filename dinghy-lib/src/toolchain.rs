@@ -62,11 +62,11 @@ impl ToolchainConfig {
         set_env("PKG_CONFIG_ALLOW_CROSS", "1");
 
         set_target_env("PKG_CONFIG_LIBPATH",
-                       self.rustc_triple.as_str(),
+                       Some(&self.rustc_triple),
                        "");
 
         append_path_to_target_env("PKG_CONFIG_LIBDIR",
-                                  self.rustc_triple.as_str(),
+                                  Some(&self.rustc_triple),
                                   WalkDir::new(self.root.to_string_lossy().as_ref())
                                       .into_iter()
                                       .filter_map(|e| e.ok()) // Ignore unreadable files, maybe could warn...
@@ -75,7 +75,7 @@ impl ToolchainConfig {
                                       .join(":"));
 
         set_target_env("PKG_CONFIG_SYSROOT_DIR",
-                       self.rustc_triple.as_str(),
+                       Some(&self.rustc_triple),
                        &self.sysroot.clone());
         Ok(())
     }

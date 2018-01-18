@@ -96,10 +96,13 @@ impl Platform for RegularPlatform {
         set_all_env(&self.configuration.env());
 
 
+        let overlay_work_dir = cargo_facade
+            .target_dir(Some(&self.toolchain.rustc_triple))?
+            .join(&self.id);
         Overlayer::new(&self.id,
-                       &self.toolchain.rustc_triple,
+                       Some(&self.toolchain.rustc_triple),
                        &self.toolchain.sysroot,
-                       cargo_facade.target_dir(&self.toolchain.rustc_triple)?.join(&self.id))
+                       overlay_work_dir)
             .overlay(&self.configuration, cargo_facade.project_dir()?)?;
 
         self.toolchain.setup_ar(&self.toolchain.executable("ar"))?;

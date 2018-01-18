@@ -132,7 +132,11 @@ impl CargoFacade {
             .to_path_buf())
     }
 
-    pub fn target_dir(&self, rustc_triple: &str) -> Result<PathBuf> {
-        Ok(self.project_dir()?.join("target").join(rustc_triple))
+    pub fn target_dir(&self, rustc_triple: Option<&str>) -> Result<PathBuf> {
+        let target_path = self.project_dir()?.join("target");
+        if let Some(rustc_triple) = rustc_triple {
+            target_path.join(rustc_triple);
+        }
+        Ok(target_path)
     }
 }

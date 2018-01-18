@@ -114,10 +114,7 @@ impl Platform for HostPlatform {
     fn build(&self, cargo_facade: &CargoFacade, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
         let rustc_triple = None;
 
-        Overlayer::new(&self.id,
-                       "TODO",
-                       "/",
-                       cargo_facade.target_dir("TODO")?.join(&self.id))
+        Overlayer::new(&self.id, None, "/", cargo_facade.target_dir(None)?.join(&self.id))
             .overlay(&self.configuration, cargo_facade.project_dir()?)?;
 
         cargo_facade.build(compile_mode, rustc_triple)

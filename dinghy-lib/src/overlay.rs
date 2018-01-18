@@ -29,17 +29,17 @@ pub struct Overlay {
 #[derive(Clone, Debug)]
 pub struct Overlayer {
     platform_id: String,
-    rustc_triple: String,
+    rustc_triple: Option<String>,
     sysroot: PathBuf,
     work_dir: PathBuf,
 }
 
 impl Overlayer {
-    pub fn new<P1, P2>(platform_id: &str, rustc_triple: &str, sysroot: P1, work_dir: P2) -> Self
+    pub fn new<P1, P2>(platform_id: &str, rustc_triple: Option<&str>, sysroot: P1, work_dir: P2) -> Self
         where P1: AsRef<Path>, P2: AsRef<Path> {
         Overlayer {
             platform_id: platform_id.to_string(),
-            rustc_triple: rustc_triple.to_string(),
+            rustc_triple: rustc_triple.map(|it| it.to_string()),
             sysroot: sysroot.as_ref().to_path_buf(),
             work_dir: work_dir.as_ref().to_path_buf(),
         }
@@ -112,7 +112,7 @@ impl Overlayer {
         where I: IntoIterator<Item=Overlay> {
         remove_dir_all(&self.work_dir)?;
         create_dir_all(&self.work_dir)?;
-        append_path_to_target_env("PKG_CONFIG_LIBDIR", &self.rustc_triple, &self.work_dir);
+        append_path_to_target_env("PKG_CONFIG_LIBDIR", self.rustc_triple.as_ref(), &self.work_dir);
 
         for overlay in overlays {
             debug!("Overlaying '{}'", overlay.id.as_str());
@@ -127,7 +127,7 @@ impl Overlayer {
 
             for pkg_config_path in pkg_config_path_list {
                 debug!("Discovered pkg-config directory '{}'", pkg_config_path.display());
-                append_path_to_target_env("PKG_CONFIG_LIBDIR", &self.rustc_triple, pkg_config_path);
+                append_path_to_target_env("PKG_CONFIG_LIBDIR", self.rustc_triple.as_ref(), pkg_config_path);
                 has_pkg_config_files = true;
             }
             if !has_pkg_config_files { self.generate_pkg_config_file(&overlay)?; }
@@ -224,4 +224,13 @@ fn path_between<P1: AsRef<Path>, P2: AsRef<Path>>(from: P1, to: P2) -> PathBuf {
         path.push(dir);
     }
     path
+}
+
+use cargo_facade::CargoFacade;
+use Platform;
+
+pub fn overlay_work_dir(cargo_facade: &CargoFacade, platform: &Platform, rustc_triple: Option<&str>) -> Result<PathBuf> {
+    Ok(cargo_facade
+        .target_dir(rustc_triple)?
+        .join(platform.id()))
 }
