@@ -115,7 +115,7 @@ impl Platform for HostPlatform {
         Overlayer::new(self, "/", cargo_facade.target_dir(self.rustc_triple())?.join(&self.id))
             .overlay(&self.configuration, cargo_facade.project_dir()?)?;
 
-        cargo_facade.build(compile_mode, self.rustc_triple())
+        cargo_facade.build(self, compile_mode)
     }
 
     fn id(&self) -> String {

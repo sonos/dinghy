@@ -18,24 +18,14 @@ use std::iter::FromIterator;
 use std::path::Path;
 use std::path::PathBuf;
 use toml;
+use Platform;
 use Result;
 use ResultExt;
 use Runnable;
 
+
 pub struct CargoFacade {
-    build_command: Box<Fn(CompileMode, Option<&str>) -> Result<Vec<Runnable>>>,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct ProjectMetadata {
-    project_id: String,
-    targets: HashSet<String>,
-}
-
-impl ProjectMetadata {
-    pub fn is_allowed_for(&self, rustc_triple: Option<&str>) -> bool {
-        self.targets.is_empty() || self.targets.contains(rustc_triple.unwrap_or("host"))
-    }
+    build_command: Box<Fn(&Platform, CompileMode) -> Result<Vec<Runnable>>>,
 }
 
 impl CargoFacade {
@@ -45,7 +35,7 @@ impl CargoFacade {
         }
     }
 
-    fn create_build_command(matches: &ArgMatches) -> Box<Fn(CompileMode, Option<&str>) -> Result<Vec<Runnable>>> {
+    fn create_build_command(matches: &ArgMatches) -> Box<Fn(&Platform, CompileMode) -> Result<Vec<Runnable>>> {
         let all = matches.is_present("ALL");
         let all_features = matches.is_present("ALL_FEATURES");
         let benches = arg_as_string_vec(matches, "BENCH");
@@ -68,7 +58,7 @@ impl CargoFacade {
         let verbosity = matches.occurrences_of("VERBOSE") as u32;
         let tests = arg_as_string_vec(matches, "TEST");
 
-        Box::new(move |compile_mode: CompileMode, rustc_triple: Option<&str>| {
+        Box::new(move |platform: &Platform, compile_mode: CompileMode| {
             let release = compile_mode == CompileMode::Bench || release;
             let config = &CompileConfig::default()?;
             config.configure(
@@ -92,7 +82,7 @@ impl CargoFacade {
 
             let mut all_excludes = excludes.clone();
             all_excludes.extend(project_metadata_list.iter()
-                .filter(|metadata| !metadata.is_allowed_for(rustc_triple))
+                .filter(|metadata| !metadata.is_allowed_for(platform.rustc_triple()))
                 .filter(|metadata| !excludes.contains(&metadata.project_id))
                 .map(|metadata| {
                     debug!("Project '{}' is disabled for current target", metadata.project_id);
@@ -102,7 +92,7 @@ impl CargoFacade {
             let options = CompileOptions {
                 config,
                 jobs,
-                target: rustc_triple,
+                target: platform.rustc_triple(),
                 features: &*features,
                 all_features,
                 no_default_features,
@@ -194,8 +184,8 @@ impl CargoFacade {
         }
     }
 
-    pub fn build(&self, compile_mode: CompileMode, rustc_triple: Option<&str>) -> Result<Vec<Runnable>> {
-        (self.build_command)(compile_mode, rustc_triple)
+    pub fn build(&self, platform: &Platform, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
+        (self.build_command)(platform, compile_mode)
     }
 
     pub fn project_dir(&self) -> Result<PathBuf> {
@@ -211,5 +201,18 @@ impl CargoFacade {
             target_path = target_path.join(rustc_triple);
         }
         Ok(target_path)
+    }
+}
+
+
+#[derive(Debug, Default, Clone)]
+struct ProjectMetadata {
+    project_id: String,
+    targets: HashSet<String>,
+}
+
+impl ProjectMetadata {
+    pub fn is_allowed_for(&self, rustc_triple: Option<&str>) -> bool {
+        self.targets.is_empty() || self.targets.contains(rustc_triple.unwrap_or("host"))
     }
 }
