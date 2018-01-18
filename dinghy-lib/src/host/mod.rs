@@ -112,12 +112,10 @@ impl DeviceCompatibility for HostDevice {
 
 impl Platform for HostPlatform {
     fn build(&self, cargo_facade: &CargoFacade, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
-        let rustc_triple = None;
-
-        Overlayer::new(&self.id, None, "/", cargo_facade.target_dir(None)?.join(&self.id))
+        Overlayer::new(self, "/", cargo_facade.target_dir(self.rustc_triple())?.join(&self.id))
             .overlay(&self.configuration, cargo_facade.project_dir()?)?;
 
-        cargo_facade.build(compile_mode, rustc_triple)
+        cargo_facade.build(compile_mode, self.rustc_triple())
     }
 
     fn id(&self) -> String {
@@ -126,5 +124,9 @@ impl Platform for HostPlatform {
 
     fn is_compatible_with(&self, device: &Device) -> bool {
         device.is_compatible_with_host_platform(self)
+    }
+
+    fn rustc_triple(&self) -> Option<&str> {
+        None
     }
 }

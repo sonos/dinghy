@@ -95,11 +95,10 @@ impl Platform for RegularPlatform {
         ]);
         // Set custom env variables specific to the platform
         set_all_env(&self.configuration.env());
-        
-        Overlayer::new(&self.id,
-                       Some(&self.toolchain.rustc_triple),
+
+        Overlayer::new(self,
                        &self.toolchain.sysroot,
-                       overlay_work_dir(cargo_facade, self, Some(&self.toolchain.rustc_triple))?)
+                       overlay_work_dir(cargo_facade, self)?)
             .overlay(&self.configuration, cargo_facade.project_dir()?)?;
 
         self.toolchain.setup_ar(&self.toolchain.executable("ar"))?;
@@ -112,7 +111,7 @@ impl Platform for RegularPlatform {
         self.toolchain.setup_sysroot();
         self.toolchain.shim_executables(&self.id)?;
 
-        cargo_facade.build(compile_mode, Some(&self.toolchain.rustc_triple))
+        cargo_facade.build(compile_mode, self.rustc_triple())
     }
 
     fn id(&self) -> String {
@@ -121,5 +120,9 @@ impl Platform for RegularPlatform {
 
     fn is_compatible_with(&self, device: &Device) -> bool {
         device.is_compatible_with_regular_platform(self)
+    }
+
+    fn rustc_triple(&self) -> Option<&str> {
+        Some(&self.toolchain.rustc_triple)
     }
 }
