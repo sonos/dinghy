@@ -111,7 +111,7 @@ impl Platform for RegularPlatform {
         self.toolchain.setup_sysroot();
         self.toolchain.shim_executables(&self.id)?;
 
-        cargo_facade.build(compile_mode, self.rustc_triple())
+        cargo_facade.build(self, compile_mode)
     }
 
     fn id(&self) -> String {
