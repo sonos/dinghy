@@ -1,7 +1,7 @@
 use cargo::util::important_paths::find_root_manifest_for_wd;
 use dinghy_helper::build_env::append_path_to_target_env;
 use dinghy_helper::build_env::append_path_to_env;
-use dinghy_helper::build_env::envify_key;
+use dinghy_helper::build_env::envify;
 use dinghy_helper::build_env::set_env;
 use dinghy_helper::build_env::set_target_env;
 use errors::*;
@@ -51,7 +51,7 @@ impl Toolchain {
         Ok(ToolchainConfig::setup_shim(
             self.rustc_triple.as_str(),
             id,
-            format!("CARGO_TARGET_{}_LINKER", envify_key(self.rustc_triple.as_str())).as_str(),
+            format!("CARGO_TARGET_{}_LINKER", envify(self.rustc_triple.as_str())).as_str(),
             "linker",
             format!("{} {}", linker_command, GLOB_ARGS).as_str())?)
     }
@@ -68,11 +68,11 @@ impl ToolchainConfig {
         append_path_to_target_env("PKG_CONFIG_LIBDIR",
                                   self.rustc_triple.as_str(),
                                   WalkDir::new(self.root.to_string_lossy().as_ref())
-                                   .into_iter()
-                                   .filter_map(|e| e.ok()) // Ignore unreadable files, maybe could warn...
-                                   .filter(|e| e.file_name() == "pkgconfig" && e.file_type().is_dir())
-                                   .map(|e| e.path().to_string_lossy().into_owned())
-                                   .join(":"));
+                                      .into_iter()
+                                      .filter_map(|e| e.ok()) // Ignore unreadable files, maybe could warn...
+                                      .filter(|e| e.file_name() == "pkgconfig" && e.file_type().is_dir())
+                                      .map(|e| e.path().to_string_lossy().into_owned())
+                                      .join(":"));
 
         set_target_env("PKG_CONFIG_SYSROOT_DIR",
                        self.rustc_triple.as_str(),

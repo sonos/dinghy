@@ -3,11 +3,11 @@ use cargo_facade::CompileMode;
 use config::OverlayConfiguration;
 use config::PlatformConfiguration;
 use dinghy_helper::build_env::append_path_to_target_env;
-use dinghy_helper::build_env::envify_key;
+use dinghy_helper::build_env::envify;
 use dinghy_helper::build_env::set_all_env;
-use dinghy_helper::build_env::set_env;
 use dinghy_helper::build_env::set_env_ifndef;
 use itertools::Itertools;
+use overlay::Overlayer;
 use std::env::home_dir;
 use std::fmt::Display;
 use std::fs::create_dir_all;
@@ -119,10 +119,12 @@ fn sysroot_in_toolchain<P: AsRef<Path>>(toolchain_path: P) -> Result<String> {
 
 impl Platform for RegularPlatform {
     fn build(&self, cargo_facade: &CargoFacade, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
+        // Cleanup environment
         set_all_env(&[
             ("LIBRARY_PATH", ""),
             ("LD_LIBRARY_PATH", ""),
         ]);
+        // Set custom env variable specific to the platform
         set_all_env(self.configuration.env().as_slice());
 
         let mut overlay_list = self.configuration.overlays.as_ref()
@@ -223,7 +225,7 @@ impl Platform for RegularPlatform {
                 });
             overlay_pkg_config_path.push_str(&conf.path);
 
-            set_env_ifndef(format!("PKG_CONFIG_{}_PREFIX", envify_key(id.as_str())),
+            set_env_ifndef(format!("PKG_CONFIG_{}_PREFIX", envify(id.as_str())),
                            overlay_pkg_config_path.as_str());
         }
 

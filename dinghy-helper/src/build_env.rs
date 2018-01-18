@@ -23,8 +23,9 @@ pub fn env_rerun_if_changed(name: &str) -> Result<String> {
     Ok(env::var(name)?)
 }
 
-pub fn envify_key(name: &str) -> String {
-    name.chars()
+pub fn envify<S: AsRef<str>>(name: S) -> String {
+    name.as_ref()
+        .chars()
         .map(|c| c.to_ascii_uppercase())
         .map(|c| { if c == '-' || c == '.' { '_' } else { c } })
         .collect()
