@@ -3,6 +3,7 @@ use cargo_facade::CompileMode;
 use config::PlatformConfiguration;
 use dinghy_helper::build_env::set_all_env;
 use overlay::Overlayer;
+use overlay::overlay_work_dir;
 use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
@@ -94,15 +95,11 @@ impl Platform for RegularPlatform {
         ]);
         // Set custom env variables specific to the platform
         set_all_env(&self.configuration.env());
-
-
-        let overlay_work_dir = cargo_facade
-            .target_dir(Some(&self.toolchain.rustc_triple))?
-            .join(&self.id);
+        
         Overlayer::new(&self.id,
                        Some(&self.toolchain.rustc_triple),
                        &self.toolchain.sysroot,
-                       overlay_work_dir)
+                       overlay_work_dir(cargo_facade, self, Some(&self.toolchain.rustc_triple))?)
             .overlay(&self.configuration, cargo_facade.project_dir()?)?;
 
         self.toolchain.setup_ar(&self.toolchain.executable("ar"))?;

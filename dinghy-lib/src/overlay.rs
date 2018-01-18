@@ -1,3 +1,4 @@
+use cargo_facade::CargoFacade;
 use config::PlatformConfiguration;
 use dinghy_helper::build_env::append_path_to_target_env;
 use dinghy_helper::build_env::envify;
@@ -12,6 +13,7 @@ use std::fs::remove_dir_all;
 use std::fs::File;
 use std::path::Path;
 use walkdir::WalkDir;
+use Platform;
 
 #[derive(Clone, Debug)]
 pub enum OverlayScope {
@@ -110,8 +112,14 @@ impl Overlayer {
 
     fn apply_overlay<I>(&self, overlays: I) -> Result<()>
         where I: IntoIterator<Item=Overlay> {
-        remove_dir_all(&self.work_dir)?;
-        create_dir_all(&self.work_dir)?;
+        // Setup overlay work directory
+        if let Err(error) = remove_dir_all(&self.work_dir) {
+            if self.work_dir.exists() {
+                warn!("Couldn't cleanup directory overlay work directory {} ({:?})", self.work_dir.display(), error)
+            }
+        }
+        create_dir_all(&self.work_dir).chain_err(|| format!("Couldn't create overlay work directory {}.",
+                                                            self.work_dir.display()))?;
         append_path_to_target_env("PKG_CONFIG_LIBDIR", self.rustc_triple.as_ref(), &self.work_dir);
 
         for overlay in overlays {
@@ -225,9 +233,6 @@ fn path_between<P1: AsRef<Path>, P2: AsRef<Path>>(from: P1, to: P2) -> PathBuf {
     }
     path
 }
-
-use cargo_facade::CargoFacade;
-use Platform;
 
 pub fn overlay_work_dir(cargo_facade: &CargoFacade, platform: &Platform, rustc_triple: Option<&str>) -> Result<PathBuf> {
     Ok(cargo_facade
