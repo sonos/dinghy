@@ -46,7 +46,7 @@ impl RegularPlatform {
         }
         let bin = bin.ok_or("no bin/*-gcc found in toolchain")?;
         let tc_triple = prefix.ok_or("no gcc in toolchain")?.to_string();
-        let sysroot = sysroot_in_toolchain(&toolchain_path)?;
+        let sysroot = RegularPlatform::find_sysroot(&toolchain_path)?;
 
         Ok(Box::new(RegularPlatform {
             configuration,
@@ -60,30 +60,30 @@ impl RegularPlatform {
             },
         }))
     }
+
+    fn find_sysroot<P: AsRef<Path>>(toolchain_path: P) -> Result<PathBuf> {
+        let toolchain = toolchain_path.as_ref();
+        let immediate = toolchain.join("sysroot");
+        if immediate.is_dir() {
+            let sysroot = immediate.to_str().ok_or("sysroot is not utf-8")?;
+            return Ok(sysroot.into());
+        }
+        for subdir in toolchain.read_dir()? {
+            let subdir = subdir?;
+            let maybe = subdir.path().join("sysroot");
+            if maybe.is_dir() {
+                let sysroot = maybe.to_str().ok_or("sysroot is not utf-8")?;
+                return Ok(sysroot.into());
+            }
+        }
+        Err(format!("no sysroot found in toolchain {:?}", toolchain))?
+    }
 }
 
 impl Display for RegularPlatform {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::result::Result<(), ::std::fmt::Error> {
         write!(f, "{:?}", self.toolchain.root)
     }
-}
-
-fn sysroot_in_toolchain<P: AsRef<Path>>(toolchain_path: P) -> Result<PathBuf> {
-    let toolchain = toolchain_path.as_ref();
-    let immediate = toolchain.join("sysroot");
-    if immediate.is_dir() {
-        let sysroot = immediate.to_str().ok_or("sysroot is not utf-8")?;
-        return Ok(sysroot.into());
-    }
-    for subdir in toolchain.read_dir()? {
-        let subdir = subdir?;
-        let maybe = subdir.path().join("sysroot");
-        if maybe.is_dir() {
-            let sysroot = maybe.to_str().ok_or("sysroot is not utf-8")?;
-            return Ok(sysroot.into());
-        }
-    }
-    Err(format!("no sysroot found in toolchain {:?}", toolchain))?
 }
 
 impl Platform for RegularPlatform {
