@@ -34,6 +34,7 @@ pub mod errors;
 pub mod host;
 #[cfg(target_os = "macos")]
 pub mod ios;
+pub mod overlay;
 pub mod project;
 pub mod regular_platform;
 pub mod ssh;

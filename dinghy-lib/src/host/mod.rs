@@ -1,5 +1,7 @@
 use cargo_facade::CargoFacade;
 use cargo_facade::CompileMode;
+use config::PlatformConfiguration;
+use overlay::Overlayer;
 use project::Project;
 use std::fmt;
 use std::fmt::Display;
@@ -29,11 +31,23 @@ impl PlatformManager for HostManager {
 
 
 #[derive(Debug, Clone)]
-pub struct HostPlatform {}
+pub struct HostPlatform {
+    configuration: PlatformConfiguration,
+    id: String,
+}
 
 impl HostPlatform {
     pub fn new() -> Result<Box<Platform>> {
-        Ok(Box::new(HostPlatform {}))
+        Ok(Box::new(HostPlatform {
+            configuration: PlatformConfiguration {
+                env: None,
+                overlays: None,
+                rustc_triple: None,
+                sysroot: None,
+                toolchain: None,
+            },
+            id: "host".to_string(),
+        }))
     }
 }
 
@@ -99,6 +113,10 @@ impl DeviceCompatibility for HostDevice {
 impl Platform for HostPlatform {
     fn build(&self, cargo_facade: &CargoFacade, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
         let rustc_triple = None;
+
+        Overlayer::new(&self.id, None, "/", cargo_facade.target_dir(None)?.join(&self.id))
+            .overlay(&self.configuration, cargo_facade.project_dir()?)?;
+
         cargo_facade.build(compile_mode, rustc_triple)
     }
 

@@ -14,7 +14,8 @@ pub fn append_path_to_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(key: K, value: V) {
     env::set_var(key.as_ref(), formatted_value);
 }
 
-pub fn append_path_to_target_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(k: K, rustc_triple: &str, v: V) {
+pub fn append_path_to_target_env<K: AsRef<OsStr>, R: AsRef<str>, V: AsRef<OsStr>>(
+    k: K, rustc_triple: Option<R>, v: V) {
     append_path_to_env(target_key_from_triple(k, rustc_triple), v.as_ref())
 }
 
@@ -23,8 +24,9 @@ pub fn env_rerun_if_changed(name: &str) -> Result<String> {
     Ok(env::var(name)?)
 }
 
-pub fn envify_key(name: &str) -> String {
-    name.chars()
+pub fn envify<S: AsRef<str>>(name: S) -> String {
+    name.as_ref()
+        .chars()
         .map(|c| c.to_ascii_uppercase())
         .map(|c| { if c == '-' || c == '.' { '_' } else { c } })
         .collect()
@@ -51,7 +53,7 @@ pub fn set_env_ifndef<K: AsRef<OsStr>, V: AsRef<OsStr>>(k: K, v: V) {
     }
 }
 
-pub fn set_target_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(k: K, rustc_triple: &str, v: V) {
+pub fn set_target_env<K: AsRef<OsStr>, R: AsRef<str>, V: AsRef<OsStr>>(k: K, rustc_triple: Option<R>, v: V) {
     set_env(target_key_from_triple(k, rustc_triple), v);
 }
 
@@ -71,10 +73,12 @@ fn target_env_from_triple(var_base: &str, triple: &str, is_host: bool) -> Result
         .or_else(|_| env_rerun_if_changed(var_base))
 }
 
-fn target_key_from_triple<K: AsRef<OsStr>>(k: K, rustc_triple: &str) -> OsString {
+fn target_key_from_triple<K: AsRef<OsStr>, R: AsRef<str>>(k: K, rustc_triple: Option<R>) -> OsString {
     let mut target_key = OsString::new();
     target_key.push(k);
-    target_key.push("_");
-    target_key.push(rustc_triple.replace("-", "_"));
+    if let Some(rustc_triple) = rustc_triple {
+        target_key.push("_");
+        target_key.push(rustc_triple.as_ref().replace("-", "_"));
+    }
     target_key
 }
