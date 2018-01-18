@@ -216,8 +216,12 @@ fn lib_name(file_path: &Path) -> Result<String> {
 }
 
 fn path_between<P1: AsRef<Path>, P2: AsRef<Path>>(from: P1, to: P2) -> PathBuf {
-    let mut path = PathBuf::new();
-    for _ in from.as_ref() { path.push("/.."); }
-    for dir in to.as_ref() { path.push(dir); }
+    let mut path = PathBuf::from("/");
+    for _ in from.as_ref() {
+        path.push("..");
+    }
+    for dir in to.as_ref().iter().skip(1) {
+        path.push(dir);
+    }
     path
 }
