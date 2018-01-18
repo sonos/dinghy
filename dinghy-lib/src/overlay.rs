@@ -1,21 +1,17 @@
+use config::PlatformConfiguration;
 use dinghy_helper::build_env::append_path_to_target_env;
 use dinghy_helper::build_env::envify;
+use dinghy_helper::build_env::set_env_ifndef;
 use errors::*;
 use itertools::Itertools;
 use std::io::Write;
 use std::path::PathBuf;
-use walkdir::WalkDir;
-
-use cargo_facade::CargoFacade;
-//use config::OverlayConfiguration;
-use config::PlatformConfiguration;
-use dinghy_helper::build_env::set_env_ifndef;
-//use std::env::home_dir;
+use std::env::home_dir;
 use std::fs::create_dir_all;
 use std::fs::remove_dir_all;
 use std::fs::File;
 use std::path::Path;
-use Platform;
+use walkdir::WalkDir;
 
 #[derive(Clone, Debug)]
 pub enum OverlayScope {
@@ -32,71 +28,45 @@ pub struct Overlay {
 
 #[derive(Clone, Debug)]
 pub struct Overlayer {
-    pub temp_dir: PathBuf,
-    pub rustc_triple: String,
-    pub sysroot: String,
-//    pub overlays: Vec<Overlay>,
+    platform_id: String,
+    rustc_triple: String,
+    sysroot: PathBuf,
+    work_dir: PathBuf,
 }
 
-//        , platform: &Platform, cargo_facade: &CargoFacade
-//        let pkg_config_temp_dir = get_or_find_temp_path(cargo_facade,
-//                                                        platform,
-//                                                        &self.rustc_triple)?.join("pkgconfig");
 impl Overlayer {
-    pub fn apply_overlay(&self, id: &str, overlay_list: &[&Overlay]) -> Result<()> {
-        remove_dir_all(&self.temp_dir)?;
-        create_dir_all(&self.temp_dir)?;
-        append_path_to_target_env("PKG_CONFIG_LIBDIR", &self.rustc_triple, &self.temp_dir);
-
-        for overlay in overlay_list {
-            debug!("Overlaying '{}'", overlay.id.as_str());
-            let mut has_pkg_config_files = false;
-
-            for pkg_config_path in WalkDir::new(&overlay.path)
-                .into_iter()
-                .filter_map(|entry| entry.ok()) // Ignore unreadable directories, maybe could warn...
-                .filter(|entry| entry.file_type().is_dir())
-                .filter(|dir| dir.file_name() == "pkgconfig" || contains_file_with_ext(dir.path(), ".pc"))
-                .filter_map(|e| e.path().to_str().map(|it| it.to_string())) {
-                debug!("Discovered pkg-config directory '{}'", pkg_config_path.as_str());
-                append_path_to_target_env("PKG_CONFIG_LIBDIR", &self.rustc_triple, pkg_config_path);
-                has_pkg_config_files = true;
-            }
-
-            // Generate a default pkg-config file if none found.
-            if !has_pkg_config_files {
-                debug!("No pkg-config pc file found for {}", overlay.id);
-                let generated_pkg_config_file = self.temp_dir.join(format!("{}.pc", id));
-                generate_pkg_config_file(generated_pkg_config_file.as_path(),
-                                         overlay.id.as_str(),
-                                         WalkDir::new(&overlay.path).max_depth(1)
-                                             .into_iter()
-                                             .filter_map(|entry| entry.ok()) // Ignore unreadable files, maybe could warn...
-                                             .filter(|entry| file_has_ext(entry.path(), ".so"))
-                                             .filter_map(|e| lib_name(e.path()).ok())
-                                             .collect_vec()
-                                             .as_slice())
-                    .chain_err(|| format!("Dinghy couldn't generate pkg-config pc file {}",
-                                          generated_pkg_config_file.as_path().display()))?;
-            }
-
-            // Override the 'prefix' pkg-config variable for the specified overlay only.
-            set_env_ifndef(envify(format!("PKG_CONFIG_{}_PREFIX", overlay.id)),
-                           path_between(&self.sysroot, &overlay.path));
+    pub fn new<P1, P2>(platform_id: &str, rustc_triple: &str, sysroot: P1, work_dir: P2) -> Self
+        where P1: AsRef<Path>, P2: AsRef<Path> {
+        Overlayer {
+            platform_id: platform_id.to_string(),
+            rustc_triple: rustc_triple.to_string(),
+            sysroot: sysroot.as_ref().to_path_buf(),
+            work_dir: work_dir.as_ref().to_path_buf(),
         }
-        Ok(())
     }
 
-    fn find_overlays<P: AsRef<Path>>(target_path: P, id: &str, configuration: &PlatformConfiguration) -> Result<Vec<Overlay>> {
+    pub fn overlay<P: AsRef<Path>>(&self, configuration: &PlatformConfiguration, target_path: P) -> Result<()> {
         let mut path_to_try = vec![];
         let target_path = target_path.as_ref().to_path_buf();
         let mut current_path = target_path.as_path();
         while current_path.parent().is_some() {
-            path_to_try.push(current_path.join(".dinghy").join("overlay").join(id));
-            current_path = current_path.parent().unwrap();
+            path_to_try.push(current_path.join(".dinghy").join("overlay").join(&self.platform_id));
+            if let Some(parent_path) = current_path.parent() {
+                current_path = parent_path;
+            } else {
+                break;
+            }
         }
 
-        Ok(Overlayer::from_conf(configuration)?
+        // Project may be outside home directory. So add it too.
+        if let Some(dinghy_home_dir) = home_dir()
+            .map(|it| it.join(".dinghy").join("overlay").join(&self.platform_id)) {
+            if !path_to_try.contains(&dinghy_home_dir) {
+                path_to_try.push(dinghy_home_dir)
+            }
+        }
+
+        self.apply_overlay(Overlayer::from_conf(configuration)?
             .into_iter()
             .chain(path_to_try
                 .into_iter()
@@ -137,6 +107,70 @@ impl Overlayer {
             })
             .collect())
     }
+
+    fn apply_overlay<I>(&self, overlays: I) -> Result<()>
+        where I: IntoIterator<Item=Overlay> {
+        remove_dir_all(&self.work_dir)?;
+        create_dir_all(&self.work_dir)?;
+        append_path_to_target_env("PKG_CONFIG_LIBDIR", &self.rustc_triple, &self.work_dir);
+
+        for overlay in overlays {
+            debug!("Overlaying '{}'", overlay.id.as_str());
+            let mut has_pkg_config_files = false;
+
+            let pkg_config_path_list = WalkDir::new(&overlay.path)
+                .into_iter()
+                .filter_map(|entry| entry.ok()) // Ignore unreadable directories, maybe could warn...
+                .filter(|entry| entry.file_type().is_dir())
+                .filter(|dir| dir.file_name() == "pkgconfig" || contains_file_with_ext(dir.path(), ".pc"))
+                .map(|pkg_config_path| pkg_config_path.path().to_path_buf());
+
+            for pkg_config_path in pkg_config_path_list {
+                debug!("Discovered pkg-config directory '{}'", pkg_config_path.display());
+                append_path_to_target_env("PKG_CONFIG_LIBDIR", &self.rustc_triple, pkg_config_path);
+                has_pkg_config_files = true;
+            }
+            if !has_pkg_config_files { self.generate_pkg_config_file(&overlay)?; }
+
+            // Override the 'prefix' pkg-config variable for the specified overlay only.
+            set_env_ifndef(envify(format!("PKG_CONFIG_{}_PREFIX", overlay.id)),
+                           path_between(&self.sysroot, &overlay.path));
+        }
+        Ok(())
+    }
+
+    fn generate_pkg_config_file(&self, overlay: &Overlay) -> Result<()> {
+        fn write_pkg_config_file<P: AsRef<Path>, T: AsRef<str>>(pc_file_path: P, name: &str, libs: &[T]) -> Result<()> {
+            debug!("Generating pkg-config pc file {}", pc_file_path.as_ref().display());
+            let mut pc_file = File::create(pc_file_path)?;
+            pc_file.write_all(b"prefix:/")?;
+            pc_file.write_all(b"\nexec_prefix:${prefix}")?;
+            pc_file.write_all(b"\nName: ")?;
+            pc_file.write_all(name.as_bytes())?;
+            pc_file.write_all(b"\nDescription: ")?;
+            pc_file.write_all(name.as_bytes())?;
+            pc_file.write_all(b"\nVersion: unspecified")?;
+            pc_file.write_all(b"\nLibs: -L${prefix} ")?;
+            for lib in libs {
+                pc_file.write_all(b" -l")?;
+                pc_file.write_all(lib.as_ref().as_bytes())?;
+            }
+            pc_file.write_all(b"\nCflags: -I${prefix}")?;
+            Ok(())
+        }
+
+        let pc_file = self.work_dir.join(format!("{}.pc", self.platform_id));
+        let lib_list = WalkDir::new(&overlay.path).max_depth(1)
+            .into_iter()
+            .filter_map(|entry| entry.ok()) // Ignore unreadable files, maybe could warn...
+            .filter(|entry| file_has_ext(entry.path(), ".so"))
+            .filter_map(|e| lib_name(e.path()).ok())
+            .collect_vec();
+
+        write_pkg_config_file(pc_file.as_path(), overlay.id.as_str(), &lib_list)
+            .chain_err(|| format!("Dinghy couldn't generate pkg-config pc file {}",
+                                  pc_file.as_path().display()))
+    }
 }
 
 fn contains_file_with_ext(dir_path: &Path, ext: &str) -> bool {
@@ -165,29 +199,6 @@ fn file_has_ext(file_path: &Path, ext: &str) -> bool {
         .and_then(|it| it.to_str())
         .map(|it| it.ends_with(ext))
         .unwrap_or(false)
-}
-
-fn generate_pkg_config_file<P: AsRef<Path>, T: AsRef<str>>(pc_file_path: P, name: &str, libs: &[T]) -> Result<()> {
-    debug!("Generating pkg-config pc file {}", pc_file_path.as_ref().display());
-    let mut pc_file = File::create(pc_file_path)?;
-    pc_file.write_all(b"prefix:/")?;
-    pc_file.write_all(b"\nexec_prefix:${prefix}")?;
-    pc_file.write_all(b"\nName: ")?;
-    pc_file.write_all(name.as_bytes())?;
-    pc_file.write_all(b"\nDescription: ")?;
-    pc_file.write_all(name.as_bytes())?;
-    pc_file.write_all(b"\nVersion: unspecified")?;
-    pc_file.write_all(b"\nLibs: -L${prefix} ")?;
-    for lib in libs {
-        pc_file.write_all(b" -l")?;
-        pc_file.write_all(lib.as_ref().as_bytes())?;
-    }
-    pc_file.write_all(b"\nCflags: -I${prefix}")?;
-    Ok(())
-}
-
-fn get_or_find_temp_path(cargo_facade: &CargoFacade, platform: &Platform, rustc_triple: &str) -> Result<PathBuf> {
-    Ok(cargo_facade.target_dir(rustc_triple)?.join(platform.id()))
 }
 
 fn lib_name(file_path: &Path) -> Result<String> {

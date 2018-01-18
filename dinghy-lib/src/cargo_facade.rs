@@ -125,9 +125,14 @@ impl CargoFacade {
         (self.build_command)(compile_mode, rustc_triple)
     }
 
-    pub fn target_dir(&self, rustc_triple: &str) -> Result<PathBuf> {
+    pub fn project_dir(&self) -> Result<PathBuf> {
         let wd_path = ::cargo::util::important_paths::find_root_manifest_for_wd(None, &current_dir()?)?;
-        let root = wd_path.parent().ok_or(format!("Couldn't read project directory {}.", wd_path.display()))?;
-        Ok(root.join("target").join(rustc_triple))
+        Ok(wd_path.parent()
+            .ok_or(format!("Couldn't read project directory {}.", wd_path.display()))?
+            .to_path_buf())
+    }
+
+    pub fn target_dir(&self, rustc_triple: &str) -> Result<PathBuf> {
+        Ok(self.project_dir()?.join("target").join(rustc_triple))
     }
 }

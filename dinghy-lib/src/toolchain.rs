@@ -28,7 +28,7 @@ pub struct ToolchainConfig {
     pub bin: PathBuf,
     pub root: PathBuf,
     pub rustc_triple: String,
-    pub sysroot: String,
+    pub sysroot: PathBuf,
     pub tc_triple: String,
 }
 
@@ -81,7 +81,7 @@ impl ToolchainConfig {
     }
 
     pub fn setup_sysroot(&self) {
-        set_env("TARGET_SYSROOT", &self.sysroot.as_str());
+        set_env("TARGET_SYSROOT", &self.sysroot);
     }
 
     pub fn shim_executables(&self, id: &str) -> Result<()> {
