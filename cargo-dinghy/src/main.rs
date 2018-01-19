@@ -93,8 +93,8 @@ fn prepare_and_run(
     let args = arg_as_string_vec(sub_args, "ARGS");
     let envs = arg_as_string_vec(sub_args, "ENVS");
 
-    for runnable in build.runnables {
-        let app = device.make_app(&project, &runnable.source, &runnable.exe)?;
+    for runnable in &build.runnables {
+        let app = device.make_app(&project, &build, &runnable)?;
         device.install_app(&app.as_ref())?;
         if sub_args.is_present("DEBUGGER") {
             println!("DEBUGGER");
@@ -145,8 +145,8 @@ fn select_platform_and_device_from_cli(matches: &ArgMatches, dinghy: &Dinghy) ->
             .platform_by_name(platform_name)
             .ok_or(format!("No '{}' platform found", platform_name))?;
 
-        let device = dinghy
-            .devices().into_iter()
+        let device = dinghy.devices()
+            .into_iter()
             .filter(|device| matches.value_of("DEVICE")
                 .map(|filter| format!("{}", device).to_lowercase().contains(&filter.to_lowercase()))
                 .unwrap_or(true))
@@ -155,14 +155,14 @@ fn select_platform_and_device_from_cli(matches: &ArgMatches, dinghy: &Dinghy) ->
 
         Ok((platform, device))
     } else if let Some(device_filter) = matches.value_of("DEVICE") {
-        let filtered_devices = dinghy
-            .devices().into_iter()
+        let filtered_devices = dinghy.devices()
+            .into_iter()
             .filter(move |it| format!("{}", it).to_lowercase().contains(&device_filter.to_lowercase()))
             .collect_vec();
 
         // Would need some ordering here to make sure we select the most relevant platform... or else fail if we have several.
-        let platform: Result<Arc<Box<Platform>>> = dinghy
-            .platforms().into_iter()
+        let platform: Result<Arc<Box<Platform>>> = dinghy.platforms()
+            .into_iter()
             .filter(|it| filtered_devices.iter().find(|device| it.is_compatible_with((***device).as_ref())).is_some())
             .next().ok_or("No device found".into());
 
