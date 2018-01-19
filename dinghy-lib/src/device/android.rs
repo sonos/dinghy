@@ -2,8 +2,8 @@ use std::{env, path};
 use std::process::{Command, Stdio};
 
 use errors::*;
+use platform::regular_platform::RegularPlatform;
 use project::Project;
-use regular_platform::RegularPlatform;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;

@@ -1,7 +1,7 @@
 use config::{ Configuration, SshDeviceConfiguration};
 use errors::*;
+use platform::regular_platform::RegularPlatform;
 use project::Project;
-use regular_platform::RegularPlatform;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
