@@ -1,4 +1,4 @@
-use config::{ Configuration, SshDeviceConfiguration};
+use config::{Configuration, SshDeviceConfiguration};
 use errors::*;
 use platform::regular_platform::RegularPlatform;
 use project::Project;
@@ -38,14 +38,32 @@ impl Device for SshDevice {
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
-    fn make_app(&self, project: &Project, _build: &Build, runnable: &Runnable) -> Result<PathBuf> {
+    fn make_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<PathBuf> {
         let app_name = "dinghy";
-        let app_path = runnable.exe.parent().unwrap().join("dinghy").join(app_name);
-        debug!("Making bundle {:?} for {:?}", app_path, runnable.exe);
-        fs::create_dir_all(&app_path)?;
-        fs::copy(&runnable.exe, app_path.join(app_name))?;
+        let app_path = runnable.exe.parent()
+            .ok_or(format!("Invalid executable file {}", &runnable.exe.display()))?
+            .join("dinghy").join(app_name);
+        let exe_path = app_path.join(app_name);
+
+        debug!("Making bundle {:?} for {:?}", app_path, &runnable.exe);
+        fs::create_dir_all(&app_path)
+            .chain_err(|| format!("Couldn't create {}", &app_path.display()))?;
+        fs::copy(&runnable.exe, &exe_path)
+            .chain_err(|| format!("Couldn't copy {} to {}", &runnable.exe.display(), &exe_path.display()))?;
+
+        debug!("Copying dynamic libs to bundle");
+        for dynamic_lib in &build.dynamic_libraries {
+            let lib_path = app_path.join(dynamic_lib.file_name()
+                .ok_or(format!("Invalid file name '{:?}'", dynamic_lib.file_name()))?);
+            let _ = fs::remove_file(&lib_path); // Try to remove file first as libs are likely read-only
+            trace!("Copying dynamic lib '{}'", lib_path.display());
+            fs::copy(&dynamic_lib, &lib_path)
+                .chain_err(|| format!("Couldn't copy {} to {}", dynamic_lib.display(), &lib_path.display()))?;
+        }
+
         debug!("Copying src to bundle");
         project.rec_copy(&runnable.source, &app_path, false)?;
+
         debug!("Copying test_data to bundle");
         project.copy_test_data(&app_path)?;
         Ok(app_path.into())
@@ -143,12 +161,15 @@ impl Device for SshDevice {
         if ::isatty::stdout_isatty() {
             command.arg("-t").arg("-o").arg("LogLevel=QUIET");
         }
+
         command
             .arg(user_at_host)
             .arg(&*format!(
-                "cd {:?} ; DINGHY=1 {} {}",
+                "cd {:?} ; DINGHY=1 {} LD_LIBRARY_PATH='{}' {}",
                 path,
                 envs.join(" "),
+                // TODO Cleanup env management
+                &exe.parent().unwrap().to_str().unwrap(),
                 &exe.to_str().unwrap()
             ))
             .args(args);
@@ -179,7 +200,7 @@ pub struct SshDeviceManager {
 
 impl SshDeviceManager {
     pub fn probe(conf: Arc<Configuration>) -> Option<SshDeviceManager> {
-        Some(SshDeviceManager {conf})
+        Some(SshDeviceManager { conf })
     }
 }
 

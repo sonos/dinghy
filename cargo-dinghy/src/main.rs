@@ -2,6 +2,7 @@ extern crate cargo;
 #[macro_use]
 extern crate clap;
 extern crate dinghy_lib;
+extern crate error_chain;
 extern crate itertools;
 #[macro_use]
 extern crate log;
@@ -25,6 +26,7 @@ use dinghy_lib::project::Project;
 use dinghy_lib::Device;
 use dinghy_lib::Dinghy;
 use dinghy_lib::Platform;
+use error_chain::ChainedError;
 use itertools::Itertools;
 use std::env::current_dir;
 use std::sync::Arc;
@@ -47,7 +49,8 @@ fn main() {
     pretty_env_logger::init().unwrap();
 
     if let Err(e) = run_command(matches) {
-        println!("{}", e);
+        error!("{}", e.display_chain());
+        println!("{}", e.display_chain());
         std::process::exit(1);
     }
 }
@@ -87,7 +90,6 @@ fn prepare_and_run(
         "bench" => CompileMode::Bench,
         _ => CompileMode::Build,
     };
-    debug!("Platform {:?}", platform);
 
     let build = platform.build(&Compiler::from_args(sub_args), mode)?;
     let args = arg_as_string_vec(sub_args, "ARGS");
@@ -97,7 +99,6 @@ fn prepare_and_run(
         let app = device.make_app(&project, &build, &runnable)?;
         device.install_app(&app.as_ref())?;
         if sub_args.is_present("DEBUGGER") {
-            println!("DEBUGGER");
             device.debug_app(
                 app.as_ref(),
                 &*args.iter().map(|s| &s[..]).collect::<Vec<_>>(),
@@ -120,7 +121,7 @@ fn prepare_and_run(
 fn run_lldb(device: Option<Arc<Box<Device>>>) -> Result<()> {
     let device = device.ok_or("No device found")?;
     let lldb = device.start_remote_lldb()?;
-    println!("lldb running at: {}", lldb);
+    info!("lldb running at: {}", lldb);
     loop {
         thread::sleep(time::Duration::from_millis(100));
     }
@@ -132,6 +133,7 @@ fn show_devices(dinghy: &Dinghy, platform: Option<Arc<Box<Platform>>>) -> Result
         .collect::<Vec<_>>();
 
     if devices.is_empty() {
+        error!("No matching device found");
         println!("No matching device found");
     } else {
         for device in devices { println!("{}", device); }
