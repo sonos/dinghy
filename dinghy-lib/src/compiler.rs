@@ -8,7 +8,6 @@ use cargo::ops::MessageFormat;
 use cargo::ops::Packages as CompilePackages;
 use cargo::ops as CargoOps;
 use cargo::util::config::Config as CompileConfig;
-//use cargo::util::CargoResult;
 use clap::ArgMatches;
 use itertools::Itertools;
 use std::collections::HashSet;
@@ -19,6 +18,8 @@ use std::iter::FromIterator;
 use std::path::Path;
 use std::path::PathBuf;
 use utils::arg_as_string_vec;
+use utils::is_lib;
+use walkdir::WalkDir;
 use toml;
 use Platform;
 use Result;
@@ -108,47 +109,88 @@ impl Compiler {
             };
 
             let compilation = CargoOps::compile(&workspace, &options)?;
-            error!("ZZZZ1 {:?}", compilation.native_dirs);
-
-            Ok(if compile_mode == CompileMode::Build {
-                Compiler::bin_build_result(compilation)
-            } else {
-                Compiler::test_build_result(compilation)
-            })
+            let toto = Ok(Compiler::to_build(compilation, compile_mode));
+            println!("ZZZZZZZZZZZ {:?}", toto);
+            toto
+//
+//            Ok(if compile_mode == CompileMode::Build {
+//                Compiler::to_bin_build(compilation)
+//            } else {
+//                Compiler::to_test_build(compilation)
+//            })
         })
     }
 
-    fn bin_build_result(compilation: Compilation) -> Build {
-        Build {
-            runnables: compilation.binaries
-                .into_iter()
-                .take(1)
-                .map(|exe_path| {
-                    Runnable {
-                        name: "main".into(),
-                        exe: exe_path,
-                        source: PathBuf::from("."),
-                    }
-                })
-                .collect(),
-            dynamic_libraries: vec![],
+    fn to_build(compilation: Compilation, compile_mode: CompileMode) -> Build {
+        if compile_mode == CompileMode::Build {
+            Build {
+                runnables: compilation.binaries
+                    .iter()
+                    .map(|exe_path| {
+                        Runnable {
+                            exe: exe_path.clone(),
+                            name: "main".to_string(),
+                            source: PathBuf::from("."),
+                        }
+                    })
+                    .collect(),
+                dynamic_libraries: Compiler::find_all_dynamic_liraries(&compilation),
+            }
+        } else {
+            Build {
+                runnables: compilation.tests
+                    .iter()
+                    .map(|&(ref pkg, _, ref name, ref exe)| {
+                        Runnable {
+                            exe: exe.clone(),
+                            name: name.clone(),
+                            source: pkg.root().to_path_buf(),
+                        }
+                    })
+                    .collect(),
+                dynamic_libraries: Compiler::find_all_dynamic_liraries(&compilation),
+            }
         }
     }
 
-    fn test_build_result(compilation: Compilation) -> Build {
-        Build {
-            runnables: compilation.tests
-                .into_iter()
-                .map(|(pkg, _, name, exe)| {
-                    Runnable {
-                        name: name,
-                        source: pkg.root().to_path_buf(),
-                        exe: exe,
+    fn find_all_dynamic_liraries(compilation: &Compilation) -> Vec<PathBuf> {
+        // 💩💩💩 See cargo_rustc/mod.rs/filter_dynamic_search_path() 💩💩💩
+        fn strip_fucking_prefix(path: &PathBuf) -> PathBuf {
+            match path.to_str() {
+                Some(s) => {
+                    let mut parts = s.splitn(2, '=');
+                    match (parts.next(), parts.next()) {
+                        (Some("native"), Some(path)) |
+                        (Some("crate"), Some(path)) |
+                        (Some("dependency"), Some(path)) |
+                        (Some("framework"), Some(path)) |
+                        (Some("all"), Some(path)) => path.into(),
+                        _ => path.clone(),
                     }
-                })
-                .collect(),
-            dynamic_libraries: vec![],
+                }
+                None => path.clone(),
+            }
         }
+
+        // Should check if lib is in overlay or project directory instead. A bit lazy for now...
+        fn is_allowed_path(path: &PathBuf) -> bool {
+            let ignored_path = vec![
+                Path::new("/lib"),
+                Path::new("/usr/lib"),
+                Path::new("/usr/lib32"),
+                Path::new("/usr/lib64"),
+            ];
+            !ignored_path.iter().any(|it| path.starts_with(it))
+        }
+
+        compilation.native_dirs
+            .iter()
+            .map(strip_fucking_prefix)
+            .flat_map(|path| WalkDir::new(path).into_iter())
+            .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
+            .filter(is_allowed_path)
+            .filter(|path| path.is_file() && is_lib(path))
+            .collect()
     }
 
     pub fn build(&self, platform: &Platform, compile_mode: CompileMode) -> Result<Build> {

@@ -1,4 +1,5 @@
 use clap::ArgMatches;
+use errors::Result;
 use std::path::PathBuf;
 use std::path::Path;
 
@@ -34,6 +35,29 @@ pub fn file_has_ext(file_path: &Path, ext: &str) -> bool {
         .and_then(|it| it.to_str())
         .map(|it| it.ends_with(ext))
         .unwrap_or(false)
+}
+
+pub fn is_lib(file_path: &Path) -> bool {
+    file_path.is_file() && file_path.file_name()
+        .and_then(|it| it.to_str())
+        .map(|it| it.ends_with(".so") || it.contains(".so."))
+        .unwrap_or(false)
+}
+
+pub fn lib_name_from(file_path: &Path) -> Result<String> {
+    let file_name = file_path.file_name()
+        .and_then(|it| it.to_str())
+        .ok_or(format!("'{}' doesn't point to a valid lib name", file_path.display()))?;
+
+    let (start_index, end_index) = file_name.find(".so")
+        .map(|end_index| (if file_name.starts_with("lib") { 3 } else { 0 }, end_index))
+        .unwrap_or((0, file_name.len()));
+
+    if start_index == end_index {
+        bail!("'{}' doesn't point to a valid lib name", file_path.display());
+    } else {
+        Ok(file_name[start_index..end_index].to_string())
+    }
 }
 
 pub fn path_between<P1: AsRef<Path>, P2: AsRef<Path>>(from: P1, to: P2) -> PathBuf {
