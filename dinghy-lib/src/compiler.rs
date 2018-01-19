@@ -109,15 +109,7 @@ impl Compiler {
             };
 
             let compilation = CargoOps::compile(&workspace, &options)?;
-            let toto = Ok(Compiler::to_build(compilation, compile_mode));
-            println!("ZZZZZZZZZZZ {:?}", toto);
-            toto
-//
-//            Ok(if compile_mode == CompileMode::Build {
-//                Compiler::to_bin_build(compilation)
-//            } else {
-//                Compiler::to_test_build(compilation)
-//            })
+            Ok(Compiler::to_build(compilation, compile_mode))
         })
     }
 

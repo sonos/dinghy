@@ -165,6 +165,7 @@ dependencies = [
  "cargo 0.22.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.27.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "dinghy-lib 0.2.16-pre",
+ "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.7.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "pretty_env_logger 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
