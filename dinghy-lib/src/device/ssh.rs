@@ -12,7 +12,9 @@ use std::process;
 use std::sync::Arc;
 use DeviceCompatibility;
 use {Device, PlatformManager};
+use Build;
 use Platform;
+use Runnable;
 
 #[derive(Debug, Clone)]
 pub struct SshDevice {
@@ -36,14 +38,14 @@ impl Device for SshDevice {
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
-    fn make_app(&self, project: &Project, source: &Path, exe: &Path) -> Result<PathBuf> {
+    fn make_app(&self, project: &Project, _build: &Build, runnable: &Runnable) -> Result<PathBuf> {
         let app_name = "dinghy";
-        let app_path = exe.parent().unwrap().join("dinghy").join(app_name);
-        debug!("Making bundle {:?} for {:?}", app_path, exe);
+        let app_path = runnable.exe.parent().unwrap().join("dinghy").join(app_name);
+        debug!("Making bundle {:?} for {:?}", app_path, runnable.exe);
         fs::create_dir_all(&app_path)?;
-        fs::copy(&exe, app_path.join(app_name))?;
+        fs::copy(&runnable.exe, app_path.join(app_name))?;
         debug!("Copying src to bundle");
-        project.rec_copy(source, &app_path, false)?;
+        project.rec_copy(&runnable.source, &app_path, false)?;
         debug!("Copying test_data to bundle");
         project.copy_test_data(&app_path)?;
         Ok(app_path.into())

@@ -7,10 +7,12 @@ use project::Project;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use Build;
 use Device;
 use PlatformManager;
 use DeviceCompatibility;
 use Platform;
+use Runnable;
 
 #[derive(Debug)]
 pub struct AndroidDevice {
@@ -65,25 +67,25 @@ impl Device for AndroidDevice {
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
-    fn make_app(&self, project: &Project, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
+    fn make_app(&self, project: &Project, _build: &Build, runnable: &Runnable) -> Result<path::PathBuf> {
         use std::fs;
-        let exe_file_name = exe.file_name()
+        let exe_file_name = runnable.exe.file_name()
             .expect("app should be a file in android mode");
 
-        let bundle_path = exe.parent().ok_or("no parent")?.join("dinghy");
+        let bundle_path = runnable.exe.parent().ok_or("no parent")?.join("dinghy");
         let bundled_exe_path = bundle_path.join(exe_file_name);
 
         debug!("Removing previous bundle {:?}", bundle_path);
         let _ = fs::remove_dir_all(&bundle_path);
 
-        debug!("Making bundle {:?} for {:?}", bundle_path, exe);
+        debug!("Making bundle {:?} for {:?}", bundle_path, &runnable.exe);
         fs::create_dir_all(&bundle_path)?;
 
         debug!("Copying exe to bundle");
-        fs::copy(&exe, &bundled_exe_path)?;
+        fs::copy(&runnable.exe, &bundled_exe_path)?;
 
         debug!("Copying src to bundle");
-        project.rec_copy(source, &bundle_path, false)?;
+        project.rec_copy(&runnable.source, &bundle_path, false)?;
 
         debug!("Copying test_data to bundle");
         project.copy_test_data(&bundle_path)?;

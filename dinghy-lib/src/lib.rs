@@ -171,7 +171,7 @@ pub trait Device: Debug + Display + DeviceCompatibility {
     fn debug_app(&self, app: &Path, args: &[&str], envs: &[&str]) -> Result<()>;
     fn id(&self) -> &str;
     fn install_app(&self, path: &Path) -> Result<()>;
-    fn make_app(&self, project: &Project, source: &Path, app: &Path) -> Result<PathBuf>;
+    fn make_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<PathBuf>;
     fn name(&self) -> &str;
     fn platform(&self) -> Result<Box<Platform>>;
     fn run_app(&self, app: &Path, args: &[&str], envs: &[&str]) -> Result<()>;

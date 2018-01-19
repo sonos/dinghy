@@ -14,6 +14,7 @@ use Platform;
 use PlatformManager;
 use DeviceCompatibility;
 use Result;
+use Runnable;
 
 pub struct HostManager {}
 
@@ -73,7 +74,7 @@ impl Device for HostDevice {
         unimplemented!()
     }
 
-    fn make_app(&self, _project: &Project, _source: &Path, _app: &Path) -> Result<PathBuf> {
+    fn make_app(&self, _project: &Project, _build: &Build, _runnable: &Runnable) -> Result<PathBuf> {
         unimplemented!()
     }
 

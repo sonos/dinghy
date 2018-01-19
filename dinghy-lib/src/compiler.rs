@@ -172,7 +172,7 @@ impl Compiler {
             }
         }
 
-        // Should check if lib is in overlay or project directory instead. A bit lazy for now...
+        // TODO Should check if lib is in overlay or project directory instead. A bit lazy for now...
         fn is_allowed_path(path: &PathBuf) -> bool {
             let ignored_path = vec![
                 Path::new("/lib"),
