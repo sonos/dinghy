@@ -165,7 +165,7 @@ pub fn config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
             info!("Loading configuration from {:?}", file);
             conf.merge(&file, read_config_file(&file)?);
         } else {
-            debug!("No configuration found at {:?}", file);
+            trace!("No configuration found at {:?}", file);
         }
     }
     Ok(conf)

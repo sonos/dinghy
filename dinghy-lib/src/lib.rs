@@ -25,17 +25,15 @@ extern crate tempdir;
 extern crate toml;
 extern crate walkdir;
 
-pub mod android;
 pub mod cargo_facade;
 pub mod config;
+pub mod device;
 pub mod errors;
-pub mod host;
 #[cfg(target_os = "macos")]
 pub mod ios;
 pub mod overlay;
+pub mod platform;
 pub mod project;
-pub mod regular_platform;
-pub mod ssh;
 pub mod utils;
 mod toolchain;
 
@@ -43,11 +41,14 @@ use cargo_facade::CargoFacade;
 use cargo_facade::CompileMode;
 use config::Configuration;
 use config::PlatformConfiguration;
-use host::HostPlatform;
+use device::android::AndroidManager;
+use device::ssh::SshDeviceManager;
 #[cfg(target_os = "macos")]
 use ios::IosPlatform;
+use platform::host::HostManager;
+use platform::host::HostPlatform;
+use platform::regular_platform::RegularPlatform;
 use project::Project;
-use regular_platform::RegularPlatform;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::path::Path;
@@ -66,13 +67,13 @@ pub struct Dinghy {
 impl Dinghy {
     pub fn probe(conf: &Arc<Configuration>) -> Result<Dinghy> {
         let mut managers: Vec<Box<PlatformManager>> = vec![];
-        if let Some(host) = host::HostManager::probe() {
+        if let Some(host) = HostManager::probe() {
             managers.push(Box::new(host))
         }
-        if let Some(android) = android::AndroidManager::probe() {
+        if let Some(android) = AndroidManager::probe() {
             managers.push(Box::new(android))
         }
-        if let Some(ssh) = ssh::SshDeviceManager::probe(conf.clone()) {
+        if let Some(ssh) = SshDeviceManager::probe(conf.clone()) {
             managers.push(Box::new(ssh))
         }
         if let Some(ios) = Dinghy::new_ios_manager() {
@@ -178,16 +179,16 @@ pub trait Device: Debug + Display + DeviceCompatibility {
 }
 
 pub trait DeviceCompatibility {
-    fn is_compatible_with_regular_platform(&self, _platform: &regular_platform::RegularPlatform) -> bool {
+    fn is_compatible_with_regular_platform(&self, _platform: &RegularPlatform) -> bool {
         false
     }
 
-    fn is_compatible_with_host_platform(&self, _platform: &host::HostPlatform) -> bool {
+    fn is_compatible_with_host_platform(&self, _platform: &HostPlatform) -> bool {
         false
     }
 
     #[cfg(target_os = "macos")]
-    fn is_compatible_with_ios_platform(&self, _platform: &ios::IosPlatform) -> bool {
+    fn is_compatible_with_ios_platform(&self, _platform: &IosPlatform) -> bool {
         false
     }
 }

@@ -96,9 +96,7 @@ impl Platform for RegularPlatform {
         // Set custom env variables specific to the platform
         set_all_env(&self.configuration.env());
 
-        Overlayer::new(self,
-                       &self.toolchain.sysroot,
-                       overlay_work_dir(cargo_facade, self)?)
+        Overlayer::new(self, &self.toolchain.sysroot, overlay_work_dir(cargo_facade, self)?)
             .overlay(&self.configuration, cargo_facade.project_dir()?)?;
 
         self.toolchain.setup_ar(&self.toolchain.executable("ar"))?;
