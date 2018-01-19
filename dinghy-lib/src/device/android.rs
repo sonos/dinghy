@@ -1,12 +1,14 @@
-use std::{env, path};
-use std::process::{Command, Stdio};
-
 use errors::*;
 use platform::regular_platform::RegularPlatform;
 use project::Project;
+use std::env;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::fs;
+use std::path::Path;
+use std::path::PathBuf;
+use std::process::{Command, Stdio};
 use Build;
 use Device;
 use PlatformManager;
@@ -67,32 +69,41 @@ impl Device for AndroidDevice {
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
-    fn make_app(&self, project: &Project, _build: &Build, runnable: &Runnable) -> Result<path::PathBuf> {
-        use std::fs;
-        let exe_file_name = runnable.exe.file_name()
+    fn make_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<PathBuf> {
+        let app_name = runnable.exe.file_name()
             .expect("app should be a file in android mode");
-
-        let bundle_path = runnable.exe.parent().ok_or("no parent")?.join("dinghy");
-        let bundled_exe_path = bundle_path.join(exe_file_name);
+        let bundle_path = runnable.exe.parent()
+            .ok_or(format!("Invalid executable file {}", &runnable.exe.display()))?
+            .join("dinghy").join(app_name);
+        let bundle_exe_path = bundle_path.join(app_name);
 
         debug!("Removing previous bundle {:?}", bundle_path);
         let _ = fs::remove_dir_all(&bundle_path);
 
         debug!("Making bundle {:?} for {:?}", bundle_path, &runnable.exe);
-        fs::create_dir_all(&bundle_path)?;
-
+        fs::create_dir_all(&bundle_path)
+            .chain_err(|| format!("Couldn't create {}", &bundle_path.display()))?;
         debug!("Copying exe to bundle");
-        fs::copy(&runnable.exe, &bundled_exe_path)?;
+        fs::copy(&runnable.exe, &bundle_exe_path)
+            .chain_err(|| format!("Couldn't copy {} to {}", &runnable.exe.display(), &bundle_exe_path.display()))?;
+
+        debug!("Copying dynamic libs to bundle");
+        for dynamic_lib in &build.dynamic_libraries {
+            let lib_path = bundle_path.join(dynamic_lib.file_name()
+                .ok_or(format!("Invalid file name '{:?}'", dynamic_lib.file_name()))?);
+            trace!("Copying dynamic lib '{}'", lib_path.display());
+            fs::copy(&dynamic_lib, &lib_path)
+                .chain_err(|| format!("Couldn't copy {} to {}", dynamic_lib.display(), &lib_path.display()))?;
+        }
 
         debug!("Copying src to bundle");
         project.rec_copy(&runnable.source, &bundle_path, false)?;
-
         debug!("Copying test_data to bundle");
         project.copy_test_data(&bundle_path)?;
 
-        Ok(bundled_exe_path.into())
+        Ok(bundle_exe_path.into())
     }
-    fn install_app(&self, exe: &path::Path) -> Result<()> {
+    fn install_app(&self, exe: &Path) -> Result<()> {
         let exe_name = exe.file_name()
             .and_then(|p| p.to_str())
             .expect("exe should be a file in android mode");
@@ -126,7 +137,7 @@ impl Device for AndroidDevice {
 
         Ok(())
     }
-    fn clean_app(&self, exe: &path::Path) -> Result<()> {
+    fn clean_app(&self, exe: &Path) -> Result<()> {
         let exe_name = exe.file_name()
             .and_then(|p| p.to_str())
             .expect("exe should be a file in android mode");
@@ -146,7 +157,7 @@ impl Device for AndroidDevice {
     fn platform(&self) -> Result<Box<Platform>> {
         unimplemented!()
     }
-    fn run_app(&self, exe: &path::Path, args: &[&str], envs: &[&str]) -> Result<()> {
+    fn run_app(&self, exe: &Path, args: &[&str], envs: &[&str]) -> Result<()> {
         let exe_name = exe.file_name()
             .and_then(|p| p.to_str())
             .expect("exe should be a file in android mode");
@@ -171,7 +182,7 @@ impl Device for AndroidDevice {
         }
         Ok(())
     }
-    fn debug_app(&self, _app_path: &path::Path, _args: &[&str], _envs: &[&str]) -> Result<()> {
+    fn debug_app(&self, _app_path: &Path, _args: &[&str], _envs: &[&str]) -> Result<()> {
         unimplemented!()
     }
 }
@@ -190,10 +201,10 @@ fn adb() -> Result<String> {
             .arg("--version")
             .stdout(Stdio::null())
             .status()
-        {
-            Ok(_) => true,
-            Err(_) => false,
-        }
+            {
+                Ok(_) => true,
+                Err(_) => false,
+            }
     }
     if try_out("fb_adb") {
         return Ok("fb-adb".into());
