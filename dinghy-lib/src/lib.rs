@@ -194,7 +194,7 @@ pub trait DeviceCompatibility {
 }
 
 pub trait Platform: Debug {
-    fn build(&self, compiler: &Compiler, compile_mode: CompileMode) -> Result<Vec<Runnable>>;
+    fn build(&self, compiler: &Compiler, compile_mode: CompileMode) -> Result<Build>;
 
     fn id(&self) -> String;
 
@@ -207,7 +207,13 @@ pub trait PlatformManager {
     fn devices(&self) -> Result<Vec<Box<Device>>>;
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Default)]
+pub struct Build {
+    pub runnables: Vec<Runnable>,
+    pub dynamic_libraries: Vec<PathBuf>,
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct Runnable {
     pub name: String,
     pub exe: PathBuf,

@@ -8,12 +8,12 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::path::Path;
 use std::path::PathBuf;
+use Build;
 use Device;
 use Platform;
 use PlatformManager;
 use DeviceCompatibility;
 use Result;
-use Runnable;
 
 pub struct HostManager {}
 
@@ -111,7 +111,7 @@ impl DeviceCompatibility for HostDevice {
 }
 
 impl Platform for HostPlatform {
-    fn build(&self, compiler: &Compiler, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
+    fn build(&self, compiler: &Compiler, compile_mode: CompileMode) -> Result<Build> {
         Overlayer::new(self, "/", compiler.target_dir(self.rustc_triple())?.join(&self.id))
             .overlay(&self.configuration, compiler.project_dir()?)?;
 

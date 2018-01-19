@@ -1,12 +1,14 @@
 pub use cargo::ops::CompileMode;
 use cargo::util::important_paths::find_root_manifest_for_wd;
 use cargo::core::Workspace;
+use cargo::ops::Compilation;
 use cargo::ops::CompileFilter;
 use cargo::ops::CompileOptions;
 use cargo::ops::MessageFormat;
-use cargo::util::config::Config as CompileConfig;
-use cargo::ops as CargoOps;
 use cargo::ops::Packages as CompilePackages;
+use cargo::ops as CargoOps;
+use cargo::util::config::Config as CompileConfig;
+//use cargo::util::CargoResult;
 use clap::ArgMatches;
 use itertools::Itertools;
 use std::collections::HashSet;
@@ -21,10 +23,11 @@ use toml;
 use Platform;
 use Result;
 use ResultExt;
+use Build;
 use Runnable;
 
 pub struct Compiler {
-    build_command: Box<Fn(&Platform, CompileMode) -> Result<Vec<Runnable>>>,
+    build_command: Box<Fn(&Platform, CompileMode) -> Result<Build>>,
 }
 
 impl Compiler {
@@ -34,7 +37,7 @@ impl Compiler {
         }
     }
 
-    fn create_build_command(matches: &ArgMatches) -> Box<Fn(&Platform, CompileMode) -> Result<Vec<Runnable>>> {
+    fn create_build_command(matches: &ArgMatches) -> Box<Fn(&Platform, CompileMode) -> Result<Build>> {
         let all = matches.is_present("ALL");
         let all_features = matches.is_present("ALL_FEATURES");
         let benches = arg_as_string_vec(matches, "BENCH");
@@ -68,10 +71,10 @@ impl Compiler {
                 false,
                 &[],
             )?;
-            let wd = Workspace::new(&find_root_manifest_for_wd(None, &current_dir()?)?,
-                                    config)?;
+            let workspace = Workspace::new(&find_root_manifest_for_wd(None, &current_dir()?)?,
+                                           config)?;
 
-            let project_metadata_list = Compiler::read_workskpace_metadata(&wd)?;
+            let project_metadata_list = Compiler::workskpace_metadata(&workspace)?;
             let excludes = Compiler::exclude_by_target_triple(platform,
                                                               project_metadata_list.as_slice(),
                                                               excludes.as_slice());
@@ -84,7 +87,7 @@ impl Compiler {
                 all_features,
                 no_default_features,
                 spec: CompilePackages::from_flags(
-                    wd.is_virtual(),
+                    workspace.is_virtual(),
                     all,
                     &excludes,
                     &packages,
@@ -104,38 +107,51 @@ impl Compiler {
                 target_rustc_args: None,
             };
 
-            let compilation = CargoOps::compile(&wd, &options)?;
+            let compilation = CargoOps::compile(&workspace, &options)?;
+            error!("ZZZZ1 {:?}", compilation.native_dirs);
 
-            if compile_mode == CompileMode::Build {
-                Ok(compilation
-                    .binaries
-                    .into_iter()
-                    .take(1)
-                    .map(|t| {
-                        Runnable {
-                            name: "main".into(),
-                            exe: t,
-                            source: PathBuf::from("."),
-                        }
-                    })
-                    .collect::<Vec<_>>())
+            Ok(if compile_mode == CompileMode::Build {
+                Compiler::bin_build_result(compilation)
             } else {
-                Ok(compilation
-                    .tests
-                    .into_iter()
-                    .map(|(pkg, _, name, exe)| {
-                        Runnable {
-                            name: name,
-                            source: pkg.root().to_path_buf(),
-                            exe: exe,
-                        }
-                    })
-                    .collect::<Vec<_>>())
-            }
+                Compiler::test_build_result(compilation)
+            })
         })
     }
 
-    pub fn build(&self, platform: &Platform, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
+    fn bin_build_result(compilation: Compilation) -> Build {
+        Build {
+            runnables: compilation.binaries
+                .into_iter()
+                .take(1)
+                .map(|exe_path| {
+                    Runnable {
+                        name: "main".into(),
+                        exe: exe_path,
+                        source: PathBuf::from("."),
+                    }
+                })
+                .collect(),
+            dynamic_libraries: vec![],
+        }
+    }
+
+    fn test_build_result(compilation: Compilation) -> Build {
+        Build {
+            runnables: compilation.tests
+                .into_iter()
+                .map(|(pkg, _, name, exe)| {
+                    Runnable {
+                        name: name,
+                        source: pkg.root().to_path_buf(),
+                        exe: exe,
+                    }
+                })
+                .collect(),
+            dynamic_libraries: vec![],
+        }
+    }
+
+    pub fn build(&self, platform: &Platform, compile_mode: CompileMode) -> Result<Build> {
         (self.build_command)(platform, compile_mode)
     }
 
@@ -166,9 +182,9 @@ impl Compiler {
         all_excludes
     }
 
-    fn read_workskpace_metadata(workspace: &Workspace) -> Result<Vec<ProjectMetadata>> {
+    fn workskpace_metadata(workspace: &Workspace) -> Result<Vec<ProjectMetadata>> {
         workspace.members()
-            .map(|member| Compiler::read_project_metadata(member.manifest_path()))
+            .map(|member| Compiler::project_metadata(member.manifest_path()))
             .filter_map(|metadata_res| match metadata_res {
                 Err(error) => Some(Err(error)),
                 Ok(metadata) => if let Some(metadata) = metadata { Some(Ok(metadata)) } else { None },
@@ -176,7 +192,7 @@ impl Compiler {
             .collect::<Result<_>>()
     }
 
-    fn read_project_metadata<P: AsRef<Path>>(path: P) -> Result<Option<ProjectMetadata>> {
+    fn project_metadata<P: AsRef<Path>>(path: P) -> Result<Option<ProjectMetadata>> {
         fn read_file_to_string(mut file: File) -> Result<String> {
             let mut content = String::new();
             file.read_to_string(&mut content)?;
@@ -213,8 +229,7 @@ impl Compiler {
     }
 }
 
-
-#[derive(Debug, Default, Clone)]
+#[derive(Clone, Debug, Default)]
 struct ProjectMetadata {
     project_id: String,
     targets: HashSet<String>,

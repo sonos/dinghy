@@ -89,11 +89,11 @@ fn prepare_and_run(
     };
     debug!("Platform {:?}", platform);
 
-    let runnable_list = platform.build(&Compiler::from_args(sub_args), mode)?;
+    let build = platform.build(&Compiler::from_args(sub_args), mode)?;
     let args = arg_as_string_vec(sub_args, "ARGS");
     let envs = arg_as_string_vec(sub_args, "ENVS");
 
-    for runnable in runnable_list {
+    for runnable in build.runnables {
         let app = device.make_app(&project, &runnable.source, &runnable.exe)?;
         device.install_app(&app.as_ref())?;
         if sub_args.is_present("DEBUGGER") {

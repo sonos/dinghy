@@ -8,10 +8,10 @@ use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
 use toolchain::ToolchainConfig;
+use Build;
 use Device;
 use Platform;
 use Result;
-use Runnable;
 
 #[derive(Debug)]
 pub struct RegularPlatform {
@@ -87,7 +87,7 @@ impl Display for RegularPlatform {
 }
 
 impl Platform for RegularPlatform {
-    fn build(&self, compiler: &Compiler, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
+    fn build(&self, compiler: &Compiler, compile_mode: CompileMode) -> Result<Build> {
         // Cleanup environment
         set_all_env(&[
             ("LIBRARY_PATH", ""),
