@@ -23,7 +23,6 @@ use Result;
 use ResultExt;
 use Runnable;
 
-
 pub struct CargoFacade {
     build_command: Box<Fn(&Platform, CompileMode) -> Result<Vec<Runnable>>>,
 }
@@ -72,22 +71,10 @@ impl CargoFacade {
             let wd = Workspace::new(&find_root_manifest_for_wd(None, &current_dir()?)?,
                                     config)?;
 
-            let project_metadata_list: Vec<ProjectMetadata> = wd.members()
-                .map(|member| CargoFacade::read_project_metadata(member.manifest_path()))
-                .filter_map(|metadata_res| match metadata_res {
-                    Err(error) => Some(Err(error)),
-                    Ok(metadata) => if let Some(metadata) = metadata { Some(Ok(metadata)) } else { None },
-                })
-                .collect::<Result<_>>()?;
-
-            let mut all_excludes = excludes.clone();
-            all_excludes.extend(project_metadata_list.iter()
-                .filter(|metadata| !metadata.is_allowed_for(platform.rustc_triple()))
-                .filter(|metadata| !excludes.contains(&metadata.project_id))
-                .map(|metadata| {
-                    debug!("Project '{}' is disabled for current target", metadata.project_id);
-                    metadata.project_id.clone()
-                }));
+            let project_metadata_list = CargoFacade::read_workskpace_metadata(&wd)?;
+            let excludes = CargoFacade::exclude_by_target_triple(platform,
+                                                                 project_metadata_list.as_slice(),
+                                                                 excludes.as_slice());
 
             let options = CompileOptions {
                 config,
@@ -99,7 +86,7 @@ impl CargoFacade {
                 spec: CompilePackages::from_flags(
                     wd.is_virtual(),
                     all,
-                    &all_excludes,
+                    &excludes,
                     &packages,
                 )?,
                 filter: CompileFilter::new(
@@ -148,6 +135,47 @@ impl CargoFacade {
         })
     }
 
+    pub fn build(&self, platform: &Platform, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
+        (self.build_command)(platform, compile_mode)
+    }
+
+    pub fn project_dir(&self) -> Result<PathBuf> {
+        let wd_path = ::cargo::util::important_paths::find_root_manifest_for_wd(None, &current_dir()?)?;
+        Ok(wd_path.parent()
+            .ok_or(format!("Couldn't read project directory {}.", wd_path.display()))?
+            .to_path_buf())
+    }
+
+    pub fn target_dir(&self, rustc_triple: Option<&str>) -> Result<PathBuf> {
+        let mut target_path = self.project_dir()?.join("target");
+        if let Some(rustc_triple) = rustc_triple {
+            target_path = target_path.join(rustc_triple);
+        }
+        Ok(target_path)
+    }
+
+    fn exclude_by_target_triple(platform: &Platform, project_metadata_list: &[ProjectMetadata], excludes: &[String]) -> Vec<String> {
+        let mut all_excludes: Vec<String> = excludes.to_vec();
+        all_excludes.extend(project_metadata_list.iter()
+            .filter(|metadata| !metadata.is_allowed_for(platform.rustc_triple()))
+            .filter(|metadata| !excludes.contains(&metadata.project_id))
+            .map(|metadata| {
+                debug!("Project '{}' is disabled for current target", metadata.project_id);
+                metadata.project_id.clone()
+            }));
+        all_excludes
+    }
+
+    fn read_workskpace_metadata(workspace: &Workspace) -> Result<Vec<ProjectMetadata>> {
+        workspace.members()
+            .map(|member| CargoFacade::read_project_metadata(member.manifest_path()))
+            .filter_map(|metadata_res| match metadata_res {
+                Err(error) => Some(Err(error)),
+                Ok(metadata) => if let Some(metadata) = metadata { Some(Ok(metadata)) } else { None },
+            })
+            .collect::<Result<_>>()
+    }
+
     fn read_project_metadata<P: AsRef<Path>>(path: P) -> Result<Option<ProjectMetadata>> {
         fn read_file_to_string(mut file: File) -> Result<String> {
             let mut content = String::new();
@@ -182,25 +210,6 @@ impl CargoFacade {
         } else {
             Ok(None)
         }
-    }
-
-    pub fn build(&self, platform: &Platform, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
-        (self.build_command)(platform, compile_mode)
-    }
-
-    pub fn project_dir(&self) -> Result<PathBuf> {
-        let wd_path = ::cargo::util::important_paths::find_root_manifest_for_wd(None, &current_dir()?)?;
-        Ok(wd_path.parent()
-            .ok_or(format!("Couldn't read project directory {}.", wd_path.display()))?
-            .to_path_buf())
-    }
-
-    pub fn target_dir(&self, rustc_triple: Option<&str>) -> Result<PathBuf> {
-        let mut target_path = self.project_dir()?.join("target");
-        if let Some(rustc_triple) = rustc_triple {
-            target_path = target_path.join(rustc_triple);
-        }
-        Ok(target_path)
     }
 }
 
