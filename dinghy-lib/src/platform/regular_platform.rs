@@ -1,5 +1,5 @@
-use cargo_facade::CargoFacade;
-use cargo_facade::CompileMode;
+use compiler::Compiler;
+use compiler::CompileMode;
 use config::PlatformConfiguration;
 use dinghy_helper::build_env::set_all_env;
 use overlay::Overlayer;
@@ -87,7 +87,7 @@ impl Display for RegularPlatform {
 }
 
 impl Platform for RegularPlatform {
-    fn build(&self, cargo_facade: &CargoFacade, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
+    fn build(&self, compiler: &Compiler, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
         // Cleanup environment
         set_all_env(&[
             ("LIBRARY_PATH", ""),
@@ -96,8 +96,8 @@ impl Platform for RegularPlatform {
         // Set custom env variables specific to the platform
         set_all_env(&self.configuration.env());
 
-        Overlayer::new(self, &self.toolchain.sysroot, overlay_work_dir(cargo_facade, self)?)
-            .overlay(&self.configuration, cargo_facade.project_dir()?)?;
+        Overlayer::new(self, &self.toolchain.sysroot, overlay_work_dir(compiler, self)?)
+            .overlay(&self.configuration, compiler.project_dir()?)?;
 
         self.toolchain.setup_ar(&self.toolchain.executable("ar"))?;
         self.toolchain.setup_cc(&self.id, &self.toolchain.executable("gcc"))?;
@@ -109,7 +109,7 @@ impl Platform for RegularPlatform {
         self.toolchain.setup_sysroot();
         self.toolchain.shim_executables(&self.id)?;
 
-        cargo_facade.build(self, compile_mode)
+        compiler.build(self, compile_mode)
     }
 
     fn id(&self) -> String {

@@ -25,7 +25,7 @@ extern crate tempdir;
 extern crate toml;
 extern crate walkdir;
 
-pub mod cargo_facade;
+pub mod compiler;
 pub mod config;
 pub mod device;
 pub mod errors;
@@ -37,8 +37,8 @@ pub mod project;
 pub mod utils;
 mod toolchain;
 
-use cargo_facade::CargoFacade;
-use cargo_facade::CompileMode;
+use compiler::Compiler;
+use compiler::CompileMode;
 use config::Configuration;
 use config::PlatformConfiguration;
 use device::android::AndroidManager;
@@ -194,7 +194,7 @@ pub trait DeviceCompatibility {
 }
 
 pub trait Platform: Debug {
-    fn build(&self, cargo_facade: &CargoFacade, compile_mode: CompileMode) -> Result<Vec<Runnable>>;
+    fn build(&self, compiler: &Compiler, compile_mode: CompileMode) -> Result<Vec<Runnable>>;
 
     fn id(&self) -> String;
 

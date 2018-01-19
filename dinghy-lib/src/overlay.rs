@@ -1,4 +1,4 @@
-use cargo_facade::CargoFacade;
+use compiler::Compiler;
 use config::PlatformConfiguration;
 use dinghy_helper::build_env::append_path_to_target_env;
 use dinghy_helper::build_env::envify;
@@ -199,8 +199,8 @@ impl Overlayer {
     }
 }
 
-pub fn overlay_work_dir(cargo_facade: &CargoFacade, platform: &Platform) -> Result<PathBuf> {
-    Ok(cargo_facade
+pub fn overlay_work_dir(compiler: &Compiler, platform: &Platform) -> Result<PathBuf> {
+    Ok(compiler
         .target_dir(platform.rustc_triple())?
         .join(platform.id()))
 }
