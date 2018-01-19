@@ -15,6 +15,7 @@ use std::path::Path;
 use utils::contains_file_with_ext;
 use utils::file_has_ext;
 use utils::destructure_path;
+use utils::lib_name_from;
 use utils::path_between;
 use walkdir::WalkDir;
 use Platform;
@@ -176,26 +177,12 @@ impl Overlayer {
             .into_iter()
             .filter_map(|entry| entry.ok()) // Ignore unreadable files, maybe could warn...
             .filter(|entry| file_has_ext(entry.path(), ".so"))
-            .filter_map(|e| Overlayer::lib_name(e.path()).ok())
+            .filter_map(|e| lib_name_from(e.path()).ok())
             .collect_vec();
 
         write_pkg_config_file(pc_file.as_path(), overlay.id.as_str(), &lib_list)
             .chain_err(|| format!("Dinghy couldn't generate pkg-config pc file {}",
                                   pc_file.as_path().display()))
-    }
-
-    fn lib_name(file_path: &Path) -> Result<String> {
-        let file_name = file_path.file_name()
-            .and_then(|it| it.to_str())
-            .ok_or(format!("'{}' doesn't point to a valid lib name", file_path.display()))?;
-
-        let start_index = if file_name.starts_with("lib") { 3 } else { 0 };
-        let end_index = file_name.find(".so").unwrap_or(file_name.len());
-        if start_index == end_index {
-            bail!("'{}' doesn't point to a valid lib name", file_path.display());
-        } else {
-            Ok(file_name[start_index..end_index].to_string())
-        }
     }
 }
 
