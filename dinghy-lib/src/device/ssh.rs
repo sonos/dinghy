@@ -10,10 +10,11 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process;
 use std::sync::Arc;
-use DeviceCompatibility;
-use {Device, PlatformManager};
 use Build;
+use Device;
+use DeviceCompatibility;
 use Platform;
+use PlatformManager;
 use Runnable;
 
 #[derive(Debug, Clone)]
@@ -39,34 +40,38 @@ impl Device for SshDevice {
         unimplemented!()
     }
     fn make_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<PathBuf> {
-        let app_name = "dinghy";
-        let app_path = runnable.exe.parent()
+        let app_name = runnable.exe.file_name()
+            .expect("app should be a file in android mode");
+        let bundle_path = runnable.exe.parent()
             .ok_or(format!("Invalid executable file {}", &runnable.exe.display()))?
             .join("dinghy").join(app_name);
-        let exe_path = app_path.join(app_name);
+        let bundle_exe_path = bundle_path.join(app_name);
 
-        debug!("Making bundle {:?} for {:?}", app_path, &runnable.exe);
-        fs::create_dir_all(&app_path)
-            .chain_err(|| format!("Couldn't create {}", &app_path.display()))?;
-        fs::copy(&runnable.exe, &exe_path)
-            .chain_err(|| format!("Couldn't copy {} to {}", &runnable.exe.display(), &exe_path.display()))?;
+        debug!("Removing previous bundle {:?}", bundle_path);
+        let _ = fs::remove_dir_all(&bundle_path);
+
+        debug!("Making bundle {:?} for {:?}", bundle_path, &runnable.exe);
+        fs::create_dir_all(&bundle_path)
+            .chain_err(|| format!("Couldn't create {}", &bundle_path.display()))?;
+        debug!("Copying exe to bundle");
+        fs::copy(&runnable.exe, &bundle_exe_path)
+            .chain_err(|| format!("Couldn't copy {} to {}", &runnable.exe.display(), &bundle_exe_path.display()))?;
 
         debug!("Copying dynamic libs to bundle");
         for dynamic_lib in &build.dynamic_libraries {
-            let lib_path = app_path.join(dynamic_lib.file_name()
+            let lib_path = bundle_path.join(dynamic_lib.file_name()
                 .ok_or(format!("Invalid file name '{:?}'", dynamic_lib.file_name()))?);
-            let _ = fs::remove_file(&lib_path); // Try to remove file first as libs are likely read-only
             trace!("Copying dynamic lib '{}'", lib_path.display());
             fs::copy(&dynamic_lib, &lib_path)
                 .chain_err(|| format!("Couldn't copy {} to {}", dynamic_lib.display(), &lib_path.display()))?;
         }
 
         debug!("Copying src to bundle");
-        project.rec_copy(&runnable.source, &app_path, false)?;
-
+        project.rec_copy(&runnable.source, &bundle_path, false)?;
         debug!("Copying test_data to bundle");
-        project.copy_test_data(&app_path)?;
-        Ok(app_path.into())
+        project.copy_test_data(&bundle_path)?;
+
+        Ok(bundle_path.into())
     }
     fn install_app(&self, app: &Path) -> Result<()> {
         let user_at_host = format!("{}@{}", self.conf.username, self.conf.hostname);
