@@ -1,5 +1,5 @@
-use cargo_facade::CargoFacade;
-use cargo_facade::CompileMode;
+use compiler::Compiler;
+use compiler::CompileMode;
 use config::PlatformConfiguration;
 use overlay::Overlayer;
 use project::Project;
@@ -111,11 +111,11 @@ impl DeviceCompatibility for HostDevice {
 }
 
 impl Platform for HostPlatform {
-    fn build(&self, cargo_facade: &CargoFacade, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
-        Overlayer::new(self, "/", cargo_facade.target_dir(self.rustc_triple())?.join(&self.id))
-            .overlay(&self.configuration, cargo_facade.project_dir()?)?;
+    fn build(&self, compiler: &Compiler, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
+        Overlayer::new(self, "/", compiler.target_dir(self.rustc_triple())?.join(&self.id))
+            .overlay(&self.configuration, compiler.project_dir()?)?;
 
-        cargo_facade.build(self, compile_mode)
+        compiler.build(self, compile_mode)
     }
 
     fn id(&self) -> String {

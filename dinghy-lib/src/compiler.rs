@@ -23,14 +23,14 @@ use Result;
 use ResultExt;
 use Runnable;
 
-pub struct CargoFacade {
+pub struct Compiler {
     build_command: Box<Fn(&Platform, CompileMode) -> Result<Vec<Runnable>>>,
 }
 
-impl CargoFacade {
-    pub fn from_args(matches: &ArgMatches) -> CargoFacade {
-        CargoFacade {
-            build_command: CargoFacade::create_build_command(matches),
+impl Compiler {
+    pub fn from_args(matches: &ArgMatches) -> Compiler {
+        Compiler {
+            build_command: Compiler::create_build_command(matches),
         }
     }
 
@@ -71,10 +71,10 @@ impl CargoFacade {
             let wd = Workspace::new(&find_root_manifest_for_wd(None, &current_dir()?)?,
                                     config)?;
 
-            let project_metadata_list = CargoFacade::read_workskpace_metadata(&wd)?;
-            let excludes = CargoFacade::exclude_by_target_triple(platform,
-                                                                 project_metadata_list.as_slice(),
-                                                                 excludes.as_slice());
+            let project_metadata_list = Compiler::read_workskpace_metadata(&wd)?;
+            let excludes = Compiler::exclude_by_target_triple(platform,
+                                                              project_metadata_list.as_slice(),
+                                                              excludes.as_slice());
 
             let options = CompileOptions {
                 config,
@@ -168,7 +168,7 @@ impl CargoFacade {
 
     fn read_workskpace_metadata(workspace: &Workspace) -> Result<Vec<ProjectMetadata>> {
         workspace.members()
-            .map(|member| CargoFacade::read_project_metadata(member.manifest_path()))
+            .map(|member| Compiler::read_project_metadata(member.manifest_path()))
             .filter_map(|metadata_res| match metadata_res {
                 Err(error) => Some(Err(error)),
                 Ok(metadata) => if let Some(metadata) = metadata { Some(Ok(metadata)) } else { None },

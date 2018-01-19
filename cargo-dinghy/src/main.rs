@@ -16,7 +16,7 @@ use std::time;
 use cargo::ops::CompileMode;
 use clap::ArgMatches;
 use cli::CargoDinghyCli;
-use dinghy_lib::cargo_facade::CargoFacade;
+use dinghy_lib::compiler::Compiler;
 use dinghy_lib::utils::arg_as_string_vec;
 use dinghy_lib::errors::*;
 use dinghy_lib::platform::host::HostDevice;
@@ -71,7 +71,7 @@ fn run_command(args: ArgMatches) -> Result<()> {
 }
 
 fn build(platform: Arc<Box<Platform>>, sub_args: &ArgMatches) -> Result<()> {
-    platform.build(&CargoFacade::from_args(sub_args), CompileMode::Build).and(Ok(()))
+    platform.build(&Compiler::from_args(sub_args), CompileMode::Build).and(Ok(()))
 }
 
 fn prepare_and_run(
@@ -89,7 +89,7 @@ fn prepare_and_run(
     };
     debug!("Platform {:?}", platform);
 
-    let runnable_list = platform.build(&CargoFacade::from_args(sub_args), mode)?;
+    let runnable_list = platform.build(&Compiler::from_args(sub_args), mode)?;
     let args = arg_as_string_vec(sub_args, "ARGS");
     let envs = arg_as_string_vec(sub_args, "ENVS");
 

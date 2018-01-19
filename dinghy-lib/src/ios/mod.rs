@@ -1,5 +1,5 @@
-use cargo_facade::CargoFacade;
-use cargo_facade::CompileMode;
+use compiler::Compiler;
+use compiler::CompileMode;
 use clap::ArgMatches;
 use errors::*;
 use project::Project;
@@ -297,13 +297,13 @@ impl IosPlatform {
 }
 
 impl Platform for IosPlatform {
-    fn build(&self, cargo_facade: &CargoFacade, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
+    fn build(&self, compiler: &Compiler, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
         self.toolchain.setup_cc(self.id().as_str(), "gcc")?;
         self.toolchain.setup_linker(self.id().as_str(),
                                     format!("cc -isysroot {}",
                                             self.linker_command()?.as_str()).as_str())?;
 
-        cargo_facade.build(compile_mode, Some(self.toolchain.rustc_triple.as_str()))
+        compiler.build(compile_mode, Some(self.toolchain.rustc_triple.as_str()))
     }
 
     fn id(&self) -> String {
