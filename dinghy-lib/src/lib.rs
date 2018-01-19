@@ -1,5 +1,4 @@
 extern crate cargo;
-#[macro_use]
 extern crate clap;
 #[cfg(target_os = "macos")]
 extern crate core_foundation;
@@ -27,7 +26,6 @@ extern crate toml;
 extern crate walkdir;
 
 pub mod android;
-pub mod cli;
 pub mod cargo_facade;
 pub mod config;
 pub mod errors;
@@ -38,6 +36,7 @@ pub mod overlay;
 pub mod project;
 pub mod regular_platform;
 pub mod ssh;
+pub mod utils;
 mod toolchain;
 
 use cargo_facade::CargoFacade;

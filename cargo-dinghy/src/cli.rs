@@ -270,9 +270,3 @@ impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
             .help("Sets the level of verbosity"))
     }
 }
-
-pub fn arg_as_string_vec(matches: &ArgMatches, option: &str) -> Vec<String> {
-    matches.values_of(option)
-        .map(|vs| vs.map(|s| s.to_string()).collect())
-        .unwrap_or(vec![])
-}

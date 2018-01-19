@@ -1,4 +1,5 @@
 extern crate cargo;
+#[macro_use]
 extern crate clap;
 extern crate dinghy_lib;
 extern crate itertools;
@@ -6,15 +7,17 @@ extern crate itertools;
 extern crate log;
 extern crate pretty_env_logger;
 
+mod cli;
+
 use std::env;
 use std::thread;
 use std::time;
 
 use cargo::ops::CompileMode;
 use clap::ArgMatches;
+use cli::CargoDinghyCli;
 use dinghy_lib::cargo_facade::CargoFacade;
-use dinghy_lib::cli::arg_as_string_vec;
-use dinghy_lib::cli::CargoDinghyCli;
+use dinghy_lib::utils::arg_as_string_vec;
 use dinghy_lib::errors::*;
 use dinghy_lib::host::HostDevice;
 use dinghy_lib::host::HostPlatform;
@@ -25,7 +28,6 @@ use dinghy_lib::Platform;
 use itertools::Itertools;
 use std::env::current_dir;
 use std::sync::Arc;
-
 
 fn main() {
     let filtered_args = env::args()
