@@ -250,7 +250,13 @@ impl Compiler {
         if let (Some(project_id), Some(metadata)) = (project_id, metadata) {
             Ok(Some(ProjectMetadata {
                 project_id: project_id.to_string(),
-                targets: HashSet::from_iter(metadata.get("allowed_rustc_triples")
+                allowed_triples: HashSet::from_iter(metadata.get("allowed_rustc_triples")
+                    .and_then(|targets| targets.as_array())
+                    .unwrap_or(&vec![])
+                    .into_iter()
+                    .filter_map(|target| target.as_str().map(|it| it.to_string()))
+                    .collect_vec()),
+                ignored_triples: HashSet::from_iter(metadata.get("ignored_rustc_triples")
                     .and_then(|targets| targets.as_array())
                     .unwrap_or(&vec![])
                     .into_iter()
@@ -266,11 +272,15 @@ impl Compiler {
 #[derive(Clone, Debug, Default)]
 struct ProjectMetadata {
     project_id: String,
-    targets: HashSet<String>,
+    allowed_triples: HashSet<String>,
+    ignored_triples: HashSet<String>,
 }
 
 impl ProjectMetadata {
     pub fn is_allowed_for(&self, rustc_triple: Option<&str>) -> bool {
-        self.targets.is_empty() || self.targets.contains(rustc_triple.unwrap_or("host"))
+        (self.allowed_triples.is_empty()
+            || self.allowed_triples.contains(rustc_triple.unwrap_or("host")))
+            && (self.ignored_triples.is_empty()
+            || !self.ignored_triples.contains(rustc_triple.unwrap_or("host")))
     }
 }
