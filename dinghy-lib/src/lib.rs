@@ -51,7 +51,6 @@ use platform::regular_platform::RegularPlatform;
 use project::Project;
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread::sleep;
@@ -167,14 +166,13 @@ impl Dinghy {
 }
 
 pub trait Device: Debug + Display + DeviceCompatibility {
-    fn clean_app(&self, path: &Path) -> Result<()>;
-    fn debug_app(&self, app: &Path, args: &[&str], envs: &[&str]) -> Result<()>;
+    fn clean_app(&self, build_bundle: &BuildBundle) -> Result<()>;
+    fn debug_app(&self, build_bundle: &BuildBundle, args: &[&str], envs: &[&str]) -> Result<()>;
     fn id(&self) -> &str;
-    fn install_app(&self, path: &Path) -> Result<()>;
-    fn make_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<PathBuf>;
+    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle>;
     fn name(&self) -> &str;
     fn platform(&self) -> Result<Box<Platform>>;
-    fn run_app(&self, app: &Path, args: &[&str], envs: &[&str]) -> Result<()>;
+    fn run_app(&self, build_bundle: &BuildBundle, args: &[&str], envs: &[&str]) -> Result<()>;
     fn start_remote_lldb(&self) -> Result<String>;
 }
 
@@ -214,8 +212,14 @@ pub struct Build {
 }
 
 #[derive(Clone, Debug, Default)]
+pub struct BuildBundle {
+    pub id: String,
+    pub host_dir: PathBuf,
+    pub host_exe: PathBuf,
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct Runnable {
-    pub name: String,
     pub exe: PathBuf,
     pub source: PathBuf,
 }

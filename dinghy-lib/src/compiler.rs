@@ -121,7 +121,6 @@ impl Compiler {
                     .map(|exe_path| {
                         Runnable {
                             exe: exe_path.clone(),
-                            name: "main".to_string(),
                             source: PathBuf::from("."),
                         }
                     })
@@ -132,10 +131,9 @@ impl Compiler {
             Build {
                 runnables: compilation.tests
                     .iter()
-                    .map(|&(ref pkg, _, ref name, ref exe)| {
+                    .map(|&(ref pkg, _, _, ref exe)| {
                         Runnable {
                             exe: exe.clone(),
-                            name: name.clone(),
                             source: pkg.root().to_path_buf(),
                         }
                     })

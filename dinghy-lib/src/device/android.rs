@@ -6,14 +6,15 @@ use std::env;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
-use std::path::Path;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use utils::path_to_str;
 use Build;
 use Device;
 use PlatformManager;
 use DeviceCompatibility;
 use Platform;
+use BuildBundle;
 use Runnable;
 
 #[derive(Debug)]
@@ -51,6 +52,15 @@ impl AndroidDevice {
         debug!("device: {:?}", device);
         Ok(device)
     }
+
+    fn to_remote_bundle(build_bundle: &BuildBundle) -> Result<(PathBuf, PathBuf)> {
+        let remote_prefix = PathBuf::from("/data/local/tmp");
+        let remote_dir = remote_prefix.join("dinghy").to_path_buf();
+        let remote_exe = remote_dir.join(build_bundle.host_exe.file_name()
+            .ok_or(format!("Invalid executable name '{}'", build_bundle.host_exe.display()))?)
+            .to_path_buf();
+        Ok((remote_dir, remote_exe))
+    }
 }
 
 impl DeviceCompatibility for AndroidDevice {
@@ -64,33 +74,35 @@ impl Device for AndroidDevice {
         "android device"
     }
     fn id(&self) -> &str {
-        &*self.id
+        &self.id
     }
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
-    fn make_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<PathBuf> {
-        device::make_app(project, build, runnable)
+    fn clean_app(&self, build_bundle: &BuildBundle) -> Result<()> {
+        let (remote_dir, _) = AndroidDevice::to_remote_bundle(build_bundle)?;
+        debug!("rm target exe");
+        let stat = Command::new(&self.adb)
+            .arg("-s").arg(&self.id).arg("shell")
+            .arg("rm").arg("-rf").arg(&remote_dir)
+            .status()?;
+        if !stat.success() {
+            Err("Failure in android clean")?;
+        }
+        Ok(())
     }
-    fn install_app(&self, exe: &Path) -> Result<()> {
-        let exe_name = exe.file_name()
-            .and_then(|p| p.to_str())
-            .expect("exe should be a file in android mode");
-        let exe_parent = exe.parent()
-            .and_then(|p| p.to_str())
-            .expect("exe must have a parent");
-
-        let target_dir = format!("/data/local/tmp/dinghy/{}", exe_name);
-        let target_exec = format!("{}/{}", target_dir, exe_name);
+    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
+        let build_bundle = device::make_app(project, build, runnable)?;
+        let (remote_dir, remote_exe) = AndroidDevice::to_remote_bundle(&build_bundle)?;
 
         debug!("Clear existing files");
         let _stat = Command::new(&self.adb)
-            .args(&["-s", &*self.id, "shell", "rm", "-rf", &*target_dir])
+            .arg("-s").arg(&self.id).arg("shell").arg("rm").arg("-rf").arg(&remote_dir)
             .status()?;
 
         debug!("Push entire parent dir of exe");
         let stat = Command::new(&self.adb)
-            .args(&["-s", &*self.id, "push", exe_parent, &*target_dir])
+            .arg("-s").arg(&self.id).arg("push").arg(&build_bundle.host_dir).arg(&remote_dir)
             .status()?;
         if !stat.success() {
             Err("failure in android install")?;
@@ -98,60 +110,34 @@ impl Device for AndroidDevice {
 
         debug!("chmod target exe");
         let stat = Command::new(&self.adb)
-            .args(&["-s", &*self.id, "shell", "chmod", "755", &*target_exec])
+            .arg("-s").arg(&self.id).arg("shell").arg("chmod").arg("755").arg(&remote_exe)
             .status()?;
         if !stat.success() {
             Err("failure in android install")?;
         }
-
-        Ok(())
-    }
-    fn clean_app(&self, exe: &Path) -> Result<()> {
-        let exe_name = exe.file_name()
-            .and_then(|p| p.to_str())
-            .expect("exe should be a file in android mode");
-
-        let target_dir = format!("/data/local/tmp/dinghy/{}", exe_name);
-
-        debug!("rm target exe");
-        let stat = Command::new(&self.adb)
-            .args(&["-s", &*self.id, "shell", "rm", "-rf", &*target_dir])
-            .status()?;
-        if !stat.success() {
-            Err("failure in android clean")?;
-        }
-
-        Ok(())
+        Ok(build_bundle)
     }
     fn platform(&self) -> Result<Box<Platform>> {
         unimplemented!()
     }
-    fn run_app(&self, exe: &Path, args: &[&str], envs: &[&str]) -> Result<()> {
-        let exe_name = exe.file_name()
-            .and_then(|p| p.to_str())
-            .expect("exe should be a file in android mode");
-
-        let target_dir = format!("/data/local/tmp/dinghy/{}", exe_name);
-        let target_exe = format!("{}/{}", target_dir, exe_name);
-
-        let stat = Command::new(&self.adb)
+    fn run_app(&self, build_bundle: &BuildBundle, args: &[&str], envs: &[&str]) -> Result<()> {
+        let (remote_dir, remote_exe) = AndroidDevice::to_remote_bundle(&build_bundle)?;
+        let status = Command::new(&self.adb)
             .arg("-s")
-            .arg(&*self.id)
+            .arg(&self.id)
             .arg("shell")
-            .arg(&*format!(
-                "cd {:?}; DINGHY=1 {}",
-                target_dir,
-                envs.join(" ")
-            ))
-            .arg(&*target_exe)
+            .arg(&format!("cd {:?}; DINGHY=1 {}",
+                          path_to_str(&remote_dir)?,
+                          envs.join(" ")))
+            .arg(&remote_exe)
             .args(args)
             .status()?;
-        if !stat.success() {
+        if !status.success() {
             Err("failure in android run")?;
         }
         Ok(())
     }
-    fn debug_app(&self, _app_path: &Path, _args: &[&str], _envs: &[&str]) -> Result<()> {
+    fn debug_app(&self, _build_bundle: &BuildBundle, _args: &[&str], _envs: &[&str]) -> Result<()> {
         unimplemented!()
     }
 }
