@@ -42,10 +42,10 @@ use compiler::CompileMode;
 use config::Configuration;
 use config::PlatformConfiguration;
 use device::android::AndroidManager;
+use device::host::HostManager;
 use device::ssh::SshDeviceManager;
 #[cfg(target_os = "macos")]
 use ios::IosPlatform;
-use platform::host::HostManager;
 use platform::host::HostPlatform;
 use platform::regular_platform::RegularPlatform;
 use project::Project;

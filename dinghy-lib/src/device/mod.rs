@@ -6,6 +6,7 @@ use BuildBundle;
 use Runnable;
 
 pub mod android;
+pub mod host;
 pub mod ssh;
 
 fn make_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
