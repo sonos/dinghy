@@ -22,7 +22,7 @@ pub struct TestDataConfiguration {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct DetailedTestDataConfiguration {
+pub struct  DetailedTestDataConfiguration {
     pub source: String,
     pub copy_git_ignored: bool,
 }

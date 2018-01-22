@@ -63,7 +63,7 @@ impl Compiler {
 
         Box::new(move |platform: &Platform, compile_mode: CompileMode| {
             let release = compile_mode == CompileMode::Bench || release;
-            let config = &CompileConfig::default()?;
+            let mut config = CompileConfig::default()?;
             config.configure(
                 verbosity,
                 None,
@@ -73,7 +73,7 @@ impl Compiler {
                 &[],
             )?;
             let workspace = Workspace::new(&find_root_manifest_for_wd(None, &current_dir()?)?,
-                                           config)?;
+                                           &config)?;
 
             let project_metadata_list = Compiler::workskpace_metadata(&workspace)?;
             let excludes = Compiler::exclude_by_target_triple(platform,
@@ -81,7 +81,7 @@ impl Compiler {
                                                               excludes.as_slice());
 
             let options = CompileOptions {
-                config,
+                config: &config,
                 jobs,
                 target: platform.rustc_triple(),
                 features: &*features,

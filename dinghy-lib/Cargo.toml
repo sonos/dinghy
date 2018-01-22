@@ -18,7 +18,7 @@ dinghy-helper = { path = "../dinghy-helper" }
 log="0.3"
 pretty_env_logger="0.1"
 clap = "2.26"
-cargo = "0.22"
+cargo = "0.24"
 isatty = "0.1"
 itertools = "0.7"
 plist = "0.2"
