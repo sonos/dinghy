@@ -40,5 +40,5 @@ fn make_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<Pat
     debug!("Copying test_data to bundle");
     project.copy_test_data(&bundle_path)?;
 
-    Ok(bundle_exe_path.into())
+    Ok(bundle_path.into())
 }
