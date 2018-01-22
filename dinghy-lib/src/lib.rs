@@ -167,12 +167,19 @@ impl Dinghy {
 
 pub trait Device: Debug + Display + DeviceCompatibility {
     fn clean_app(&self, build_bundle: &BuildBundle) -> Result<()>;
+
     fn debug_app(&self, build_bundle: &BuildBundle, args: &[&str], envs: &[&str]) -> Result<()>;
+
     fn id(&self) -> &str;
+
     fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle>;
+
     fn name(&self) -> &str;
+
     fn platform(&self) -> Result<Box<Platform>>;
+
     fn run_app(&self, build_bundle: &BuildBundle, args: &[&str], envs: &[&str]) -> Result<()>;
+
     fn start_remote_lldb(&self) -> Result<String>;
 }
 
@@ -214,8 +221,9 @@ pub struct Build {
 #[derive(Clone, Debug, Default)]
 pub struct BuildBundle {
     pub id: String,
-    pub host_dir: PathBuf,
-    pub host_exe: PathBuf,
+    pub bundle_dir: PathBuf,
+    pub bundle_exe: PathBuf,
+    pub lib_dir: PathBuf,
 }
 
 #[derive(Clone, Debug, Default)]

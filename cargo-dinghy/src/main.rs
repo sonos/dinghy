@@ -14,10 +14,10 @@ use std::env;
 use std::thread;
 use std::time;
 
-use cargo::ops::CompileMode;
 use clap::ArgMatches;
 use cli::CargoDinghyCli;
 use dinghy_lib::compiler::Compiler;
+use dinghy_lib::compiler::CompileMode;
 use dinghy_lib::utils::arg_as_string_vec;
 use dinghy_lib::device::host::HostDevice;
 use dinghy_lib::errors::*;
@@ -60,6 +60,8 @@ fn run_command(args: ArgMatches) -> Result<()> {
     let dinghy = Dinghy::probe(&conf)?;
     let project = Project::new(&conf);
     let (platform, device) = select_platform_and_device_from_cli(&args, &dinghy)?;
+
+    error!("QQQQQQQQQQQQQQQQQQQQQ {:?}" , &conf);
 
     match args.subcommand() {
         ("all-devices", Some(_)) => show_devices(&dinghy, None),

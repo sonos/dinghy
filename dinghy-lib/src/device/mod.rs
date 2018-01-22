@@ -12,10 +12,11 @@ pub mod ssh;
 fn make_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
     let app_name = runnable.exe.file_name()
         .ok_or(format!("App should be a file in android mode '{}'", &runnable.exe.display()))?;
-    let bundle_path = runnable.exe.parent()
+    let root_path = runnable.exe.parent()
         .ok_or(format!("Invalid executable file {}", &runnable.exe.display()))?
-        .join("dinghy")
-        .join(app_name);
+        .join("dinghy");
+    let bundle_path = root_path.join(app_name);
+    let lib_path = root_path.join("overlay");
     let bundle_exe_path = bundle_path.join(app_name);
 
     debug!("Removing previous bundle {:?}", bundle_path);
@@ -44,7 +45,8 @@ fn make_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<Bui
 
     Ok(BuildBundle {
         id: app_name.to_str().ok_or(format!("Invalid file name '{:?}'", app_name))?.to_string(),
-        host_dir: bundle_path.to_path_buf(),
-        host_exe: bundle_exe_path.to_path_buf(),
+        bundle_dir: bundle_path.to_path_buf(),
+        bundle_exe: bundle_exe_path.to_path_buf(),
+        lib_dir: lib_path.to_path_buf(),
     })
 }
