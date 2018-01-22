@@ -97,23 +97,22 @@ fn prepare_and_run(
     let no_fail_fast = sub_args.is_present("NO_FAIL_FAST");
 
     for runnable in &build.runnables {
-        let app = device.make_app(&project, &build, &runnable)?;
-        device.install_app(&app.as_ref())?;
+        let build_bundle = device.install_app(&project, &build, &runnable)?;
         let result = if sub_args.is_present("DEBUGGER") {
             device.debug_app(
-                app.as_ref(),
+                &build_bundle,
                 &*args.iter().map(|s| &s[..]).collect::<Vec<_>>(),
                 &*envs.iter().map(|s| &s[..]).collect::<Vec<_>>(),
             )
         } else {
             device.run_app(
-                app.as_ref(),
+                &build_bundle,
                 &*args.iter().map(|s| &s[..]).collect::<Vec<_>>(),
                 &*envs.iter().map(|s| &s[..]).collect::<Vec<_>>(),
             )
         };
 
-        if sub_args.is_present("CLEANUP") { device.clean_app(&app.as_ref())?; }
+        if sub_args.is_present("CLEANUP") { device.clean_app(&build_bundle)?; }
         if !no_fail_fast && result.is_err() { return result; }
     }
     Ok(())

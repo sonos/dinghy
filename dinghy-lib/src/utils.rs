@@ -9,6 +9,10 @@ pub fn arg_as_string_vec(matches: &ArgMatches, option: &str) -> Vec<String> {
         .unwrap_or(vec![])
 }
 
+pub fn path_to_str<'a>(path: &'a Path) -> Result<&'a str> {
+    Ok(path.to_str().ok_or(format!("Path is invalid '{}'", path.display()))?)
+}
+
 pub fn contains_file_with_ext(dir_path: &Path, ext: &str) -> bool {
     if !dir_path.is_dir() { return false; };
     if let Ok(path) = dir_path.read_dir() {

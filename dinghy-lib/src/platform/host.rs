@@ -6,13 +6,12 @@ use project::Project;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
-use std::path::Path;
-use std::path::PathBuf;
 use Build;
 use Device;
 use Platform;
 use PlatformManager;
 use DeviceCompatibility;
+use BuildBundle;
 use Result;
 use Runnable;
 
@@ -74,15 +73,11 @@ impl Device for HostDevice {
         unimplemented!()
     }
 
-    fn make_app(&self, _project: &Project, _build: &Build, _runnable: &Runnable) -> Result<PathBuf> {
+    fn install_app(&self, _project: &Project, _build: &Build, _runnable: &Runnable) -> Result<BuildBundle> {
         unimplemented!()
     }
 
-    fn install_app(&self, _path: &Path) -> Result<()> {
-        unimplemented!()
-    }
-
-    fn clean_app(&self, _path: &Path) -> Result<()> {
+    fn clean_app(&self, _build_bundle: &BuildBundle) -> Result<()> {
         unimplemented!()
     }
 
@@ -90,11 +85,11 @@ impl Device for HostDevice {
         Ok(HostPlatform::new()?)
     }
 
-    fn run_app(&self, _app: &Path, _args: &[&str], _envs: &[&str]) -> Result<()> {
+    fn run_app(&self, _build_bundle: &BuildBundle, _args: &[&str], _envs: &[&str]) -> Result<()> {
         unimplemented!()
     }
 
-    fn debug_app(&self, _app: &Path, _args: &[&str], _envs: &[&str]) -> Result<()> {
+    fn debug_app(&self, _build_bundle: &BuildBundle, _args: &[&str], _envs: &[&str]) -> Result<()> {
         unimplemented!()
     }
 }

@@ -6,21 +6,45 @@ use project::Project;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
-use std::path::Path;
 use std::path::PathBuf;
-use std::process;
+use std::process::Command;
 use std::sync::Arc;
+use utils::path_to_str;
 use Build;
 use Device;
 use DeviceCompatibility;
 use Platform;
 use PlatformManager;
+use BuildBundle;
 use Runnable;
 
 #[derive(Debug, Clone)]
 pub struct SshDevice {
     id: String,
     conf: SshDeviceConfiguration,
+}
+
+impl SshDevice {
+    fn ssh_command(&self) -> Result<Command> {
+        let mut command = Command::new("ssh");
+        command.arg(format!("{}@{}", self.conf.username, self.conf.hostname));
+        if let Some(port) = self.conf.port {
+            command.arg("-p").arg(&format!("{}", port));
+        }
+        if ::isatty::stdout_isatty() {
+            command.arg("-t").arg("-o").arg("LogLevel=QUIET");
+        }
+        Ok(command)
+    }
+
+    fn to_remote_bundle(&self, build_bundle: &BuildBundle) -> Result<(PathBuf, PathBuf)> {
+        let remote_prefix = PathBuf::from(self.conf.path.clone().unwrap_or("/tmp".into()));
+        let remote_dir = remote_prefix.join("dinghy").join(&build_bundle.id).to_path_buf();
+        let remote_exe = remote_dir.join(build_bundle.host_exe.file_name()
+            .ok_or(format!("Invalid executable name '{}'", build_bundle.host_exe.display()))?)
+            .to_path_buf();
+        Ok((remote_dir, remote_exe))
+    }
 }
 
 impl DeviceCompatibility for SshDevice {
@@ -31,90 +55,46 @@ impl DeviceCompatibility for SshDevice {
 
 impl Device for SshDevice {
     fn name(&self) -> &str {
-        &*self.id
+        &self.id
     }
     fn id(&self) -> &str {
-        &*self.id
+        &self.id
     }
     fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
-    fn make_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<PathBuf> {
-        device::make_app(project, build, runnable)
-    }
-    fn install_app(&self, app: &Path) -> Result<()> {
-        let user_at_host = format!("{}@{}", self.conf.username, self.conf.hostname);
-        let prefix = self.conf.path.clone().unwrap_or("/tmp".into());
-        let _stat = if let Some(port) = self.conf.port {
-            process::Command::new("ssh")
-                .args(&[
-                    &*user_at_host,
-                    "-p",
-                    &*format!("{}", port),
-                    "mkdir",
-                    "-p",
-                    &*format!("{}/dinghy", prefix),
-                ])
-                .status()
-        } else {
-            process::Command::new("ssh")
-                .args(&[
-                    &*user_at_host,
-                    "mkdir",
-                    "-p",
-                    &*format!("{}/dinghy", prefix),
-                ])
-                .status()
-        };
-        let target_path = format!(
-            "{}/dinghy/{}",
-            prefix,
-            app.file_name().unwrap().to_str().unwrap()
-        );
+    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
+        let build_bundle = device::make_app(project, build, runnable)?;
+        let (remote_dir, _) = self.to_remote_bundle(&build_bundle)?;
+
+        let _ = self.ssh_command()?
+            .arg("mkdir").arg("-p").arg(&remote_dir)
+            .status();
+
         info!("Rsyncing to {}", self.name());
-        debug!(
-            "rsync {}/ {}:{}/",
-            app.to_str().unwrap(),
-            user_at_host,
-            &*target_path
-        );
-        let mut command = process::Command::new("/usr/bin/rsync");
+        let mut command = Command::new("/usr/bin/rsync");
         command.arg("-a").arg("-v");
         if let Some(port) = self.conf.port {
             command.arg(&*format!("ssh -p {}", port));
         };
         command
-            .arg(&*format!("{}/", app.to_str().unwrap()))
-            .arg(&*format!("{}:{}/", user_at_host, &*target_path));
+            .arg(&format!("{}/", path_to_str(&build_bundle.host_dir)?))
+            .arg(&format!("{}@{}:{}/", self.conf.username, self.conf.hostname, path_to_str(&remote_dir)?));
         if !log_enabled!(::log::LogLevel::Debug) {
-            command
-                .stdout(::std::process::Stdio::null())
-                .stderr(::std::process::Stdio::null());
+            command.stdout(::std::process::Stdio::null());
+            command.stderr(::std::process::Stdio::null());
         }
+        debug!("rsync {:?}", command);
         if !command.status()?.success() {
             Err("error installing app")?
         }
-        Ok(())
+        Ok(build_bundle)
     }
-    fn clean_app(&self, app_path: &Path) -> Result<()> {
-        let user_at_host = format!("{}@{}", self.conf.username, self.conf.hostname);
-        let prefix = self.conf.path.clone().unwrap_or("/tmp".into());
-        let app_name = app_path.file_name().unwrap();
-        let path = PathBuf::from(prefix).join("dinghy").join(app_name);
-        let stat = if let Some(port) = self.conf.port {
-            process::Command::new("ssh")
-                .arg(user_at_host)
-                .arg("-p")
-                .arg(&*format!("{}", port))
-                .arg(&*format!("rm -rf {}", &path.to_str().unwrap()))
-                .status()?
-        } else {
-            process::Command::new("ssh")
-                .arg(user_at_host)
-                .arg(&*format!("rm -rf {}", &path.to_str().unwrap()))
-                .status()?
-        };
-        if !stat.success() {
+    fn clean_app(&self, build_bundle: &BuildBundle) -> Result<()> {
+        let status = self.ssh_command()?
+            .arg(&format!("rm -rf {}", path_to_str(&build_bundle.host_exe)?))
+            .status()?;
+        if !status.success() {
             Err("test fail.")?
         }
         Ok(())
@@ -122,38 +102,23 @@ impl Device for SshDevice {
     fn platform(&self) -> Result<Box<Platform>> {
         unimplemented!()
     }
-    fn run_app(&self, app_path: &Path, args: &[&str], envs: &[&str]) -> Result<()> {
-        let user_at_host = format!("{}@{}", self.conf.username, self.conf.hostname);
-        let prefix = self.conf.path.clone().unwrap_or("/tmp".into());
-        let app_name = app_path.file_name().unwrap();
-        let path = PathBuf::from(prefix).join("dinghy").join(app_name);
-        let exe = path.join(&app_name);
-        let mut command = process::Command::new("ssh");
-        if let Some(port) = self.conf.port {
-            command.arg("-p").arg(&*format!("{}", port));
-        }
-        if ::isatty::stdout_isatty() {
-            command.arg("-t").arg("-o").arg("LogLevel=QUIET");
-        }
-
-        command
-            .arg(user_at_host)
-            .arg(&*format!(
+    fn run_app(&self, build_bundle: &BuildBundle, args: &[&str], envs: &[&str]) -> Result<()> {
+        let (remote_dir, remote_exe) = self.to_remote_bundle(build_bundle)?;
+        let status = self.ssh_command()?
+            .arg(&format!(
                 "cd {:?} ; DINGHY=1 {} LD_LIBRARY_PATH='{}' {}",
-                path,
+                path_to_str(&remote_dir)?,
                 envs.join(" "),
-                // TODO Cleanup env management
-                &exe.parent().unwrap().to_str().unwrap(),
-                &exe.to_str().unwrap()
+                path_to_str(&remote_dir)?,
+                path_to_str(&remote_exe)?,
             ))
-            .args(args);
-        let stat = command.status()?;
-        if !stat.success() {
-            Err("test fail.")?
+            .args(args).status()?;
+        if !status.success() {
+            Err("Test fail.")?
         }
         Ok(())
     }
-    fn debug_app(&self, _app_path: &Path, _args: &[&str], _envs: &[&str]) -> Result<()> {
+    fn debug_app(&self, _build_bundle: &BuildBundle, _args: &[&str], _envs: &[&str]) -> Result<()> {
         unimplemented!()
     }
 }

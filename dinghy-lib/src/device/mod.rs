@@ -1,19 +1,20 @@
 use errors::*;
 use project::Project;
 use std::fs;
-use std::path::PathBuf;
 use Build;
+use BuildBundle;
 use Runnable;
 
 pub mod android;
 pub mod ssh;
 
-fn make_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<PathBuf> {
+fn make_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
     let app_name = runnable.exe.file_name()
-        .expect("app should be a file in android mode");
+        .ok_or(format!("App should be a file in android mode '{}'", &runnable.exe.display()))?;
     let bundle_path = runnable.exe.parent()
         .ok_or(format!("Invalid executable file {}", &runnable.exe.display()))?
-        .join("dinghy").join(app_name);
+        .join("dinghy")
+        .join(app_name);
     let bundle_exe_path = bundle_path.join(app_name);
 
     debug!("Removing previous bundle {:?}", bundle_path);
@@ -40,5 +41,9 @@ fn make_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<Pat
     debug!("Copying test_data to bundle");
     project.copy_test_data(&bundle_path)?;
 
-    Ok(bundle_path.into())
+    Ok(BuildBundle {
+        id: app_name.to_str().ok_or(format!("Invalid file name '{:?}'", app_name))?.to_string(),
+        host_dir: bundle_path.to_path_buf(),
+        host_exe: bundle_exe_path.to_path_buf(),
+    })
 }
