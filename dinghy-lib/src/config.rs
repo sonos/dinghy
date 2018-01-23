@@ -18,14 +18,16 @@ pub struct TestData {
 
 #[derive(Serialize, Debug, Clone)]
 pub struct TestDataConfiguration {
-    pub source: String,
     pub copy_git_ignored: bool,
+    pub source: String,
+    pub target: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct  DetailedTestDataConfiguration {
+pub struct DetailedTestDataConfiguration {
     pub source: String,
     pub copy_git_ignored: bool,
+    pub target: Option<String>,
 }
 
 impl<'de> de::Deserialize<'de> for TestDataConfiguration {
@@ -51,8 +53,9 @@ impl<'de> de::Deserialize<'de> for TestDataConfiguration {
                     E: de::Error,
             {
                 Ok(TestDataConfiguration {
-                    source: s.to_owned(),
                     copy_git_ignored: false,
+                    source: s.to_owned(),
+                    target: None,
                 })
             }
 
@@ -63,8 +66,9 @@ impl<'de> de::Deserialize<'de> for TestDataConfiguration {
                 let mvd = de::value::MapAccessDeserializer::new(map);
                 let detailed = DetailedTestDataConfiguration::deserialize(mvd)?;
                 Ok(TestDataConfiguration {
-                    source: detailed.source,
                     copy_git_ignored: detailed.copy_git_ignored,
+                    source: detailed.source,
+                    target: detailed.target,
                 })
             }
         }
@@ -131,11 +135,11 @@ impl Configuration {
         }
         self.ssh_devices
             .extend(other.ssh_devices.unwrap_or(collections::BTreeMap::new()));
-        for (target, source) in other.test_data.unwrap_or(collections::BTreeMap::new()) {
+        for (_, source) in other.test_data.unwrap_or(collections::BTreeMap::new()) { // TODO Remove key
             self.test_data.push(TestData {
                 base: file.to_path_buf(),
-                source: source.source,
-                target: target,
+                source: source.source.clone(),
+                target: source.target.unwrap_or(source.source.clone()),
                 copy_git_ignored: source.copy_git_ignored,
             })
         }
@@ -171,7 +175,6 @@ pub fn dinghy_config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
             trace!("No configuration found at {:?}", file);
         }
     }
-    println!("OOOOOOOOO {:?}", conf);
     Ok(conf)
 }
 

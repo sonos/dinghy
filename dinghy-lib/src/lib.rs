@@ -51,6 +51,7 @@ use platform::regular_platform::RegularPlatform;
 use project::Project;
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread::sleep;
@@ -216,6 +217,7 @@ pub trait PlatformManager {
 pub struct Build {
     pub runnables: Vec<Runnable>,
     pub dynamic_libraries: Vec<PathBuf>,
+    pub target_path: PathBuf,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -224,10 +226,27 @@ pub struct BuildBundle {
     pub bundle_dir: PathBuf,
     pub bundle_exe: PathBuf,
     pub lib_dir: PathBuf,
+    pub root_dir: PathBuf,
+}
+
+impl BuildBundle {
+    fn replace_prefix_with<P: AsRef<Path>>(&self, path: P) -> Result<Self> {
+        Ok(BuildBundle {
+            id: self.id.clone(),
+            bundle_dir: path.as_ref().to_path_buf()
+                .join(self.bundle_dir.strip_prefix(&self.root_dir)?),
+            bundle_exe: path.as_ref().to_path_buf()
+                .join(self.bundle_exe.strip_prefix(&self.root_dir)?),
+            lib_dir: path.as_ref().to_path_buf()
+                .join(self.lib_dir.strip_prefix(&self.root_dir)?),
+            root_dir: path.as_ref().to_path_buf(),
+        })
+    }
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct Runnable {
+    pub id: String,
     pub exe: PathBuf,
     pub source: PathBuf,
 }
