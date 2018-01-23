@@ -53,6 +53,12 @@ impl AndroidDevice {
         Ok(device)
     }
 
+    fn adb_shell(&self) -> Result<Command> {
+        let mut command = Command::new(&self.adb);
+        command.arg("-s").arg(&self.id).arg("shell");
+        Ok(command)
+    }
+
     fn to_remote_bundle(build_bundle: &BuildBundle) -> Result<BuildBundle> {
         build_bundle.replace_prefix_with(PathBuf::from("/data/local/tmp").join("dinghy"))
     }
@@ -91,22 +97,27 @@ impl Device for AndroidDevice {
         let remote_bundle = AndroidDevice::to_remote_bundle(&build_bundle)?;
 
         debug!("Clear existing files");
-        let _stat = Command::new(&self.adb)
-            .arg("-s").arg(&self.id).arg("shell").arg("rm").arg("-rf").arg(&remote_bundle.bundle_dir)
-            .status()?;
+        let _ = self.adb_shell()?
+            .arg("rm").arg("-rf").arg(&remote_bundle.bundle_dir).status()?;
+        let _ = self.adb_shell()?
+            .arg("rm").arg("-rf").arg(&remote_bundle.lib_dir).status()?;
 
         debug!("Push entire parent dir of exe");
-        let stat = Command::new(&self.adb)
-            .arg("-s").arg(&self.id).arg("push").arg(&build_bundle.bundle_dir).arg(&remote_bundle.bundle_dir)
-            .status()?;
+        let stat = self.adb_shell()?
+            .arg("push").arg(&build_bundle.bundle_dir).arg(&remote_bundle.bundle_dir).status()?;
+        if !stat.success() {
+            Err("failure in android install")?;
+        }
+
+        let stat = self.adb_shell()?
+            .arg("push").arg(&build_bundle.lib_dir).arg(&remote_bundle.lib_dir).status()?;
         if !stat.success() {
             Err("failure in android install")?;
         }
 
         debug!("chmod target exe");
-        let stat = Command::new(&self.adb)
-            .arg("-s").arg(&self.id).arg("shell").arg("chmod").arg("755").arg(&remote_bundle.bundle_exe)
-            .status()?;
+        let stat = self.adb_shell()?
+            .arg("chmod").arg("755").arg(&remote_bundle.bundle_exe).status()?;
         if !stat.success() {
             Err("failure in android install")?;
         }
