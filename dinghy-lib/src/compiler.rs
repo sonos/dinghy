@@ -114,6 +114,8 @@ impl Compiler {
     }
 
     fn to_build(compilation: Compilation, compile_mode: CompileMode) -> Build {
+//        error!("XXXXX = {:?}", compilation.binaries);
+//        error!("XXXXX = {:?}", compilation.tests);
         if compile_mode == CompileMode::Build {
             Build {
                 runnables: compilation.binaries
@@ -132,6 +134,7 @@ impl Compiler {
                 runnables: compilation.tests
                     .iter()
                     .map(|&(ref pkg, _, _, ref exe)| {
+//                        error!("YYYY = {:?} {:?} {:?} {:?}", pkg.manifest().summary().package_id().name(), a, b, pkg);
                         Runnable {
                             exe: exe.clone(),
                             source: pkg.root().to_path_buf(),

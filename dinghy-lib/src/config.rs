@@ -4,6 +4,7 @@ use std::io::Read;
 use std::{collections, fs, path};
 use std::fmt;
 use std::result;
+//use walkdir::WalkDir;
 
 use errors::*;
 
@@ -111,7 +112,7 @@ pub struct OverlayConfiguration {
     pub scope: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct SshDeviceConfiguration {
     pub hostname: String,
     pub username: String,
@@ -123,7 +124,8 @@ pub struct SshDeviceConfiguration {
 }
 
 impl Configuration {
-    fn merge(&mut self, file: &path::Path, other: ConfigurationFileContent) {
+    pub fn merge(&mut self, file: &path::Path) -> Result<()> {
+        let other = read_config_file(&file)?;
         if let Some(pfs) = other.platforms {
             self.platforms.extend(pfs)
         }
@@ -137,6 +139,7 @@ impl Configuration {
                 copy_git_ignored: source.copy_git_ignored,
             })
         }
+        Ok(())
     }
 }
 
@@ -147,7 +150,7 @@ fn read_config_file<P: AsRef<path::Path>>(file: P) -> Result<ConfigurationFileCo
     Ok(::toml::from_str(&data)?)
 }
 
-pub fn config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
+pub fn dinghy_config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
     let mut conf = Configuration::default();
     let mut files_to_try = vec![];
     let dir = dir.as_ref().to_path_buf();
@@ -163,11 +166,12 @@ pub fn config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
     for file in files_to_try {
         if path::Path::new(&file).exists() {
             info!("Loading configuration from {:?}", file);
-            conf.merge(&file, read_config_file(&file)?);
+            conf.merge(&file)?;
         } else {
             trace!("No configuration found at {:?}", file);
         }
     }
+    println!("OOOOOOOOO {:?}", conf);
     Ok(conf)
 }
 

@@ -1,3 +1,4 @@
+use config::dinghy_config;
 use config::Configuration;
 use ignore::WalkBuilder;
 use std::fs;
@@ -5,10 +6,11 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use Result;
+use Runnable;
 
 #[derive(Debug)]
 pub struct Project {
-    conf: Arc<Configuration>
+    pub conf: Arc<Configuration>
 }
 
 impl Project {
@@ -16,6 +18,12 @@ impl Project {
         Project {
             conf: conf.clone(),
         }
+    }
+
+    pub fn for_runnable(&self, runnable: &Runnable) -> Result<Self> {
+        Ok(Project {
+            conf: Arc::new(dinghy_config(&runnable.source)?),
+        })
     }
 
     pub fn copy_test_data<T: AsRef<Path>>(&self, app_path: T) -> Result<()> {
@@ -27,16 +35,14 @@ impl Project {
             if Path::new(&file).exists() {
                 let metadata = file.metadata()?;
                 let dst = app_path.join("test_data").join(&td.target);
+                debug!("Copying test data '{}' to '{}'", file.display(), dst.display());
                 if metadata.is_dir() {
                     self.rec_copy(file, dst, td.copy_git_ignored)?;
                 } else {
                     fs::copy(file, dst)?;
                 }
             } else {
-                warn!(
-                    "configuration required test_data `{:?}` but it could not be found",
-                    td
-                );
+                warn!("Configuration required test_data `{:?}` but it could not be found", td);
             }
         }
         Ok(())
