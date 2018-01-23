@@ -76,9 +76,11 @@ impl Compiler {
                                            &config)?;
 
             let project_metadata_list = Compiler::workskpace_metadata(&workspace)?;
-            let excludes = Compiler::exclude_by_target_triple(platform,
-                                                              project_metadata_list.as_slice(),
-                                                              excludes.as_slice());
+            let excludes = if all {
+                Compiler::exclude_by_target_triple(platform,
+                                                   project_metadata_list.as_slice(),
+                                                   excludes.as_slice())
+            } else { excludes.clone() };
 
             let options = CompileOptions {
                 config: &config,
