@@ -109,37 +109,49 @@ impl Compiler {
             };
 
             let compilation = CargoOps::compile(&workspace, &options)?;
-            Ok(Compiler::to_build(compilation, compile_mode))
+            Ok(Compiler::to_build(compilation, compile_mode)?)
         })
     }
 
-    fn to_build(compilation: Compilation, compile_mode: CompileMode) -> Build {
+    fn to_build(compilation: Compilation, compile_mode: CompileMode) -> Result<Build> {
         if compile_mode == CompileMode::Build {
-            Build {
+            Ok(Build {
                 runnables: compilation.binaries
                     .iter()
                     .map(|exe_path| {
-                        Runnable {
+                        Ok(Runnable {
                             exe: exe_path.clone(),
+                            id: exe_path.file_name()
+                                .ok_or(format!("Invalid executable file '{}'", &exe_path.display()))?
+                                .to_str()
+                                .ok_or(format!("Invalid executable file '{}'", &exe_path.display()))?
+                                .to_string(),
                             source: PathBuf::from("."),
-                        }
+                        })
                     })
-                    .collect(),
+                    .collect::<Result<Vec<_>>>()?,
                 dynamic_libraries: Compiler::find_all_dynamic_liraries(&compilation),
-            }
+                target_path: compilation.root_output.clone(),
+            })
         } else {
-            Build {
+            Ok(Build {
                 runnables: compilation.tests
                     .iter()
-                    .map(|&(ref pkg, _, _, ref exe)| {
-                        Runnable {
-                            exe: exe.clone(),
+                    .map(|&(ref pkg, _, _, ref exe_path)| {
+                        Ok(Runnable {
+                            exe: exe_path.clone(),
+                            id: exe_path.file_name()
+                                .ok_or(format!("Invalid executable file '{}'", &exe_path.display()))?
+                                .to_str()
+                                .ok_or(format!("Invalid executable file '{}'", &exe_path.display()))?
+                                .to_string(),
                             source: pkg.root().to_path_buf(),
-                        }
+                        })
                     })
-                    .collect(),
+                    .collect::<Result<Vec<_>>>()?,
                 dynamic_libraries: Compiler::find_all_dynamic_liraries(&compilation),
-            }
+                target_path: compilation.root_output.clone(),
+            })
         }
     }
 

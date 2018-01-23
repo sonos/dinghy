@@ -54,17 +54,7 @@ impl AndroidDevice {
     }
 
     fn to_remote_bundle(build_bundle: &BuildBundle) -> Result<BuildBundle> {
-        let remote_prefix = PathBuf::from("/data/local/tmp");
-        let remote_dir = remote_prefix.join("dinghy");
-        let remote_exe = remote_dir.join(build_bundle.bundle_exe.file_name()
-            .ok_or(format!("Invalid executable name '{}'", build_bundle.bundle_exe.display()))?)
-            .to_path_buf();
-        Ok(BuildBundle {
-            id: build_bundle.id.clone(),
-            bundle_dir: remote_dir.to_path_buf(),
-            bundle_exe: remote_exe,
-            lib_dir: remote_dir.to_path_buf(),
-        })
+        build_bundle.replace_prefix_with(PathBuf::from("/data/local/tmp").join("dinghy"))
     }
 }
 
@@ -137,7 +127,7 @@ impl Device for AndroidDevice {
             .arg("-s")
             .arg(&self.id)
             .arg("shell")
-            .arg(&format!("cd {:?}; DINGHY=1 {}", path_to_str(&remote_bundle.bundle_dir)?, envs.join(" ")))
+            .arg(&format!("cd '{}/target/'; DINGHY=1 RUST_BACKTRACE=1 {}", path_to_str(&remote_bundle.bundle_dir)?, envs.join(" ")))
             .arg(&remote_bundle.bundle_exe)
             .args(args)
             .status()?;

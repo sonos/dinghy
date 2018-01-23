@@ -18,6 +18,7 @@ use clap::ArgMatches;
 use cli::CargoDinghyCli;
 use dinghy_lib::compiler::Compiler;
 use dinghy_lib::compiler::CompileMode;
+use dinghy_lib::config::dinghy_config;
 use dinghy_lib::utils::arg_as_string_vec;
 use dinghy_lib::device::host::HostDevice;
 use dinghy_lib::errors::*;
@@ -56,12 +57,10 @@ fn main() {
 }
 
 fn run_command(args: ArgMatches) -> Result<()> {
-    let conf = Arc::new(::dinghy_lib::config::config(current_dir().unwrap())?);
+    let conf = Arc::new(dinghy_config(current_dir().unwrap())?);
     let dinghy = Dinghy::probe(&conf)?;
     let project = Project::new(&conf);
     let (platform, device) = select_platform_and_device_from_cli(&args, &dinghy)?;
-
-    error!("QQQQQQQQQQQQQQQQQQQQQ {:?}" , &conf);
 
     match args.subcommand() {
         ("all-devices", Some(_)) => show_devices(&dinghy, None),
@@ -86,7 +85,6 @@ fn prepare_and_run(
     subcommand: &str,
     sub_args: &ArgMatches,
 ) -> Result<()> {
-    let device = device.ok_or("No device found")?;
     let mode = match subcommand {
         "test" => CompileMode::Test,
         "bench" => CompileMode::Bench,
@@ -98,6 +96,7 @@ fn prepare_and_run(
     let envs = arg_as_string_vec(sub_args, "ENVS");
     let no_fail_fast = sub_args.is_present("NO_FAIL_FAST");
 
+    let device = device.ok_or("No device found")?;
     for runnable in &build.runnables {
         let build_bundle = device.install_app(&project, &build, &runnable)?;
         let result = if sub_args.is_present("DEBUGGER") {

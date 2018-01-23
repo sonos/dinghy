@@ -4,6 +4,7 @@ use std::io::Read;
 use std::{collections, fs, path};
 use std::fmt;
 use std::result;
+//use walkdir::WalkDir;
 
 use errors::*;
 
@@ -17,14 +18,16 @@ pub struct TestData {
 
 #[derive(Serialize, Debug, Clone)]
 pub struct TestDataConfiguration {
-    pub source: String,
     pub copy_git_ignored: bool,
+    pub source: String,
+    pub target: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct  DetailedTestDataConfiguration {
+pub struct DetailedTestDataConfiguration {
     pub source: String,
     pub copy_git_ignored: bool,
+    pub target: Option<String>,
 }
 
 impl<'de> de::Deserialize<'de> for TestDataConfiguration {
@@ -50,8 +53,9 @@ impl<'de> de::Deserialize<'de> for TestDataConfiguration {
                     E: de::Error,
             {
                 Ok(TestDataConfiguration {
-                    source: s.to_owned(),
                     copy_git_ignored: false,
+                    source: s.to_owned(),
+                    target: None,
                 })
             }
 
@@ -62,8 +66,9 @@ impl<'de> de::Deserialize<'de> for TestDataConfiguration {
                 let mvd = de::value::MapAccessDeserializer::new(map);
                 let detailed = DetailedTestDataConfiguration::deserialize(mvd)?;
                 Ok(TestDataConfiguration {
-                    source: detailed.source,
                     copy_git_ignored: detailed.copy_git_ignored,
+                    source: detailed.source,
+                    target: detailed.target,
                 })
             }
         }
@@ -111,7 +116,7 @@ pub struct OverlayConfiguration {
     pub scope: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct SshDeviceConfiguration {
     pub hostname: String,
     pub username: String,
@@ -123,20 +128,22 @@ pub struct SshDeviceConfiguration {
 }
 
 impl Configuration {
-    fn merge(&mut self, file: &path::Path, other: ConfigurationFileContent) {
+    pub fn merge(&mut self, file: &path::Path) -> Result<()> {
+        let other = read_config_file(&file)?;
         if let Some(pfs) = other.platforms {
             self.platforms.extend(pfs)
         }
         self.ssh_devices
             .extend(other.ssh_devices.unwrap_or(collections::BTreeMap::new()));
-        for (target, source) in other.test_data.unwrap_or(collections::BTreeMap::new()) {
+        for (_, source) in other.test_data.unwrap_or(collections::BTreeMap::new()) { // TODO Remove key
             self.test_data.push(TestData {
                 base: file.to_path_buf(),
-                source: source.source,
-                target: target,
+                source: source.source.clone(),
+                target: source.target.unwrap_or(source.source.clone()),
                 copy_git_ignored: source.copy_git_ignored,
             })
         }
+        Ok(())
     }
 }
 
@@ -147,7 +154,7 @@ fn read_config_file<P: AsRef<path::Path>>(file: P) -> Result<ConfigurationFileCo
     Ok(::toml::from_str(&data)?)
 }
 
-pub fn config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
+pub fn dinghy_config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
     let mut conf = Configuration::default();
     let mut files_to_try = vec![];
     let dir = dir.as_ref().to_path_buf();
@@ -163,7 +170,7 @@ pub fn config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
     for file in files_to_try {
         if path::Path::new(&file).exists() {
             info!("Loading configuration from {:?}", file);
-            conf.merge(&file, read_config_file(&file)?);
+            conf.merge(&file)?;
         } else {
             trace!("No configuration found at {:?}", file);
         }

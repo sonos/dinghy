@@ -59,18 +59,10 @@ impl SshDevice {
     }
 
     fn to_remote_bundle(&self, build_bundle: &BuildBundle) -> Result<BuildBundle> {
-        let remote_prefix = PathBuf::from(self.conf.path.clone().unwrap_or("/tmp".into()));
-        let remote_root_dir = remote_prefix.join("dinghy");
-        let remote_dir = remote_root_dir.join(&build_bundle.id);
-        let remote_lib_dir = remote_root_dir.join("lib");
-        let remote_exe = remote_dir.join(build_bundle.bundle_exe.file_name()
-            .ok_or(format!("Invalid executable name '{}'", build_bundle.bundle_exe.display()))?);
-        Ok(BuildBundle {
-            id: build_bundle.id.clone(),
-            bundle_dir: remote_dir.to_path_buf(),
-            bundle_exe: remote_exe.to_path_buf(),
-            lib_dir: remote_lib_dir.to_path_buf(),
-        })
+        let remote_prefix = PathBuf::from(self.conf.path.clone()
+            .unwrap_or("/tmp".into()))
+            .join("dinghy");
+        build_bundle.replace_prefix_with(remote_prefix)
     }
 }
 
@@ -107,9 +99,9 @@ impl Device for SshDevice {
             .arg("mkdir").arg("-p").arg(&remote_bundle.bundle_dir)
             .status();
 
-        info!("Rsyncing to {}", self.name());
+        info!("Rsyncing {}", self.name());
         self.rsync(&build_bundle.bundle_dir, &remote_bundle.bundle_dir)?;
-        self.rsync(&build_bundle.lib_dir, &remote_bundle.bundle_dir)?;
+        self.rsync(&build_bundle.lib_dir, &remote_bundle.lib_dir)?;
         Ok(build_bundle)
     }
 
@@ -123,14 +115,15 @@ impl Device for SshDevice {
 
     fn run_app(&self, build_bundle: &BuildBundle, args: &[&str], envs: &[&str]) -> Result<()> {
         let remote_bundle = self.to_remote_bundle(build_bundle)?;
+        let command = format!(
+            "cd '{}/target/' ; {} RUST_BACKTRACE=1 DINGHY=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {}",
+            path_to_str(&remote_bundle.bundle_dir)?,
+            envs.join(" "),
+            path_to_str(&remote_bundle.lib_dir)?,
+            path_to_str(&remote_bundle.bundle_exe)?);
+        debug!("Running {}", command);
         let status = self.ssh_command()?
-            .arg(&format!(
-                "cd {:?} ; DINGHY=1 {} LD_LIBRARY_PATH='{}' {}",
-                path_to_str(&remote_bundle.bundle_dir)?,
-                envs.join(" "),
-                path_to_str(&remote_bundle.lib_dir)?,
-                path_to_str(&remote_bundle.bundle_exe)?,
-            ))
+            .arg(&command)
             .args(args).status()?;
         if !status.success() {
             Err("Test fail.")?
