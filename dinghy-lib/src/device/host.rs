@@ -6,6 +6,7 @@ use project::Project;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::path::Path;
 use Build;
 use BuildBundle;
 use Device;
@@ -103,5 +104,15 @@ impl Platform for HostPlatform {
 
     fn rustc_triple(&self) -> Option<&str> {
         None
+    }
+
+    fn is_system_path(&self, path: &Path) -> Result<bool> {
+        let ignored_path = vec![
+            Path::new("/lib"),
+            Path::new("/usr/lib"),
+            Path::new("/usr/lib32"),
+            Path::new("/usr/lib64"),
+        ];
+        Ok(!ignored_path.iter().any(|it| path.starts_with(it)))
     }
 }
