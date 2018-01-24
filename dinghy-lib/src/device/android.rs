@@ -6,6 +6,7 @@ use std::env;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use utils::path_to_str;
@@ -53,10 +54,25 @@ impl AndroidDevice {
         Ok(device)
     }
 
-    fn adb_shell(&self) -> Result<Command> {
+    fn adb(&self) -> Result<Command> {
         let mut command = Command::new(&self.adb);
-        command.arg("-s").arg(&self.id).arg("shell");
+        command.arg("-s").arg(&self.id);
+        debug!("Running command {:?}", command);
         Ok(command)
+    }
+
+    fn sync<FP: AsRef<Path>, TP: AsRef<Path>>(&self, from_path: FP, to_path: TP) -> Result<()> {
+        let _ = self.adb()?
+            .arg("shell").arg("rm").arg("-rf").arg(to_path.as_ref()).status()?;
+
+        let mut command = self.adb()?;
+        command.arg("push").arg(from_path.as_ref()).arg(to_path.as_ref());
+        debug!("Running {:?}", command);
+        if !command.status()?.success() {
+            bail!("Error syncing android directory ({:?})", command)
+        } else {
+            Ok(())
+        }
     }
 
     fn to_remote_bundle(build_bundle: &BuildBundle) -> Result<BuildBundle> {
@@ -96,28 +112,12 @@ impl Device for AndroidDevice {
         let build_bundle = device::make_app(project, build, runnable)?;
         let remote_bundle = AndroidDevice::to_remote_bundle(&build_bundle)?;
 
-        debug!("Clear existing files");
-        let _ = self.adb_shell()?
-            .arg("rm").arg("-rf").arg(&remote_bundle.bundle_dir).status()?;
-        let _ = self.adb_shell()?
-            .arg("rm").arg("-rf").arg(&remote_bundle.lib_dir).status()?;
+        self.sync(&build_bundle.bundle_dir, &remote_bundle.bundle_dir)?;
+        self.sync(&build_bundle.lib_dir, &remote_bundle.lib_dir)?;
 
-        debug!("Push entire parent dir of exe");
-        let stat = self.adb_shell()?
-            .arg("push").arg(&build_bundle.bundle_dir).arg(&remote_bundle.bundle_dir).status()?;
-        if !stat.success() {
-            Err("failure in android install")?;
-        }
-
-        let stat = self.adb_shell()?
-            .arg("push").arg(&build_bundle.lib_dir).arg(&remote_bundle.lib_dir).status()?;
-        if !stat.success() {
-            Err("failure in android install")?;
-        }
-
-        debug!("chmod target exe");
-        let stat = self.adb_shell()?
-            .arg("chmod").arg("755").arg(&remote_bundle.bundle_exe).status()?;
+        debug!("Chmod target exe {}", remote_bundle.bundle_exe.display());
+        let stat = self.adb()?
+            .arg("shell").arg("chmod").arg("755").arg(&remote_bundle.bundle_exe).status()?;
         if !stat.success() {
             Err("failure in android install")?;
         }
@@ -134,16 +134,21 @@ impl Device for AndroidDevice {
 
     fn run_app(&self, build_bundle: &BuildBundle, args: &[&str], envs: &[&str]) -> Result<()> {
         let remote_bundle = AndroidDevice::to_remote_bundle(&build_bundle)?;
-        let status = Command::new(&self.adb)
-            .arg("-s")
-            .arg(&self.id)
+        let command = format!(
+            "cd '{}/target/'; {} DINGHY=1 RUST_BACKTRACE=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {}",
+            path_to_str(&remote_bundle.bundle_dir)?,
+            envs.join(" "),
+            path_to_str(&remote_bundle.lib_dir)?,
+            path_to_str(&remote_bundle.bundle_exe)?);
+        debug!("Running {}", command);
+
+        let status = self.adb()?
             .arg("shell")
-            .arg(&format!("cd '{}/target/'; DINGHY=1 RUST_BACKTRACE=1 {}", path_to_str(&remote_bundle.bundle_dir)?, envs.join(" ")))
-            .arg(&remote_bundle.bundle_exe)
+            .arg(&command)
             .args(args)
             .status()?;
         if !status.success() {
-            Err("failure in android run")?;
+            Err("Test failed 📍")?
         }
         Ok(())
     }

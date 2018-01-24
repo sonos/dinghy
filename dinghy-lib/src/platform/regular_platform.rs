@@ -102,7 +102,7 @@ impl Platform for RegularPlatform {
         self.toolchain.setup_ar(&self.toolchain.executable("ar"))?;
         self.toolchain.setup_cc(&self.id, &self.toolchain.executable("gcc"))?;
         self.toolchain.setup_linker(&self.id,
-                                    &format!("{} --sysroot {}", // TODO Debug  -Wl,--verbose -v
+                                    &format!("{} -Wl,--verbose -v --sysroot {}", // TODO Debug  -Wl,--verbose -v
                                              &self.toolchain.executable("gcc"),
                                              &self.toolchain.sysroot.display()))?;
         self.toolchain.setup_pkg_config()?;
@@ -118,6 +118,19 @@ impl Platform for RegularPlatform {
 
     fn is_compatible_with(&self, device: &Device) -> bool {
         device.is_compatible_with_regular_platform(self)
+    }
+
+    fn is_system_path(&self, path: &Path) -> Result<bool> {
+        let ignored_path = vec![
+            Path::new("/lib"),
+            Path::new("/usr/lib"),
+            Path::new("/usr/lib32"),
+            Path::new("/usr/lib64"),
+        ];
+        let is_system_path = ignored_path.iter().any(|it| path.starts_with(it))
+            || path.canonicalize()?.starts_with(&self.toolchain.sysroot);
+        debug!("{} is {}a system path", path.display(), if is_system_path { "" } else { "not " });
+        Ok(is_system_path)
     }
 
     fn rustc_triple(&self) -> Option<&str> {

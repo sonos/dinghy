@@ -206,6 +206,8 @@ pub trait Platform: Debug {
 
     fn is_compatible_with(&self, device: &Device) -> bool;
 
+    fn is_system_path(&self, path: &Path) -> Result<bool>;
+
     fn rustc_triple(&self) -> Option<&str>;
 }
 

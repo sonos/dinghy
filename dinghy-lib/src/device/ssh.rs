@@ -26,7 +26,19 @@ pub struct SshDevice {
 }
 
 impl SshDevice {
-    fn rsync<FP: AsRef<Path>, TP: AsRef<Path>>(&self, from_path: FP, to_path: TP) -> Result<Command> {
+    fn ssh_command(&self) -> Result<Command> {
+        let mut command = Command::new("ssh");
+        command.arg(format!("{}@{}", self.conf.username, self.conf.hostname));
+        if let Some(port) = self.conf.port {
+            command.arg("-p").arg(&format!("{}", port));
+        }
+        if ::isatty::stdout_isatty() {
+            command.arg("-t").arg("-o").arg("LogLevel=QUIET");
+        }
+        Ok(command)
+    }
+
+    fn sync<FP: AsRef<Path>, TP: AsRef<Path>>(&self, from_path: FP, to_path: TP) -> Result<()> {
         let mut command = Command::new("/usr/bin/rsync");
         command.arg("-a").arg("-v");
         if let Some(port) = self.conf.port {
@@ -39,23 +51,12 @@ impl SshDevice {
         command
             .arg(&format!("{}/", path_to_str(&from_path.as_ref())?))
             .arg(&format!("{}@{}:{}/", self.conf.username, self.conf.hostname, path_to_str(&to_path.as_ref())?));
-        debug!("rsync {:?}", command);
+        debug!("Running {:?}", command);
         if !command.status()?.success() {
-            Err("error installing app")?
+            bail!("Error syncing ssh directory ({:?})", command)
+        } else {
+            Ok(())
         }
-        Ok(command)
-    }
-
-    fn ssh_command(&self) -> Result<Command> {
-        let mut command = Command::new("ssh");
-        command.arg(format!("{}@{}", self.conf.username, self.conf.hostname));
-        if let Some(port) = self.conf.port {
-            command.arg("-p").arg(&format!("{}", port));
-        }
-        if ::isatty::stdout_isatty() {
-            command.arg("-t").arg("-o").arg("LogLevel=QUIET");
-        }
-        Ok(command)
     }
 
     fn to_remote_bundle(&self, build_bundle: &BuildBundle) -> Result<BuildBundle> {
@@ -100,8 +101,8 @@ impl Device for SshDevice {
             .status();
 
         info!("Rsyncing {}", self.name());
-        self.rsync(&build_bundle.bundle_dir, &remote_bundle.bundle_dir)?;
-        self.rsync(&build_bundle.lib_dir, &remote_bundle.lib_dir)?;
+        self.sync(&build_bundle.bundle_dir, &remote_bundle.bundle_dir)?;
+        self.sync(&build_bundle.lib_dir, &remote_bundle.lib_dir)?;
         Ok(build_bundle)
     }
 
@@ -124,9 +125,10 @@ impl Device for SshDevice {
         debug!("Running {}", command);
         let status = self.ssh_command()?
             .arg(&command)
-            .args(args).status()?;
+            .args(args)
+            .status()?;
         if !status.success() {
-            Err("Test fail.")?
+            Err("Test failed 📍")?
         }
         Ok(())
     }

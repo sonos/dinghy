@@ -111,11 +111,11 @@ impl Compiler {
             };
 
             let compilation = CargoOps::compile(&workspace, &options)?;
-            Ok(Compiler::to_build(compilation, compile_mode)?)
+            Ok(Compiler::to_build(platform, compilation, compile_mode)?)
         })
     }
 
-    fn to_build(compilation: Compilation, compile_mode: CompileMode) -> Result<Build> {
+    fn to_build(platform: &Platform, compilation: Compilation, compile_mode: CompileMode) -> Result<Build> {
         if compile_mode == CompileMode::Build {
             Ok(Build {
                 runnables: compilation.binaries
@@ -132,7 +132,7 @@ impl Compiler {
                         })
                     })
                     .collect::<Result<Vec<_>>>()?,
-                dynamic_libraries: Compiler::find_all_dynamic_liraries(&compilation),
+                dynamic_libraries: Compiler::find_all_dynamic_liraries(platform, &compilation),
                 target_path: compilation.root_output.clone(),
             })
         } else {
@@ -151,13 +151,13 @@ impl Compiler {
                         })
                     })
                     .collect::<Result<Vec<_>>>()?,
-                dynamic_libraries: Compiler::find_all_dynamic_liraries(&compilation),
+                dynamic_libraries: Compiler::find_all_dynamic_liraries(platform, &compilation),
                 target_path: compilation.root_output.clone(),
             })
         }
     }
 
-    fn find_all_dynamic_liraries(compilation: &Compilation) -> Vec<PathBuf> {
+    fn find_all_dynamic_liraries(platform: &Platform, compilation: &Compilation) -> Vec<PathBuf> {
         // 💩💩💩 See cargo_rustc/mod.rs/filter_dynamic_search_path() 💩💩💩
         fn strip_fucking_prefix(path: &PathBuf) -> PathBuf {
             match path.to_str() {
@@ -176,23 +176,13 @@ impl Compiler {
             }
         }
 
-        // TODO Should check if lib is in overlay or project directory instead. A bit lazy for now...
-        fn is_allowed_path(path: &PathBuf) -> bool {
-            let ignored_path = vec![
-                Path::new("/lib"),
-                Path::new("/usr/lib"),
-                Path::new("/usr/lib32"),
-                Path::new("/usr/lib64"),
-            ];
-            !ignored_path.iter().any(|it| path.starts_with(it))
-        }
-
+        debug!("Native dirs are {:?}", compilation.native_dirs);
         compilation.native_dirs
             .iter()
             .map(strip_fucking_prefix)
+            .filter(|path| !platform.is_system_path(path).unwrap_or(true))
             .flat_map(|path| WalkDir::new(path).into_iter())
             .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
-            .filter(is_allowed_path)
             .filter(|path| path.is_file() && is_lib(path))
             .collect()
     }
