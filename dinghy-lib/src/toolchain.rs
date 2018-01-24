@@ -67,10 +67,11 @@ impl ToolchainConfig {
     }
 
     pub fn library_dirs(&self, id: &str) -> Result<Vec<PathBuf>> {
-        let target_shim_path = target_shim_path(&self.root, &self.rustc_triple, id);
-        let output = String::from_utf8(Command::new(target_shim_path.join("linker"))
+        let linker = target_shim_path(project_root()?, &self.rustc_triple, id).join("linker");
+        let output = String::from_utf8(Command::new(&linker)
             .arg("-print-search-dirs")
-            .output()?
+            .output()
+            .chain_err(|| format!("Error while checking libraries using linker {}", &linker.display()))?
             .stdout)?;
 
         let mut paths = vec![];
@@ -149,10 +150,8 @@ impl ToolchainConfig {
 
 
 fn setup_shim(rustc_triple: &str, id: &str, var: &str, name: &str, shell: &str) -> Result<()> {
-    trace!("Shim {} -> {}", name, shell);
-    let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
-    let root = wd_path.parent().ok_or("building at / ?")?;
-    let shim = create_shim(&root, rustc_triple, id, name, shell)?;
+    debug!("Shim {} -> {}", name, shell);
+    let shim = create_shim(project_root()?, rustc_triple, id, name, shell)?;
     env::set_var(var, shim);
     Ok(())
 }
@@ -180,6 +179,11 @@ fn create_shim<P: AsRef<path::Path>>(
         fs::set_permissions(&shim, PermissionsExt::from_mode(0o777))?;
     }
     Ok(shim)
+}
+
+fn project_root() -> Result<PathBuf> {
+    let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
+    Ok(wd_path.parent().ok_or("building at / ?")?.to_path_buf())
 }
 
 fn target_shim_path<P: AsRef<path::Path>>(root: P, rustc_triple: &str, id: &str) -> PathBuf {

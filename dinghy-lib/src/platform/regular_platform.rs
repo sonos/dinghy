@@ -70,7 +70,7 @@ impl RegularPlatform {
             .chain(compilation_result.native_dirs.iter())
             .inspect(|path| debug!("Checking library path {:?}", path.display()))
             .filter(|path| !self.is_system_path(path).unwrap_or(true))
-            .inspect(|path| debug!("{:?} is not a system library path", path.display()))
+            .inspect(|path| debug!("{} is not a system library path", path.display()))
             .flat_map(|path| WalkDir::new(path).into_iter())
             .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
             .filter(|path| path.is_file() && is_library(path))
@@ -87,7 +87,6 @@ impl RegularPlatform {
         ];
         let is_system_path = ignored_path.iter().any(|it| path.starts_with(it))
             || path.canonicalize()?.starts_with(&self.toolchain.sysroot);
-        debug!("{} is {}a system path", path.display(), if is_system_path { "" } else { "not " });
         Ok(is_system_path)
     }
 }
@@ -121,7 +120,7 @@ impl Platform for RegularPlatform {
         self.toolchain.setup_sysroot();
         self.toolchain.shim_executables(&self.id)?;
 
-        let compilation_result = compiler.build(self, compile_mode)?;
+        let compilation_result = compiler.build(self.rustc_triple(), compile_mode)?;
         Ok(Build {
             dynamic_libraries: self.find_dynamic_liraries(&compilation_result)?,
             runnables: compilation_result.runnables,
