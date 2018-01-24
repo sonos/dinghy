@@ -19,13 +19,12 @@ use std::path::Path;
 use std::path::PathBuf;
 use utils::arg_as_string_vec;
 use toml;
-use Platform;
 use Result;
 use ResultExt;
 use Runnable;
 
 pub struct Compiler {
-    build_command: Box<Fn(&Platform, CompileMode) -> Result<CompilationResult>>,
+    build_command: Box<Fn(Option<&str>, CompileMode) -> Result<CompilationResult>>,
 }
 
 impl Compiler {
@@ -35,7 +34,7 @@ impl Compiler {
         }
     }
 
-    fn create_build_command(matches: &ArgMatches) -> Box<Fn(&Platform, CompileMode) -> Result<CompilationResult>> {
+    fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, CompileMode) -> Result<CompilationResult>> {
         let all = matches.is_present("ALL");
         let all_features = matches.is_present("ALL_FEATURES");
         let benches = arg_as_string_vec(matches, "BENCH");
@@ -58,7 +57,7 @@ impl Compiler {
         let verbosity = matches.occurrences_of("VERBOSE") as u32;
         let tests = arg_as_string_vec(matches, "TEST");
 
-        Box::new(move |platform: &Platform, compile_mode: CompileMode| {
+        Box::new(move |rustc_triple: Option<&str>, compile_mode: CompileMode| {
             let release = compile_mode == CompileMode::Bench || release;
             let mut config = CompileConfig::default()?;
             config.configure(
@@ -74,7 +73,7 @@ impl Compiler {
 
             let project_metadata_list = Compiler::workskpace_metadata(&workspace)?;
             let excludes = if all {
-                Compiler::exclude_by_target_triple(platform,
+                Compiler::exclude_by_target_triple(rustc_triple,
                                                    project_metadata_list.as_slice(),
                                                    excludes.as_slice())
             } else { excludes.clone() };
@@ -82,7 +81,7 @@ impl Compiler {
             let options = CompileOptions {
                 config: &config,
                 jobs,
-                target: platform.rustc_triple(),
+                target: rustc_triple,
                 features: &*features,
                 all_features,
                 no_default_features,
@@ -108,6 +107,7 @@ impl Compiler {
             };
 
             let compilation = CargoOps::compile(&workspace, &options)?;
+            error!("TTTTTTTTT {:?}", compilation);
             Ok(Compiler::to_compilation_result(compilation, compile_mode)?)
         })
     }
@@ -178,8 +178,8 @@ impl Compiler {
         }
     }
 
-    pub fn build(&self, platform: &Platform, compile_mode: CompileMode) -> Result<CompilationResult> {
-        (self.build_command)(platform, compile_mode)
+    pub fn build(&self, rustc_triple: Option<&str>, compile_mode: CompileMode) -> Result<CompilationResult> {
+        (self.build_command)(rustc_triple, compile_mode)
     }
 
     pub fn project_dir(&self) -> Result<PathBuf> {
@@ -197,10 +197,10 @@ impl Compiler {
         Ok(target_path)
     }
 
-    fn exclude_by_target_triple(platform: &Platform, project_metadata_list: &[ProjectMetadata], excludes: &[String]) -> Vec<String> {
+    fn exclude_by_target_triple(rustc_triple: Option<&str>, project_metadata_list: &[ProjectMetadata], excludes: &[String]) -> Vec<String> {
         let mut all_excludes: Vec<String> = excludes.to_vec();
         all_excludes.extend(project_metadata_list.iter()
-            .filter(|metadata| !metadata.is_allowed_for(platform.rustc_triple()))
+            .filter(|metadata| !metadata.is_allowed_for(rustc_triple))
             .filter(|metadata| !excludes.contains(&metadata.project_id))
             .map(|metadata| {
                 debug!("Project '{}' is disabled for current target", metadata.project_id);
