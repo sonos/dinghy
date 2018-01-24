@@ -107,7 +107,6 @@ impl Compiler {
             };
 
             let compilation = CargoOps::compile(&workspace, &options)?;
-            error!("TTTTTTTTT {:?}", compilation);
             Ok(Compiler::to_compilation_result(compilation, compile_mode)?)
         })
     }

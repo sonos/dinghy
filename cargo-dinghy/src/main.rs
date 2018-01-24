@@ -63,10 +63,10 @@ fn run_command(args: ArgMatches) -> Result<()> {
     let (platform, device) = select_platform_and_device_from_cli(&args, &dinghy)?;
 
     match args.subcommand() {
-        ("all-devices", Some(_)) => show_devices(&dinghy, None),
+        ("all-devices", Some(_)) => show_all_devices(&dinghy),
         ("bench", Some(sub_args)) => prepare_and_run(device, project, platform, "bench", sub_args),
         ("build", Some(sub_args)) => build(platform, sub_args),
-        ("devices", Some(_)) => show_devices(&dinghy, Some(platform)),
+        ("devices", Some(_)) => show_all_devices_for_platform(&dinghy, platform),
         ("lldbproxy", Some(_)) => run_lldb(device),
         ("run", Some(sub_args)) => prepare_and_run(device, project, platform, "run", sub_args),
         ("test", Some(sub_args)) => prepare_and_run(device, project, platform, "test", sub_args),
@@ -126,6 +126,16 @@ fn run_lldb(device: Option<Arc<Box<Device>>>) -> Result<()> {
     loop {
         thread::sleep(time::Duration::from_millis(100));
     }
+}
+
+fn show_all_devices(dinghy: &Dinghy) -> Result<()> {
+    println!("List of available devices for all platforms:");
+    show_devices(&dinghy, None)
+}
+
+fn show_all_devices_for_platform(dinghy: &Dinghy, platform: Arc<Box<Platform>>) -> Result<()> {
+    println!("List of available devices for platform '{}':", platform.id());
+    show_devices(&dinghy, Some(platform))
 }
 
 fn show_devices(dinghy: &Dinghy, platform: Option<Arc<Box<Platform>>>) -> Result<()> {
