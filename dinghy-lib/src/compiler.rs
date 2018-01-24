@@ -18,17 +18,14 @@ use std::iter::FromIterator;
 use std::path::Path;
 use std::path::PathBuf;
 use utils::arg_as_string_vec;
-use utils::is_lib;
-use walkdir::WalkDir;
 use toml;
 use Platform;
 use Result;
 use ResultExt;
-use Build;
 use Runnable;
 
 pub struct Compiler {
-    build_command: Box<Fn(&Platform, CompileMode) -> Result<Build>>,
+    build_command: Box<Fn(&Platform, CompileMode) -> Result<CompilationResult>>,
 }
 
 impl Compiler {
@@ -38,7 +35,7 @@ impl Compiler {
         }
     }
 
-    fn create_build_command(matches: &ArgMatches) -> Box<Fn(&Platform, CompileMode) -> Result<Build>> {
+    fn create_build_command(matches: &ArgMatches) -> Box<Fn(&Platform, CompileMode) -> Result<CompilationResult>> {
         let all = matches.is_present("ALL");
         let all_features = matches.is_present("ALL_FEATURES");
         let benches = arg_as_string_vec(matches, "BENCH");
@@ -111,13 +108,20 @@ impl Compiler {
             };
 
             let compilation = CargoOps::compile(&workspace, &options)?;
-            Ok(Compiler::to_build(platform, compilation, compile_mode)?)
+            Ok(Compiler::to_compilation_result(compilation, compile_mode)?)
         })
     }
 
-    fn to_build(platform: &Platform, compilation: Compilation, compile_mode: CompileMode) -> Result<Build> {
+    fn to_compilation_result(compilation: Compilation,
+                             compile_mode: CompileMode) -> Result<CompilationResult> {
+        let lib_directories = compilation.native_dirs
+            .iter()
+            .map(Compiler::strip_annoying_prefix)
+            .collect_vec();
+
         if compile_mode == CompileMode::Build {
-            Ok(Build {
+            Ok(CompilationResult {
+                native_dirs: lib_directories,
                 runnables: compilation.binaries
                     .iter()
                     .map(|exe_path| {
@@ -132,11 +136,11 @@ impl Compiler {
                         })
                     })
                     .collect::<Result<Vec<_>>>()?,
-                dynamic_libraries: Compiler::find_all_dynamic_liraries(platform, &compilation),
                 target_path: compilation.root_output.clone(),
             })
         } else {
-            Ok(Build {
+            Ok(CompilationResult {
+                native_dirs: lib_directories,
                 runnables: compilation.tests
                     .iter()
                     .map(|&(ref pkg, _, _, ref exe_path)| {
@@ -151,43 +155,30 @@ impl Compiler {
                         })
                     })
                     .collect::<Result<Vec<_>>>()?,
-                dynamic_libraries: Compiler::find_all_dynamic_liraries(platform, &compilation),
                 target_path: compilation.root_output.clone(),
             })
         }
     }
 
-    fn find_all_dynamic_liraries(platform: &Platform, compilation: &Compilation) -> Vec<PathBuf> {
-        // 💩💩💩 See cargo_rustc/mod.rs/filter_dynamic_search_path() 💩💩💩
-        fn strip_fucking_prefix(path: &PathBuf) -> PathBuf {
-            match path.to_str() {
-                Some(s) => {
-                    let mut parts = s.splitn(2, '=');
-                    match (parts.next(), parts.next()) {
-                        (Some("native"), Some(path)) |
-                        (Some("crate"), Some(path)) |
-                        (Some("dependency"), Some(path)) |
-                        (Some("framework"), Some(path)) |
-                        (Some("all"), Some(path)) => path.into(),
-                        _ => path.clone(),
-                    }
+    // 💩💩💩 See cargo_rustc/mod.rs/filter_dynamic_search_path() 💩💩💩
+    fn strip_annoying_prefix(path: &PathBuf) -> PathBuf {
+        match path.to_str() {
+            Some(s) => {
+                let mut parts = s.splitn(2, '=');
+                match (parts.next(), parts.next()) {
+                    (Some("native"), Some(path)) |
+                    (Some("crate"), Some(path)) |
+                    (Some("dependency"), Some(path)) |
+                    (Some("framework"), Some(path)) |
+                    (Some("all"), Some(path)) => path.into(),
+                    _ => path.clone(),
                 }
-                None => path.clone(),
             }
+            None => path.clone(),
         }
-
-        debug!("Native dirs are {:?}", compilation.native_dirs);
-        compilation.native_dirs
-            .iter()
-            .map(strip_fucking_prefix)
-            .filter(|path| !platform.is_system_path(path).unwrap_or(true))
-            .flat_map(|path| WalkDir::new(path).into_iter())
-            .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
-            .filter(|path| path.is_file() && is_lib(path))
-            .collect()
     }
 
-    pub fn build(&self, platform: &Platform, compile_mode: CompileMode) -> Result<Build> {
+    pub fn build(&self, platform: &Platform, compile_mode: CompileMode) -> Result<CompilationResult> {
         (self.build_command)(platform, compile_mode)
     }
 
@@ -269,6 +260,13 @@ impl Compiler {
             Ok(None)
         }
     }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct CompilationResult {
+    pub native_dirs: Vec<PathBuf>,
+    pub runnables: Vec<Runnable>,
+    pub target_path: PathBuf,
 }
 
 #[derive(Clone, Debug, Default)]

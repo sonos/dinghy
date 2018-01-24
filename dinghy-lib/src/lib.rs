@@ -206,8 +206,6 @@ pub trait Platform: Debug {
 
     fn is_compatible_with(&self, device: &Device) -> bool;
 
-    fn is_system_path(&self, path: &Path) -> Result<bool>;
-
     fn rustc_triple(&self) -> Option<&str>;
 }
 
@@ -217,8 +215,8 @@ pub trait PlatformManager {
 
 #[derive(Clone, Debug, Default)]
 pub struct Build {
-    pub runnables: Vec<Runnable>,
     pub dynamic_libraries: Vec<PathBuf>,
+    pub runnables: Vec<Runnable>,
     pub target_path: PathBuf,
 }
 

@@ -1,3 +1,4 @@
+use compiler::CompilationResult;
 use compiler::Compiler;
 use compiler::CompileMode;
 use config::PlatformConfiguration;
@@ -8,6 +9,8 @@ use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
 use toolchain::ToolchainConfig;
+use utils::is_library;
+use walkdir::WalkDir;
 use Build;
 use Device;
 use Platform;
@@ -46,7 +49,7 @@ impl RegularPlatform {
         }
         let bin = bin.ok_or("no bin/*-gcc found in toolchain")?;
         let tc_triple = prefix.ok_or("no gcc in toolchain")?.to_string();
-        let sysroot = RegularPlatform::find_sysroot(&toolchain_path)?;
+        let sysroot = find_sysroot(&toolchain_path)?;
 
         Ok(Box::new(RegularPlatform {
             configuration,
@@ -61,22 +64,31 @@ impl RegularPlatform {
         }))
     }
 
-    fn find_sysroot<P: AsRef<Path>>(toolchain_path: P) -> Result<PathBuf> {
-        let toolchain = toolchain_path.as_ref();
-        let immediate = toolchain.join("sysroot");
-        if immediate.is_dir() {
-            let sysroot = immediate.to_str().ok_or("sysroot is not utf-8")?;
-            return Ok(sysroot.into());
-        }
-        for subdir in toolchain.read_dir()? {
-            let subdir = subdir?;
-            let maybe = subdir.path().join("sysroot");
-            if maybe.is_dir() {
-                let sysroot = maybe.to_str().ok_or("sysroot is not utf-8")?;
-                return Ok(sysroot.into());
-            }
-        }
-        Err(format!("no sysroot found in toolchain {:?}", toolchain))?
+    fn find_dynamic_liraries(&self, compilation_result: &CompilationResult) -> Result<Vec<PathBuf>> {
+        Ok(self.toolchain.library_dirs(&self.id)?
+            .iter()
+            .chain(compilation_result.native_dirs.iter())
+            .inspect(|path| debug!("Checking library path {:?}", path.display()))
+            .filter(|path| !self.is_system_path(path).unwrap_or(true))
+            .inspect(|path| debug!("{:?} is not a system library path", path.display()))
+            .flat_map(|path| WalkDir::new(path).into_iter())
+            .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
+            .filter(|path| path.is_file() && is_library(path))
+            .inspect(|path| debug!("Found library {:?}", path.display()))
+            .collect())
+    }
+
+    fn is_system_path(&self, path: &Path) -> Result<bool> {
+        let ignored_path = vec![
+            Path::new("/lib"),
+            Path::new("/usr/lib"),
+            Path::new("/usr/lib32"),
+            Path::new("/usr/lib64"),
+        ];
+        let is_system_path = ignored_path.iter().any(|it| path.starts_with(it))
+            || path.canonicalize()?.starts_with(&self.toolchain.sysroot);
+        debug!("{} is {}a system path", path.display(), if is_system_path { "" } else { "not " });
+        Ok(is_system_path)
     }
 }
 
@@ -109,7 +121,12 @@ impl Platform for RegularPlatform {
         self.toolchain.setup_sysroot();
         self.toolchain.shim_executables(&self.id)?;
 
-        compiler.build(self, compile_mode)
+        let compilation_result = compiler.build(self, compile_mode)?;
+        Ok(Build {
+            dynamic_libraries: self.find_dynamic_liraries(&compilation_result)?,
+            runnables: compilation_result.runnables,
+            target_path: compilation_result.target_path,
+        })
     }
 
     fn id(&self) -> String {
@@ -120,20 +137,25 @@ impl Platform for RegularPlatform {
         device.is_compatible_with_regular_platform(self)
     }
 
-    fn is_system_path(&self, path: &Path) -> Result<bool> {
-        let ignored_path = vec![
-            Path::new("/lib"),
-            Path::new("/usr/lib"),
-            Path::new("/usr/lib32"),
-            Path::new("/usr/lib64"),
-        ];
-        let is_system_path = ignored_path.iter().any(|it| path.starts_with(it))
-            || path.canonicalize()?.starts_with(&self.toolchain.sysroot);
-        debug!("{} is {}a system path", path.display(), if is_system_path { "" } else { "not " });
-        Ok(is_system_path)
-    }
-
     fn rustc_triple(&self) -> Option<&str> {
         Some(&self.toolchain.rustc_triple)
     }
+}
+
+fn find_sysroot<P: AsRef<Path>>(toolchain_path: P) -> Result<PathBuf> {
+    let toolchain = toolchain_path.as_ref();
+    let immediate = toolchain.join("sysroot");
+    if immediate.is_dir() {
+        let sysroot = immediate.to_str().ok_or("sysroot is not utf-8")?;
+        return Ok(sysroot.into());
+    }
+    for subdir in toolchain.read_dir()? {
+        let subdir = subdir?;
+        let maybe = subdir.path().join("sysroot");
+        if maybe.is_dir() {
+            let sysroot = maybe.to_str().ok_or("sysroot is not utf-8")?;
+            return Ok(sysroot.into());
+        }
+    }
+    Err(format!("no sysroot found in toolchain {:?}", toolchain))?
 }

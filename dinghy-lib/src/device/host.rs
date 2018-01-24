@@ -1,12 +1,8 @@
-use compiler::Compiler;
-use compiler::CompileMode;
-use overlay::Overlayer;
 use platform::host::HostPlatform;
 use project::Project;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
-use std::path::Path;
 use Build;
 use BuildBundle;
 use Device;
@@ -83,36 +79,5 @@ impl Display for HostDevice {
 impl DeviceCompatibility for HostDevice {
     fn is_compatible_with_host_platform(&self, _platform: &HostPlatform) -> bool {
         true
-    }
-}
-
-impl Platform for HostPlatform {
-    fn build(&self, compiler: &Compiler, compile_mode: CompileMode) -> Result<Build> {
-        Overlayer::new(self, "/", compiler.target_dir(self.rustc_triple())?.join(&self.id))
-            .overlay(&self.configuration, compiler.project_dir()?)?;
-
-        compiler.build(self, compile_mode)
-    }
-
-    fn id(&self) -> String {
-        "host".to_string()
-    }
-
-    fn is_compatible_with(&self, device: &Device) -> bool {
-        device.is_compatible_with_host_platform(self)
-    }
-
-    fn rustc_triple(&self) -> Option<&str> {
-        None
-    }
-
-    fn is_system_path(&self, path: &Path) -> Result<bool> {
-        let ignored_path = vec![
-            Path::new("/lib"),
-            Path::new("/usr/lib"),
-            Path::new("/usr/lib32"),
-            Path::new("/usr/lib64"),
-        ];
-        Ok(!ignored_path.iter().any(|it| path.starts_with(it)))
     }
 }

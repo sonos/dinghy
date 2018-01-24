@@ -41,7 +41,7 @@ pub fn file_has_ext(file_path: &Path, ext: &str) -> bool {
         .unwrap_or(false)
 }
 
-pub fn is_lib(file_path: &Path) -> bool {
+pub fn is_library(file_path: &Path) -> bool {
     file_path.is_file() && file_path.file_name()
         .and_then(|it| it.to_str())
         .map(|it| it.ends_with(".so") || it.contains(".so."))
