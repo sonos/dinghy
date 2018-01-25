@@ -13,8 +13,9 @@ build="build.rs"
 categories = [ "development-tools::cargo-plugins", "development-tools::testing" , "development-tools::profiling" ]
 
 [dependencies]
-error-chain = "0.11"
 dinghy-helper = { path = "../dinghy-helper" }
+error-chain = "0.11"
+filetime = "0.1"
 log="0.3"
 pretty_env_logger="0.1"
 clap = "2.26"

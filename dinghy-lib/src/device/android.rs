@@ -62,11 +62,12 @@ impl AndroidDevice {
     }
 
     fn sync<FP: AsRef<Path>, TP: AsRef<Path>>(&self, from_path: FP, to_path: TP) -> Result<()> {
-        let _ = self.adb()?
-            .arg("shell").arg("rm").arg("-rf").arg(to_path.as_ref()).status()?;
+        // Seems overkill...
+        // let _ = self.adb()?.arg("shell").arg("rm").arg("-rf").arg(to_path.as_ref()).status()?;
+        // Need parent as adb
 
         let mut command = self.adb()?;
-        command.arg("push").arg(from_path.as_ref()).arg(to_path.as_ref());
+        command.arg("push").arg("--sync").arg(from_path.as_ref()).arg(to_path.as_ref());
         debug!("Running {:?}", command);
         if !command.status()?.success() {
             bail!("Error syncing android directory ({:?})", command)
@@ -111,8 +112,10 @@ impl Device for AndroidDevice {
         let build_bundle = device::make_app(project, build, runnable)?;
         let remote_bundle = AndroidDevice::to_remote_bundle(&build_bundle)?;
 
-        self.sync(&build_bundle.bundle_dir, &remote_bundle.bundle_dir)?;
-        self.sync(&build_bundle.lib_dir, &remote_bundle.lib_dir)?;
+        self.sync(&build_bundle.bundle_dir, &remote_bundle.bundle_dir.parent()
+            .ok_or(format!("Invalid path {}", remote_bundle.bundle_dir.display()))?)?;
+        self.sync(&build_bundle.lib_dir, &remote_bundle.lib_dir.parent()
+            .ok_or(format!("Invalid path {}", remote_bundle.lib_dir.display()))?)?;
 
         debug!("Chmod target exe {}", remote_bundle.bundle_exe.display());
         if !self.adb()?.arg("shell").arg("chmod").arg("755").arg(&remote_bundle.bundle_exe).status()?.success() {
