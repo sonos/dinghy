@@ -89,12 +89,11 @@ impl DeviceCompatibility for AndroidDevice {
 impl Device for AndroidDevice {
     fn clean_app(&self, build_bundle: &BuildBundle) -> Result<()> {
         let remote_bundle = AndroidDevice::to_remote_bundle(build_bundle)?;
-        debug!("rm target exe");
-        let stat = Command::new(&self.adb)
-            .arg("-s").arg(&self.id).arg("shell")
-            .arg("rm").arg("-rf").arg(&remote_bundle.bundle_dir)
-            .status()?;
-        if !stat.success() {
+        debug!("Cleaup device");
+        if !self.adb()?.arg("shell").arg("rm").arg("-rf").arg(&remote_bundle.bundle_dir).status()?.success() {
+            Err("Failure in android clean")?;
+        }
+        if !self.adb()?.arg("shell").arg("rm").arg("-rf").arg(&remote_bundle.lib_dir).status()?.success() {
             Err("Failure in android clean")?;
         }
         Ok(())
@@ -116,9 +115,7 @@ impl Device for AndroidDevice {
         self.sync(&build_bundle.lib_dir, &remote_bundle.lib_dir)?;
 
         debug!("Chmod target exe {}", remote_bundle.bundle_exe.display());
-        let stat = self.adb()?
-            .arg("shell").arg("chmod").arg("755").arg(&remote_bundle.bundle_exe).status()?;
-        if !stat.success() {
+        if !self.adb()?.arg("shell").arg("chmod").arg("755").arg(&remote_bundle.bundle_exe).status()?.success() {
             Err("failure in android install")?;
         }
         Ok(build_bundle)
