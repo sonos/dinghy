@@ -1,4 +1,5 @@
 use errors::*;
+use project::copy_file;
 use project::Project;
 use std::fs;
 use Build;
@@ -31,16 +32,16 @@ fn make_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<Bui
         .chain_err(|| format!("Couldn't create {}", &bundle_target_path.display()))?;
 
     debug!("Copying exe {:?} to bundle {:?}", &runnable.exe, bundle_path);
-    fs::copy(&runnable.exe, &bundle_exe_path)
+    copy_file(&runnable.exe, &bundle_exe_path)
         .chain_err(|| format!("Couldn't copy {} to {}", &runnable.exe.display(), &bundle_exe_path.display()))?;
 
     debug!("Copying dynamic libs to bundle");
-    for dynamic_lib in &build.dynamic_libraries {
-        let lib_path = bundle_libs_path.join(dynamic_lib.file_name()
-            .ok_or(format!("Invalid file name {:?}", dynamic_lib.file_name()))?);
-        debug!("Copying dynamic lib {} to {}", dynamic_lib.display(), lib_path.display());
-        fs::copy(&dynamic_lib, &lib_path)
-            .chain_err(|| format!("Couldn't copy {} to {}", dynamic_lib.display(), &lib_path.display()))?;
+    for src_lib_path in &build.dynamic_libraries {
+        let target_lib_path = bundle_libs_path.join(src_lib_path.file_name()
+            .ok_or(format!("Invalid file name {:?}", src_lib_path.file_name()))?);
+        debug!("Copying dynamic lib {} to {}", src_lib_path.display(), target_lib_path.display());
+        copy_file(&src_lib_path, &target_lib_path)
+            .chain_err(|| format!("Couldn't copy {} to {}", src_lib_path.display(), &target_lib_path.display()))?;
     }
 
     debug!("Copying src {} to bundle {}", runnable.source.display(), bundle_path.display());

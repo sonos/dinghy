@@ -7,6 +7,7 @@ extern crate core_foundation_sys;
 extern crate dinghy_helper;
 #[macro_use]
 extern crate error_chain;
+extern crate filetime;
 extern crate ignore;
 extern crate isatty;
 extern crate itertools;

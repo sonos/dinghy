@@ -366,6 +366,7 @@ dependencies = [
  "core-foundation-sys 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "dinghy-helper 0.2.16-pre",
  "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "filetime 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "ignore 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "isatty 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.7.5 (registry+https://github.com/rust-lang/crates.io-index)",
