@@ -75,7 +75,7 @@ impl ProjectMetadata {
 }
 
 fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, CompileMode) -> Result<Build>> {
-    let all = matches.is_present("ALL");
+    let all = matches.is_present("ALL") || !matches.is_present("SPEC");
     let all_features = matches.is_present("ALL_FEATURES");
     let benches = arg_as_string_vec(matches, "BENCH");
     let bins = arg_as_string_vec(matches, "BIN");
