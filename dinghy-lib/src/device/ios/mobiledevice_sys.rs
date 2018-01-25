@@ -53,7 +53,7 @@ pub type am_device_notification_callback = extern "C" fn(
 
 
 pub type am_device_mount_callback = extern "C" fn(CFDictionaryRef, *mut c_void);
-//#[link(name = "MobileDevice", kind = "framework")]
+#[link(name = "MobileDevice", kind = "framework")]
 extern "C" {
     pub fn AMDeviceNotificationSubscribe(
         callback: am_device_notification_callback,

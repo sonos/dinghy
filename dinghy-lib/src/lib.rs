@@ -42,6 +42,7 @@ use config::Configuration;
 use config::PlatformConfiguration;
 use device::android::AndroidManager;
 use device::host::HostManager;
+#[cfg(target_os = "macos")]
 use device::ios::IosManager;
 use device::ssh::SshDeviceManager;
 use platform::host::HostPlatform;
