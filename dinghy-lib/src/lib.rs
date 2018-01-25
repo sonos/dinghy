@@ -100,7 +100,7 @@ impl Dinghy {
     pub fn discover_platforms(conf: &Configuration) -> Result<Vec<(String, Arc<Box<Platform>>)>> {
         conf.platforms
             .iter()
-            .filter(Dinghy::unavailable_platforms)
+            .filter(Dinghy::available_platforms)
             .map(|(platform_name, platform_conf)| {
                 if let Some(rustc_triple) = platform_conf.rustc_triple.as_ref() {
                     if rustc_triple.ends_with("-ios") {
@@ -121,8 +121,8 @@ impl Dinghy {
     }
 
     #[cfg(target_os = "macos")]
-    fn unavailable_platforms(&(_platform_name, _platform_conf): &(&String, &PlatformConfiguration)) -> bool {
-        false
+    fn available_platforms(&(_platform_name, _platform_conf): &(&String, &PlatformConfiguration)) -> bool {
+        true
     }
 
     #[cfg(target_os = "macos")]
@@ -131,7 +131,7 @@ impl Dinghy {
     }
 
     #[cfg(not(target_os = "macos"))]
-    fn unavailable_platforms(&(_platform_name, platform_conf): &(&String, &PlatformConfiguration)) -> bool {
+    fn available_platforms(&(_platform_name, platform_conf): &(&String, &PlatformConfiguration)) -> bool {
         platform_conf.rustc_triple.as_ref().map(|it| !it.ends_with("-ios")).unwrap_or(true)
     }
 
