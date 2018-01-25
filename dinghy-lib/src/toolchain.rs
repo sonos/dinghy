@@ -11,7 +11,6 @@ use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
-use std::process::Command;
 use walkdir::WalkDir;
 
 #[cfg(not(target_os = "windows"))]
@@ -64,26 +63,6 @@ impl ToolchainConfig {
             .join(format!("{}-{}", self.tc_triple, name_without_triple))
             .to_string_lossy()
             .to_string()
-    }
-
-    pub fn library_dirs(&self, id: &str) -> Result<Vec<PathBuf>> {
-        let linker = target_shim_path(project_root()?, &self.rustc_triple, id).join("linker");
-        let output = String::from_utf8(Command::new(&linker)
-            .arg("-print-search-dirs")
-            .output()
-            .chain_err(|| format!("Error while checking libraries using linker {}", &linker.display()))?
-            .stdout)?;
-
-        let mut paths = vec![];
-        for line in output.lines() {
-            if line.starts_with("libraries: =") {
-                let line = line.trim_left_matches("libraries: =");
-                for path_str in line.split(":") {
-                    paths.push(PathBuf::from(path_str))
-                }
-            }
-        }
-        Ok(paths)
     }
 
     pub fn setup_pkg_config(&self) -> Result<()> {
@@ -163,7 +142,7 @@ fn create_shim<P: AsRef<path::Path>>(
     name: &str,
     shell: &str,
 ) -> Result<PathBuf> {
-    let target_shim_path = target_shim_path(root, rustc_triple, id);
+    let target_shim_path = root.as_ref().join("target").join(rustc_triple).join(id);
     fs::create_dir_all(&target_shim_path)?;
     let mut shim = target_shim_path.join(name);
     if cfg!(target_os = "windows") {
@@ -184,8 +163,4 @@ fn create_shim<P: AsRef<path::Path>>(
 fn project_root() -> Result<PathBuf> {
     let wd_path = find_root_manifest_for_wd(None, &env::current_dir()?)?;
     Ok(wd_path.parent().ok_or("building at / ?")?.to_path_buf())
-}
-
-fn target_shim_path<P: AsRef<path::Path>>(root: P, rustc_triple: &str, id: &str) -> PathBuf {
-    root.as_ref().join("target").join(rustc_triple).join(id)
 }

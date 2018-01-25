@@ -1,4 +1,3 @@
-use compiler::CompilationResult;
 use compiler::Compiler;
 use compiler::CompileMode;
 use config::PlatformConfiguration;
@@ -9,8 +8,6 @@ use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
 use toolchain::ToolchainConfig;
-use utils::is_library;
-use walkdir::WalkDir;
 use Build;
 use Device;
 use Platform;
@@ -63,32 +60,6 @@ impl RegularPlatform {
             },
         }))
     }
-
-    fn find_dynamic_liraries(&self, compilation_result: &CompilationResult) -> Result<Vec<PathBuf>> {
-        Ok(self.toolchain.library_dirs(&self.id)?
-            .iter()
-            .chain(compilation_result.native_dirs.iter())
-            .inspect(|path| debug!("Checking library path {:?}", path.display()))
-            .filter(|path| !self.is_system_path(path).unwrap_or(true))
-            .inspect(|path| debug!("{} is not a system library path", path.display()))
-            .flat_map(|path| WalkDir::new(path).into_iter())
-            .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
-            .filter(|path| path.is_file() && is_library(path))
-            .inspect(|path| debug!("Found library {:?}", path.display()))
-            .collect())
-    }
-
-    fn is_system_path(&self, path: &Path) -> Result<bool> {
-        let ignored_path = vec![
-            Path::new("/lib"),
-            Path::new("/usr/lib"),
-            Path::new("/usr/lib32"),
-            Path::new("/usr/lib64"),
-        ];
-        let is_system_path = ignored_path.iter().any(|it| path.starts_with(it))
-            || path.canonicalize()?.starts_with(&self.toolchain.sysroot);
-        Ok(is_system_path)
-    }
 }
 
 impl Display for RegularPlatform {
@@ -113,19 +84,14 @@ impl Platform for RegularPlatform {
         self.toolchain.setup_ar(&self.toolchain.executable("ar"))?;
         self.toolchain.setup_cc(&self.id, &self.toolchain.executable("gcc"))?;
         self.toolchain.setup_linker(&self.id,
-                                    &format!("{} -Wl,--verbose -v --sysroot {}", // TODO Debug  -Wl,--verbose -v
+                                    &format!("{} --sysroot {}", // TODO Debug  -Wl,--verbose -v
                                              &self.toolchain.executable("gcc"),
                                              &self.toolchain.sysroot.display()))?;
         self.toolchain.setup_pkg_config()?;
         self.toolchain.setup_sysroot();
         self.toolchain.shim_executables(&self.id)?;
 
-        let compilation_result = compiler.build(self.rustc_triple(), compile_mode)?;
-        Ok(Build {
-            dynamic_libraries: self.find_dynamic_liraries(&compilation_result)?,
-            runnables: compilation_result.runnables,
-            target_path: compilation_result.target_path,
-        })
+        compiler.build(self.rustc_triple(), compile_mode)
     }
 
     fn id(&self) -> String {

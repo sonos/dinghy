@@ -33,13 +33,7 @@ impl Platform for HostPlatform {
         Overlayer::new(self, "/", compiler.target_dir(self.rustc_triple())?.join(&self.id))
             .overlay(&self.configuration, compiler.project_dir()?)?;
 
-        let compilation_result = compiler.build(None, compile_mode)?;
-        Ok(Build {
-            dynamic_libraries: vec![],
-            runnables: compilation_result.runnables,
-            target_path: compilation_result.target_path,
-
-        })
+        compiler.build(None, compile_mode)
     }
 
     fn id(&self) -> String {
