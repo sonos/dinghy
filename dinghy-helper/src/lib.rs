@@ -76,10 +76,13 @@ pub fn new_bindgen_with_cross_compilation_support() -> Result<bindgen::Builder> 
     Ok(bindgen::Builder::default()
         .clang_arg("--verbose")
         .detect_toolchain()?
-        .include_gcc_system_headers()?)
+        .include_gcc_system_headers()?
+        .apple_patch()?)
 }
 
 pub trait BindGenBuilderExt {
+    fn apple_patch(self) -> Result<bindgen::Builder>;
+
     fn detect_toolchain(self) -> Result<bindgen::Builder>;
 
     fn generate_default_binding(self) -> Result<()>;
@@ -90,6 +93,23 @@ pub trait BindGenBuilderExt {
 }
 
 impl BindGenBuilderExt for bindgen::Builder {
+    fn apple_patch(self) -> Result<bindgen::Builder> {
+        if is_cross_compiling()? {
+            let target = env::var("TARGET")?;
+            if target.contains("apple") && target.contains("aarch64") {
+                // The official Apple tools use "-arch arm64" instead of specifying
+                // -target directly; -arch only works when the default target is
+                // Darwin-based to put Clang into "Apple mode" as it were. But it does
+                // sort of explain why arm64 works better than aarch64, which is the
+                // preferred name everywhere else.
+                return Ok(self
+                    .clang_arg(format!("-arch"))
+                    .clang_arg(format!("arm64")));
+            }
+        }
+        Ok(self)
+    }
+
     fn detect_toolchain(self) -> Result<bindgen::Builder> {
         if is_cross_compiling()? {
             let target = env::var("TARGET")?;
