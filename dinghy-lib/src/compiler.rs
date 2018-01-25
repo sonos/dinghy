@@ -213,7 +213,10 @@ fn exclude_by_target_triple(rustc_triple: Option<&str>, project_metadata_list: &
 // the same dependency are available). Need improvement.
 fn find_dynamic_libraries(compilation: &Compilation,
                           compile_config: &CompileConfig) -> Result<Vec<PathBuf>> {
-    let linker = linker(compilation, compile_config)?;
+    let linker = match linker(compilation, compile_config) {
+        Ok(linker) => linker,
+        Err(_) => return Ok(vec![]), // On host so we don't care
+    };
     let rustc_triple = compilation.target.as_str();
     let sysroot = PathBuf::from(String::from_utf8(
         Command::new(&linker).arg("-print-sysroot")
