@@ -6,7 +6,6 @@ use std::fmt::Formatter;
 use Build;
 use BuildBundle;
 use Device;
-use Platform;
 use PlatformManager;
 use DeviceCompatibility;
 use Result;
@@ -55,10 +54,6 @@ impl Device for HostDevice {
 
     fn clean_app(&self, _build_bundle: &BuildBundle) -> Result<()> {
         unimplemented!()
-    }
-
-    fn platform(&self) -> Result<Box<Platform>> {
-        Ok(HostPlatform::new()?)
     }
 
     fn run_app(&self, _build_bundle: &BuildBundle, _args: &[&str], _envs: &[&str]) -> Result<()> {

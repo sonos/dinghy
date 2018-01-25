@@ -1,18 +1,3 @@
-use compiler::Compiler;
-use compiler::CompileMode;
-use clap::ArgMatches;
-use errors::*;
-use project::Project;
-use std::{fs, mem, path, process, ptr, sync, thread};
-use std::collections::HashMap;
-use std::fmt;
-use std::fmt::Display;
-use std::fmt::Formatter;
-use std::time::Duration;
-use toolchain::Toolchain;
-
-use libc::*;
-
 use core_foundation::array::CFArray;
 use core_foundation::base::{CFType, CFTypeRef, TCFType};
 use core_foundation::string::CFString;
@@ -21,16 +6,34 @@ use core_foundation::data::CFData;
 use core_foundation::number::CFNumber;
 use core_foundation::boolean::CFBoolean;
 use core_foundation_sys::number::kCFBooleanTrue;
+use device::make_app;
+use errors::*;
+use libc::*;
+use project::Project;
+use std::fs;
+use std::mem;
+use std::path::Path;
+use std::path::PathBuf;
+use std::process;
+use std::ptr;
+use std::sync;
+use std::thread;
+use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::time::Duration;
+use platform::ios::IosPlatform;
+use Build;
+use BuildBundle;
+use Device;
+use DeviceCompatibility;
+use PlatformManager;
+use Runnable;
+use self::mobiledevice_sys::*;
 
 mod mobiledevice_sys;
-
-use self::mobiledevice_sys::*;
-use {Device, PlatformManager, Platform};
-use DeviceCompatibility;
-use Runnable;
-
 mod xcode;
-
 
 #[derive(Clone, Debug)]
 pub struct IosDevice {
@@ -64,65 +67,13 @@ pub struct IosSimDevice {
     os: String,
 }
 
-unsafe impl Send for IosDevice {}
-
-impl Device for IosDevice {
-    fn name(&self) -> &str {
-        &*self.name
-    }
-    fn id(&self) -> &str {
-        &*self.id
-    }
-    fn start_remote_lldb(&self) -> Result<String> {
-        let _ = ensure_session(self.ptr);
-        let fd = start_remote_debug_server(self.ptr)?;
-        debug!("start local lldb proxy");
-        let proxy = start_lldb_proxy(fd)?;
-        debug!("start lldb");
-        Ok(format!("localhost:{}", proxy))
-    }
-    fn make_app(&self, project: &Project, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
-        let signing = xcode::look_for_signature_settings(&*self.id)?
-            .pop()
-            .ok_or("no signing identity found")?;
-        let app_id = signing.name.split(" ").last().ok_or("no app id ?")?;
-        let name = exe.file_name().expect("root ?");
-        let parent = exe.parent().expect("no parents? too sad...");
-        let loc = parent.join("dinghy").join(name);
-        let magic = process::Command::new("file")
-            .arg(exe.to_str().ok_or("path conversion to string")?)
-            .output()?;
-        let magic = String::from_utf8(magic.stdout)?;
-        let target = magic.split(" ").last().ok_or("empty magic")?;
-        let app = xcode::wrap_as_app(
-            target,
-            project,
-            source,
-            exe,
-            app_id,
-            loc,
-        )?;
-        xcode::sign_app(&app, &signing)?;
-        Ok(app)
-    }
-    fn install_app(&self, app: &path::Path) -> Result<()> {
-        install_app(self.ptr, app)
-    }
-    fn platform(&self) -> Result<Box<Platform>> {
-        unimplemented!()
-    }
-    fn run_app(&self, app_path: &path::Path, args: &[&str], _envs: &[&str]) -> Result<()> {
-        let lldb_proxy = self.start_remote_lldb()?;
-        run_remote(self.ptr, &lldb_proxy, app_path, args, false)
-    }
-    fn debug_app(&self, app_path: &path::Path, args: &[&str], _envs: &[&str]) -> Result<()> {
-        let lldb_proxy = self.start_remote_lldb()?;
-        run_remote(self.ptr, &lldb_proxy, app_path, args, true)
-    }
-    fn clean_app(&self, _exe: &path::Path) -> Result<()> {
-        unimplemented!()
+impl IosDevice {
+    fn to_remote_bundle(build_bundle: &BuildBundle) -> Result<BuildBundle> {
+        build_bundle.replace_prefix_with(PathBuf::from("/data/local/tmp").join("dinghy")) // TODO
     }
 }
+
+unsafe impl Send for IosDevice {}
 
 impl IosDevice {
     fn from(ptr: *const am_device) -> Result<IosDevice> {
@@ -149,39 +100,119 @@ impl IosDevice {
             rustc_triple: format!("{}-apple-ios", cpu),
         })
     }
-}
 
-impl Device for IosSimDevice {
-    fn name(&self) -> &str {
-        &*self.name
-    }
-    fn id(&self) -> &str {
-        &*self.id
-    }
-
-    fn start_remote_lldb(&self) -> Result<String> {
-        unimplemented!()
-    }
-    fn make_app(&self, project: &Project, source: &path::Path, exe: &path::Path) -> Result<path::PathBuf> {
-        let name = exe.file_name().expect("root ?");
-        let parent = exe.parent().expect("no parents? too sad...");
+    fn make_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
+        let build_bundle = make_app(project, build, runnable)?;
+        let signing = xcode::look_for_signature_settings(&runnable.id)?
+            .pop()
+            .ok_or("no signing identity found")?;
+        let app_id = signing.name.split(" ").last().ok_or("no app id ?")?;
+        let name = runnable.exe.file_name().expect("root ?");
+        let parent = runnable.exe.parent().expect("no parents? too sad...");
         let loc = parent.join("dinghy").join(name);
         let magic = process::Command::new("file")
-            .arg(exe.to_str().ok_or("path conversion to string")?)
+            .arg(runnable.exe.to_str().ok_or("path conversion to string")?)
             .output()?;
         let magic = String::from_utf8(magic.stdout)?;
         let target = magic.split(" ").last().ok_or("empty magic")?;
         let app = xcode::wrap_as_app(
             target,
             project,
-            source,
-            exe,
+            &runnable.source,
+            &runnable.exe,
+            app_id,
+            loc,
+        )?;
+        xcode::sign_app(&app, &signing)?;
+        Ok(build_bundle)
+    }
+}
+
+impl Device for IosDevice {
+    fn clean_app(&self, _build_bundle: &BuildBundle) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn debug_app(&self, build_bundle: &BuildBundle, args: &[&str], _envs: &[&str]) -> Result<()> {
+        let remote_bundle = IosDevice::to_remote_bundle(&build_bundle)?;
+        let lldb_proxy = self.start_remote_lldb()?;
+        run_remote(self.ptr, &lldb_proxy, remote_bundle.bundle_exe, args, true)
+    }
+
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
+        let build_bundle = IosDevice::make_app(project, build, runnable)?;
+        install_app(self.ptr, &runnable.exe)?;
+        Ok(build_bundle)
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn run_app(&self, build_bundle: &BuildBundle, args: &[&str], _envs: &[&str]) -> Result<()> {
+        let remote_bundle = IosDevice::to_remote_bundle(&build_bundle)?;
+        let lldb_proxy = self.start_remote_lldb()?;
+        run_remote(self.ptr, &lldb_proxy, remote_bundle.bundle_exe, args, false)
+    }
+
+    fn start_remote_lldb(&self) -> Result<String> {
+        let _ = ensure_session(self.ptr);
+        let fd = start_remote_debug_server(self.ptr)?;
+        debug!("start local lldb proxy");
+        let proxy = start_lldb_proxy(fd)?;
+        debug!("start lldb");
+        Ok(format!("localhost:{}", proxy))
+    }
+}
+
+
+impl IosSimDevice {
+    fn make_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
+        let name = runnable.exe.file_name().expect("root ?");
+        let parent = runnable.exe.parent().expect("no parents? too sad...");
+        let loc = parent.join("dinghy").join(name);
+        let magic = process::Command::new("file")
+            .arg(&runnable.exe.to_str().ok_or("path conversion to string")?)
+            .output()?;
+        let magic = String::from_utf8(magic.stdout)?;
+        let target = magic.split(" ").last().ok_or("empty magic")?;
+        let _app = xcode::wrap_as_app(
+            target,
+            project,
+            &runnable.source,
+            &runnable.exe,
             "Dinghy",
             loc,
         )?;
-        Ok(app)
+        Ok(make_app(project, build, runnable)?)
     }
-    fn install_app(&self, app: &path::Path) -> Result<()> {
+}
+
+impl Device for IosSimDevice {
+    fn clean_app(&self, _build_bundle: &BuildBundle) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn debug_app(&self, _build_bundle: &BuildBundle, args: &[&str], _envs: &[&str]) -> Result<()> {
+        let install_path = String::from_utf8(
+            process::Command::new("xcrun")
+                .args(&["simctl", "get_app_container", &self.id, "Dinghy"])
+                .output()?
+                .stdout,
+        )?;
+        launch_lldb_simulator(&self, &install_path, args, true)
+    }
+
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
+        let build_bundle = IosSimDevice::make_app(project, build, runnable)?;
         let _ = process::Command::new("xcrun")
             .args(&["simctl", "uninstall", &self.id, "Dinghy"])
             .status()?;
@@ -190,37 +221,31 @@ impl Device for IosSimDevice {
                 "simctl",
                 "install",
                 &self.id,
-                app.to_str().ok_or("conversion to string")?,
+                runnable.exe.to_str().ok_or("conversion to string")?,
             ])
             .status()?;
         if stat.success() {
-            Ok(())
+            Ok(build_bundle)
         } else {
             Err("failed to install")?
         }
     }
-    fn platform(&self) -> Result<Box<Platform>> {
-        unimplemented!()
+
+    fn name(&self) -> &str {
+        &self.name
     }
-    fn run_app(&self, _app_path: &path::Path, args: &[&str], _envs: &[&str]) -> Result<()> {
+
+    fn run_app(&self, _build_bundle: &BuildBundle, args: &[&str], _envs: &[&str]) -> Result<()> {
         let install_path = String::from_utf8(
             process::Command::new("xcrun")
                 .args(&["simctl", "get_app_container", &self.id, "Dinghy"])
                 .output()?
                 .stdout,
         )?;
-        launch_lldb_simulator(&self, &*install_path, args, false)
+        launch_lldb_simulator(&self, &install_path, args, false)
     }
-    fn debug_app(&self, _app_path: &path::Path, args: &[&str], _envs: &[&str]) -> Result<()> {
-        let install_path = String::from_utf8(
-            process::Command::new("xcrun")
-                .args(&["simctl", "get_app_container", &self.id, "Dinghy"])
-                .output()?
-                .stdout,
-        )?;
-        launch_lldb_simulator(&self, &*install_path, args, true)
-    }
-    fn clean_app(&self, _exe: &path::Path) -> Result<()> {
+
+    fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
 }
@@ -263,65 +288,6 @@ impl DeviceCompatibility for IosDevice {
 impl DeviceCompatibility for IosSimDevice {
     fn is_compatible_with_ios_platform(&self, platform: &IosPlatform) -> bool {
         platform.sim && platform.toolchain.rustc_triple == "x86_64-apple-ios"
-    }
-}
-
-
-#[derive(Debug)]
-pub struct IosPlatform {
-    sim: bool,
-    toolchain: Toolchain,
-}
-
-impl IosPlatform {
-    pub fn new(rustc_triple: String) -> Result<Box<Platform>> {
-        Ok(Box::new(IosPlatform {
-            sim: false,
-            toolchain: Toolchain {
-                rustc_triple
-            },
-        }))
-    }
-
-    fn linker_command(&self) -> Result<String> {
-        let sdk_name = if self.sim {
-            "iphonesimulator"
-        } else {
-            "iphoneos"
-        };
-        let xcrun = process::Command::new("xcrun")
-            .args(&["--sdk", sdk_name, "--show-sdk-path"])
-            .output()?;
-        Ok(String::from_utf8(xcrun.stdout)?.trim_right().to_string())
-    }
-}
-
-impl Platform for IosPlatform {
-    fn build(&self, compiler: &Compiler, compile_mode: CompileMode) -> Result<Vec<Runnable>> {
-        self.toolchain.setup_cc(self.id().as_str(), "gcc")?;
-        self.toolchain.setup_linker(self.id().as_str(),
-                                    format!("cc -isysroot {}",
-                                            self.linker_command()?.as_str()).as_str())?;
-
-        compiler.build(compile_mode, Some(self.toolchain.rustc_triple.as_str()))
-    }
-
-    fn id(&self) -> String {
-        self.toolchain.rustc_triple.to_string()
-    }
-
-    fn is_compatible_with(&self, device: &Device) -> bool {
-        device.is_compatible_with_ios_platform(self)
-    }
-}
-
-impl Display for IosPlatform {
-    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::result::Result<(), ::std::fmt::Error> {
-        if self.sim {
-            write!(f, "XCode targetting Ios Simulator")
-        } else {
-            write!(f, "XCode targetting Ios Device")
-        }
     }
 }
 
@@ -376,7 +342,7 @@ impl PlatformManager for IosManager {
             return Ok(vec![]);
         }
         let sims_list = String::from_utf8(sims_list.stdout)?;
-        let sims_list = ::json::parse(&*sims_list)?;
+        let sims_list = ::json::parse(&sims_list)?;
         let mut sims: Vec<Box<Device>> = vec![];
         for (ref k, ref v) in sims_list["devices"].entries() {
             for ref sim in v.members() {
@@ -467,16 +433,16 @@ fn device_read_value(dev: *const am_device, key: &str) -> Result<Option<Value>> 
     }
 }
 
-fn xcode_dev_path() -> Result<path::PathBuf> {
+fn xcode_dev_path() -> Result<PathBuf> {
     use std::process::Command;
     let command = Command::new("xcode-select").arg("-print-path").output()?;
     Ok(String::from_utf8(command.stdout)?.trim().into())
 }
 
-fn device_support_path(dev: *const am_device) -> Result<path::PathBuf> {
+fn device_support_path(dev: *const am_device) -> Result<PathBuf> {
     let os_version = device_read_value(dev, "ProductVersion")?.ok_or("Could not get OS version")?;
     if let Value::String(v) = os_version {
-        platform_support_path("iPhoneOS.platform", &*v)
+        platform_support_path("iPhoneOS.platform", &v)
     } else {
         Err(format!(
             "expected ProductVersion to be a String, found {:?}",
@@ -485,7 +451,7 @@ fn device_support_path(dev: *const am_device) -> Result<path::PathBuf> {
     }
 }
 
-fn platform_support_path(platform: &str, os_version: &str) -> Result<path::PathBuf> {
+fn platform_support_path(platform: &str, os_version: &str) -> Result<PathBuf> {
     let prefix = xcode_dev_path()?
         .join("Platforms")
         .join(platform)
@@ -528,7 +494,7 @@ fn mount_developper_image(dev: *const am_device) -> Result<()> {
         let sig_image_path = ds_path.join("DeveloperDiskImage.dmg.signature");
         let mut sig: Vec<u8> = vec![];
         fs::File::open(sig_image_path)?.read_to_end(&mut sig)?;
-        let sig = CFData::from_buffer(&*sig);
+        let sig = CFData::from_buffer(&sig);
 
         let options = [
             (
@@ -594,7 +560,7 @@ impl Drop for Session {
     }
 }
 
-pub fn install_app<P: AsRef<path::Path>>(dev: *const am_device, app: P) -> Result<()> {
+pub fn install_app<P: AsRef<Path>>(dev: *const am_device, app: P) -> Result<()> {
     unsafe {
         let _session = ensure_session(dev)?;
         let path = app.as_ref().to_str().ok_or("failure to convert")?;
@@ -682,7 +648,7 @@ fn start_lldb_proxy(fd: c_int) -> Result<u16> {
     Ok(addr.port())
 }
 
-fn launch_lldb_device<P: AsRef<path::Path>, P2: AsRef<path::Path>>(
+fn launch_lldb_device<P: AsRef<Path>, P2: AsRef<Path>>(
     dev: *const am_device,
     proxy: &str,
     local: P,
@@ -798,7 +764,7 @@ fn launch_lldb_simulator(
 }
 
 
-pub fn run_remote<P: AsRef<path::Path>>(
+pub fn run_remote<P: AsRef<Path>>(
     dev: *const am_device,
     lldb_proxy: &str,
     app_path: P,

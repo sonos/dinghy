@@ -1,5 +1,5 @@
 use errors::*;
-use device;
+use device::make_app;
 use platform::regular_platform::RegularPlatform;
 use project::Project;
 use std::env;
@@ -11,11 +11,10 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use utils::path_to_str;
 use Build;
-use Device;
-use PlatformManager;
-use DeviceCompatibility;
-use Platform;
 use BuildBundle;
+use Device;
+use DeviceCompatibility;
+use PlatformManager;
 use Runnable;
 
 #[derive(Debug)]
@@ -109,7 +108,7 @@ impl Device for AndroidDevice {
     }
 
     fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
-        let build_bundle = device::make_app(project, build, runnable)?;
+        let build_bundle = make_app(project, build, runnable)?;
         let remote_bundle = AndroidDevice::to_remote_bundle(&build_bundle)?;
 
         self.sync(&build_bundle.bundle_dir, &remote_bundle.bundle_dir.parent()
@@ -126,10 +125,6 @@ impl Device for AndroidDevice {
 
     fn name(&self) -> &str {
         "android device"
-    }
-
-    fn platform(&self) -> Result<Box<Platform>> {
-        unimplemented!()
     }
 
     fn run_app(&self, build_bundle: &BuildBundle, args: &[&str], envs: &[&str]) -> Result<()> {
