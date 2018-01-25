@@ -30,8 +30,6 @@ pub mod compiler;
 pub mod config;
 pub mod device;
 pub mod errors;
-#[cfg(target_os = "macos")]
-pub mod ios;
 pub mod overlay;
 pub mod platform;
 pub mod project;
@@ -44,10 +42,11 @@ use config::Configuration;
 use config::PlatformConfiguration;
 use device::android::AndroidManager;
 use device::host::HostManager;
+use device::ios::IosManager;
 use device::ssh::SshDeviceManager;
-#[cfg(target_os = "macos")]
-use ios::IosPlatform;
 use platform::host::HostPlatform;
+#[cfg(target_os = "macos")]
+use platform::ios::IosPlatform;
 use platform::regular_platform::RegularPlatform;
 use project::Project;
 use std::fmt::Debug;
@@ -93,8 +92,8 @@ impl Dinghy {
     }
 
     #[cfg(target_os = "macos")]
-    fn new_ios_manager() -> Option<Box<ios::IosManager>> {
-        ios::IosManager::new().unwrap_or(None).map(|it| Box::new(it) as Box<ios::IosManager>)
+    fn new_ios_manager() -> Option<Box<IosManager>> {
+        IosManager::new().unwrap_or(None).map(|it| Box::new(it) as Box<IosManager>)
     }
 
     pub fn discover_platforms(conf: &Configuration) -> Result<Vec<(String, Arc<Box<Platform>>)>> {
@@ -127,7 +126,7 @@ impl Dinghy {
 
     #[cfg(target_os = "macos")]
     fn discover_ios_platform(rustc_triple: &str) -> Result<Box<Platform>> {
-        Some(Arc::new(IosPlatform::new(rustc_triple.clone())))
+        Ok(IosPlatform::new(rustc_triple.clone())?)
     }
 
     #[cfg(not(target_os = "macos"))]
@@ -177,8 +176,6 @@ pub trait Device: Debug + Display + DeviceCompatibility {
     fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle>;
 
     fn name(&self) -> &str;
-
-    fn platform(&self) -> Result<Box<Platform>>;
 
     fn run_app(&self, build_bundle: &BuildBundle, args: &[&str], envs: &[&str]) -> Result<()>;
 

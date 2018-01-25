@@ -8,6 +8,8 @@ use Runnable;
 
 pub mod android;
 pub mod host;
+#[cfg(target_os = "macos")]
+pub mod ios;
 pub mod ssh;
 
 fn make_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
