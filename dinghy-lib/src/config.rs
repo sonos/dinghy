@@ -160,13 +160,17 @@ pub fn dinghy_config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
     let dir = dir.as_ref().to_path_buf();
     let mut d = dir.as_path();
     while d.parent().is_some() {
+        files_to_try.push(d.join("dinghy.toml"));
         files_to_try.push(d.join(".dinghy.toml"));
+        files_to_try.push(d.join(".dinghy").join("dinghy.toml"));
         files_to_try.push(d.join(".dinghy").join(".dinghy.toml"));
         d = d.parent().unwrap();
     }
     files_to_try.push(d.join(".dinghy.toml"));
     if let Some(home) = ::std::env::home_dir() {
+        files_to_try.push(home.join("dinghy.toml"));
         files_to_try.push(home.join(".dinghy.toml"));
+        files_to_try.push(home.join(".dhinghy").join("dinghy.toml"));
         files_to_try.push(home.join(".dhinghy").join(".dinghy.toml"));
     }
     for file in files_to_try {
