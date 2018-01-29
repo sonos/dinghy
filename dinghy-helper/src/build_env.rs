@@ -19,7 +19,7 @@ pub fn append_path_to_target_env<K: AsRef<OsStr>, R: AsRef<str>, V: AsRef<OsStr>
     append_path_to_env(target_key_from_triple(k, rustc_triple), v.as_ref())
 }
 
-pub fn env_rerun_if_changed(name: &str) -> Result<String> {
+pub fn build_env(name: &str) -> Result<String> {
     println!("cargo:rerun-if-env-changed={}", name);
     Ok(env::var(name)?)
 }
@@ -62,15 +62,15 @@ pub fn target_env(var_base: &str) -> Result<String> {
         let is_host = env::var("HOST")? == target;
         target_env_from_triple(var_base, target.as_str(), is_host)
     } else {
-        env_rerun_if_changed(var_base)
+        build_env(var_base)
     }
 }
 
 fn target_env_from_triple(var_base: &str, triple: &str, is_host: bool) -> Result<String> {
-    env_rerun_if_changed(&format!("{}_{}", var_base, triple))
-        .or_else(|_| env_rerun_if_changed(&format!("{}_{}", var_base, triple.replace("-", "_"))))
-        .or_else(|_| env_rerun_if_changed(&format!("{}_{}", if is_host { "HOST" } else { "TARGET" }, var_base)))
-        .or_else(|_| env_rerun_if_changed(var_base))
+    build_env(&format!("{}_{}", var_base, triple))
+        .or_else(|_| build_env(&format!("{}_{}", var_base, triple.replace("-", "_"))))
+        .or_else(|_| build_env(&format!("{}_{}", if is_host { "HOST" } else { "TARGET" }, var_base)))
+        .or_else(|_| build_env(var_base))
 }
 
 fn target_key_from_triple<K: AsRef<OsStr>, R: AsRef<str>>(k: K, rustc_triple: Option<R>) -> OsString {
