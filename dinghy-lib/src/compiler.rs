@@ -75,7 +75,7 @@ impl ProjectMetadata {
 }
 
 fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, CompileMode) -> Result<Build>> {
-    let all = matches.is_present("ALL") || !matches.is_present("SPEC");
+    let all = matches.is_present("ALL");
     let all_features = matches.is_present("ALL_FEATURES");
     let benches = arg_as_string_vec(matches, "BENCH");
     let bins = arg_as_string_vec(matches, "BIN");
@@ -112,7 +112,7 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, CompileMod
                                        &compile_config)?;
 
         let project_metadata_list = workskpace_metadata(&workspace)?;
-        let excludes = if all {
+        let excludes = if all || workspace.is_virtual() {
             exclude_by_target_triple(rustc_triple,
                                      project_metadata_list.as_slice(),
                                      excludes.as_slice())
