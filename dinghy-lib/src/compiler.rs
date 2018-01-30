@@ -11,6 +11,7 @@ use cargo::util::config::Config as CompileConfig;
 use clap::ArgMatches;
 use itertools::Itertools;
 use std::collections::HashSet;
+use std::env;
 use std::env::current_dir;
 use std::fs::File;
 use std::io::prelude::*;
@@ -158,7 +159,9 @@ fn to_build(compilation: Compilation,
     match build_args.compile_mode {
         CompileMode::Build => {
             Ok(Build {
-                dynamic_libraries: find_dynamic_libraries(&compilation, compile_config)?,
+                dynamic_libraries: find_dynamic_libraries(&compilation,
+                                                          compile_config,
+                                                          build_args)?,
                 runnables: compilation.binaries
                     .iter()
                     .map(|exe_path| {
@@ -179,7 +182,9 @@ fn to_build(compilation: Compilation,
 
         _ => {
             Ok(Build {
-                dynamic_libraries: find_dynamic_libraries(&compilation, compile_config)?,
+                dynamic_libraries: find_dynamic_libraries(&compilation,
+                                                          compile_config,
+                                                          build_args)?,
                 runnables: compilation.tests
                     .iter()
                     .map(|&(ref pkg, _, _, ref exe_path)| {
@@ -217,20 +222,20 @@ fn exclude_by_target_triple(rustc_triple: Option<&str>, project_metadata_list: &
 // Note: This looks highly imperfect and prone to failure (like if multiple version of
 // the same dependency are available). Need improvement.
 fn find_dynamic_libraries(compilation: &Compilation,
-                          compile_config: &CompileConfig) -> Result<Vec<PathBuf>> {
+                          compile_config: &CompileConfig,
+                          build_args: BuildArgs) -> Result<Vec<PathBuf>> {
     let linker = match linker(compilation, compile_config) {
         Ok(linker) => linker,
         Err(_) => return Ok(vec![]), // On host so we don't care
     };
+    let linked_library_names = find_all_linked_library_names(compilation, build_args)?;
     let rustc_triple = compilation.target.as_str();
     let sysroot = PathBuf::from(String::from_utf8(
         Command::new(&linker).arg("-print-sysroot")
             .output()
             .chain_err(|| format!("Error while checking libraries using linker {}", linker.display()))?
             .stdout)?.trim());
-    let sysroot = sysroot.as_path();
 
-    let linked_library_names = find_all_linked_library_names(compilation)?;
     let is_library_linked_to_project = move |path: &PathBuf| -> bool {
         path.file_name()
             .and_then(|file_name| file_name.to_str())
@@ -252,7 +257,7 @@ fn find_dynamic_libraries(compilation: &Compilation,
         .map(strip_annoying_prefix)
         .chain(library_dirs(&compilation, compile_config)?.into_iter())
         .inspect(|path| debug!("Checking library path {}", path.display()))
-        .filter(move |path| !is_system_path(sysroot, path).unwrap_or(true))
+        .filter(move |path| !is_system_path(sysroot.as_path(), path).unwrap_or(true))
         .inspect(|path| debug!("{} is not a system library path", path.display()))
         .flat_map(|path| WalkDir::new(path).into_iter())
         .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
@@ -262,7 +267,7 @@ fn find_dynamic_libraries(compilation: &Compilation,
         .collect())
 }
 
-fn find_all_linked_library_names(compilation: &Compilation) -> Result<Vec<String>> {
+fn find_all_linked_library_names(compilation: &Compilation, build_args: BuildArgs) -> Result<HashSet<String>> {
     fn is_output_file(file_path: &PathBuf) -> bool {
         file_path.is_file() && file_path.file_name()
             .and_then(|it| it.to_str())
@@ -283,6 +288,7 @@ fn find_all_linked_library_names(compilation: &Compilation) -> Result<Vec<String
         .flatten()
         .map(|lib_name| lib_name.clone())
         .map(parse_lib_name)
+        .chain(build_args.forced_overlays)
         .collect())
 }
 
@@ -323,6 +329,11 @@ pub fn library_dirs(compilation: &Compilation, compile_config: &CompileConfig) -
 }
 
 fn linker(compilation: &Compilation, compile_config: &CompileConfig) -> Result<PathBuf> {
+    if let Ok(target_sysroot) = env::var("TARGET_SYSROOT") {
+        return Ok(PathBuf::from(target_sysroot));
+    }
+
+    // As a last resort use cargo config
     let linker = compile_config.get_path(&format!("target.{}.linker", compilation.target))?;
     if let Some(linker) = linker {
         let linker = linker.val;

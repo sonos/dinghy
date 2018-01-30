@@ -224,8 +224,8 @@ pub struct Build {
 #[derive(Clone, Debug)]
 pub struct BuildArgs {
     pub compile_mode: CompileMode,
-    pub debug: bool,
-    pub overlays: Vec<String>,
+    pub verbose: bool,
+    pub forced_overlays: Vec<String>,
 }
 
 #[derive(Clone, Debug, Default)]

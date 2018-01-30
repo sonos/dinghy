@@ -82,7 +82,7 @@ impl AndroidDevice {
 
 impl DeviceCompatibility for AndroidDevice {
     fn is_compatible_with_regular_platform(&self, platform: &RegularPlatform) -> bool {
-        self.supported_targets.contains(&platform.toolchain.tc_triple.as_str())
+        self.supported_targets.contains(&platform.toolchain.toolchain_triple.as_str())
     }
 }
 
