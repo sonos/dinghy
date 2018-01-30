@@ -39,7 +39,8 @@ impl CargoDinghyCli {
                     .common_remote()
                     .target()
                     .verbose()
-                    .additional_args())
+                    .additional_args()
+                    .overlay())
 
                 .subcommand(SubCommand::with_name("build")
                     .about("Compile the current project")
@@ -80,7 +81,8 @@ impl CargoDinghyCli {
                     .target()
                     .verbose()
                     .common_remote()
-                    .additional_args())
+                    .additional_args()
+                    .overlay())
 
                 .subcommand(SubCommand::with_name("test")
                     .about("Run the tests")
@@ -101,7 +103,8 @@ impl CargoDinghyCli {
                     .verbose()
                     .no_fail_fast()
                     .common_remote()
-                    .additional_args())
+                    .additional_args()
+                    .overlay())
         }.get_matches_from(args)
     }
 
