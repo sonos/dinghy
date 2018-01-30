@@ -9,6 +9,7 @@ use cargo::ops::Packages as CompilePackages;
 use cargo::ops as CargoOps;
 use cargo::util::config::Config as CompileConfig;
 use clap::ArgMatches;
+use dinghy_helper::build_env::target_env_from_triple;
 use itertools::Itertools;
 use std::collections::HashSet;
 use std::env::current_dir;
@@ -251,10 +252,10 @@ fn find_dynamic_libraries(compilation: &Compilation,
             .unwrap_or(false)
     };
 
-    Ok(compilation.native_dirs // Should better use output files instead of deprecated native_dirs
-        .iter()
+    Ok(compilation.native_dirs.iter() // Should better use output files instead of deprecated native_dirs
         .map(strip_annoying_prefix)
         .chain(linker_lib_dirs(&compilation, compile_config)?.into_iter())
+        .chain(overlay_lib_dirs(rustc_triple)?.into_iter())
         .inspect(|path| debug!("Checking library path {}", path.display()))
         .filter(move |path| !is_system_path(sysroot.as_path(), path).unwrap_or(true))
         .inspect(|path| debug!("{} is not a system library path", path.display()))
@@ -327,6 +328,13 @@ pub fn linker_lib_dirs(compilation: &Compilation, compile_config: &CompileConfig
         }
     }
     Ok(paths)
+}
+
+pub fn overlay_lib_dirs(rustc_triple: &str) -> Result<Vec<PathBuf>> {
+    Ok(target_env_from_triple("PKG_CONFIG_LIBDIR", rustc_triple, false).unwrap_or("".to_string())
+        .split(":")
+        .map(|it| PathBuf::from(it))
+        .collect())
 }
 
 fn linker(compilation: &Compilation, compile_config: &CompileConfig) -> Result<PathBuf> {
