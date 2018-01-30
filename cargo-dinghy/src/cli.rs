@@ -17,6 +17,7 @@ impl CargoDinghyCli {
                 .version(crate_version!())
                 .device()
                 .verbose()
+                .overlay()
                 .platform()
 
                 .subcommand(SubCommand::with_name("all-devices")
@@ -39,8 +40,7 @@ impl CargoDinghyCli {
                     .common_remote()
                     .target()
                     .verbose()
-                    .additional_args()
-                    .overlay())
+                    .additional_args())
 
                 .subcommand(SubCommand::with_name("build")
                     .about("Compile the current project")
@@ -59,8 +59,7 @@ impl CargoDinghyCli {
                     .no_default_features()
                     .target()
                     .verbose()
-                    .additional_args()
-                    .overlay())
+                    .additional_args())
 
                 .subcommand(SubCommand::with_name("devices")
                     .about("List devices that can be used with Dinghy for the selected platform"))
@@ -81,8 +80,7 @@ impl CargoDinghyCli {
                     .target()
                     .verbose()
                     .common_remote()
-                    .additional_args()
-                    .overlay())
+                    .additional_args())
 
                 .subcommand(SubCommand::with_name("test")
                     .about("Run the tests")
@@ -103,8 +101,7 @@ impl CargoDinghyCli {
                     .verbose()
                     .no_fail_fast()
                     .common_remote()
-                    .additional_args()
-                    .overlay())
+                    .additional_args())
         }.get_matches_from(args)
     }
 
@@ -115,7 +112,7 @@ impl CargoDinghyCli {
                 ("test", Some(_)) => CompileMode::Test,
                 _ => CompileMode::Build,
             },
-            forced_overlays: arg_as_string_vec(matches, "SPEC"),
+            forced_overlays: arg_as_string_vec(matches, "OVERLAY"),
             verbose: matches.occurrences_of("VERBOSE") > 0,
         }
     }
