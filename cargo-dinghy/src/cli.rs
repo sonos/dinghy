@@ -112,8 +112,8 @@ impl CargoDinghyCli {
                 ("test", Some(_)) => CompileMode::Test,
                 _ => CompileMode::Build,
             },
-            debug: matches.is_present("DEBUGGER"),
-            overlays: arg_as_string_vec(matches, "SPEC"),
+            forced_overlays: arg_as_string_vec(matches, "SPEC"),
+            verbose: matches.occurrences_of("VERBOSE") > 0,
         }
     }
 }

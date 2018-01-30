@@ -54,13 +54,13 @@ pub struct ToolchainConfig {
     pub root: PathBuf,
     pub rustc_triple: String,
     pub sysroot: PathBuf,
-    pub tc_triple: String,
+    pub toolchain_triple: String,
 }
 
 impl ToolchainConfig {
     pub fn executable(&self, name_without_triple: &str) -> String {
         self.bin
-            .join(format!("{}-{}", self.tc_triple, name_without_triple))
+            .join(format!("{}-{}", self.toolchain_triple, name_without_triple))
             .to_string_lossy()
             .to_string()
     }
@@ -109,7 +109,7 @@ impl ToolchainConfig {
             let exe_path = exe.path();
             let exe_path = exe_path.to_string_lossy(); // Rust and paths = 💩💩💩
 
-            let rustified_exe = &exe_file_name.to_string_lossy().replace(self.tc_triple.as_str(),
+            let rustified_exe = &exe_file_name.to_string_lossy().replace(self.toolchain_triple.as_str(),
                                                                          self.rustc_triple.as_str());
             trace!("Shim {} -> {}", exe_path, rustified_exe);
             create_shim(root,

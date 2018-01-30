@@ -56,7 +56,7 @@ impl RegularPlatform {
                 rustc_triple,
                 root: toolchain_path.into(),
                 sysroot,
-                tc_triple,
+                toolchain_triple: tc_triple,
             },
         }))
     }
@@ -83,10 +83,17 @@ impl Platform for RegularPlatform {
 
         self.toolchain.setup_ar(&self.toolchain.executable("ar"))?;
         self.toolchain.setup_cc(&self.id, &self.toolchain.executable("gcc"))?;
-        self.toolchain.setup_linker(&self.id,
-                                    &format!("{} --sysroot {}", // TODO Debug  -Wl,--verbose -v
-                                             &self.toolchain.executable("gcc"),
-                                             &self.toolchain.sysroot.display()))?;
+
+        let mut linker_cmd = self.toolchain.executable("gcc");
+        linker_cmd.push_str(" ");
+        if build_args.verbose { linker_cmd.push_str("-Wl,--verbose -v") }
+        linker_cmd.push_str(&format!(" --sysroot {}", self.toolchain.sysroot.display()));
+        for forced_overlay in &build_args.forced_overlays {
+            linker_cmd.push_str(" -l");
+            linker_cmd.push_str(&forced_overlay);
+        }
+        self.toolchain.setup_linker(&self.id, &linker_cmd)?;
+
         self.toolchain.setup_pkg_config()?;
         self.toolchain.setup_sysroot();
         self.toolchain.shim_executables(&self.id)?;
