@@ -329,11 +329,6 @@ pub fn library_dirs(compilation: &Compilation, compile_config: &CompileConfig) -
 }
 
 fn linker(compilation: &Compilation, compile_config: &CompileConfig) -> Result<PathBuf> {
-    if let Ok(target_sysroot) = env::var("TARGET_SYSROOT") {
-        return Ok(PathBuf::from(target_sysroot));
-    }
-
-    // As a last resort use cargo config
     let linker = compile_config.get_path(&format!("target.{}.linker", compilation.target))?;
     if let Some(linker) = linker {
         let linker = linker.val;
