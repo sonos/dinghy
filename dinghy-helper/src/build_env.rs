@@ -66,7 +66,7 @@ pub fn target_env(var_base: &str) -> Result<String> {
     }
 }
 
-fn target_env_from_triple(var_base: &str, triple: &str, is_host: bool) -> Result<String> {
+pub fn target_env_from_triple(var_base: &str, triple: &str, is_host: bool) -> Result<String> {
     build_env(&format!("{}_{}", var_base, triple))
         .or_else(|_| build_env(&format!("{}_{}", var_base, triple.replace("-", "_"))))
         .or_else(|_| build_env(&format!("{}_{}", if is_host { "HOST" } else { "TARGET" }, var_base)))

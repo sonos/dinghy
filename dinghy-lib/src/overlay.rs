@@ -143,7 +143,10 @@ impl Overlayer {
                 append_path_to_target_env("PKG_CONFIG_LIBDIR", self.rustc_triple.as_ref(), pkg_config_path);
                 has_pkg_config_files = true;
             }
-            if !has_pkg_config_files { self.generate_pkg_config_file(&overlay)?; }
+            if !has_pkg_config_files {
+                self.generate_pkg_config_file(&overlay)?;
+                append_path_to_target_env("PKG_CONFIG_LIBDIR", self.rustc_triple.as_ref(), &overlay.path);
+            }
 
             // Override the 'prefix' pkg-config variable for the specified overlay only.
             set_env_ifndef(envify(format!("PKG_CONFIG_{}_PREFIX", overlay.id)),
