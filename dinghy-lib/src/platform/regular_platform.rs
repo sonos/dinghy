@@ -1,5 +1,4 @@
 use compiler::Compiler;
-use compiler::CompileMode;
 use config::PlatformConfiguration;
 use dinghy_helper::build_env::set_all_env;
 use overlay::Overlayer;
@@ -9,6 +8,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use toolchain::ToolchainConfig;
 use Build;
+use BuildArgs;
 use Device;
 use Platform;
 use Result;
@@ -69,7 +69,7 @@ impl Display for RegularPlatform {
 }
 
 impl Platform for RegularPlatform {
-    fn build(&self, compiler: &Compiler, compile_mode: CompileMode) -> Result<Build> {
+    fn build(&self, compiler: &Compiler, build_args: BuildArgs) -> Result<Build> {
         // Cleanup environment
         set_all_env(&[
             ("LIBRARY_PATH", ""),
@@ -91,7 +91,7 @@ impl Platform for RegularPlatform {
         self.toolchain.setup_sysroot();
         self.toolchain.shim_executables(&self.id)?;
 
-        compiler.build(self.rustc_triple(), compile_mode)
+        compiler.build(self.rustc_triple(), build_args)
     }
 
     fn id(&self) -> String {

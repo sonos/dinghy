@@ -1,8 +1,8 @@
 use compiler::Compiler;
-use compiler::CompileMode;
 use config::PlatformConfiguration;
 use overlay::Overlayer;
 use Build;
+use BuildArgs;
 use Device;
 use Platform;
 use Result;
@@ -29,11 +29,11 @@ impl HostPlatform {
 }
 
 impl Platform for HostPlatform {
-    fn build(&self, compiler: &Compiler, compile_mode: CompileMode) -> Result<Build> {
+    fn build(&self, compiler: &Compiler, build_args: BuildArgs) -> Result<Build> {
         Overlayer::new(self, "/", compiler.target_dir(self.rustc_triple())?.join(&self.id))
             .overlay(&self.configuration, compiler.project_dir()?)?;
 
-        compiler.build(None, compile_mode)
+        compiler.build(None, build_args)
     }
 
     fn id(&self) -> String {

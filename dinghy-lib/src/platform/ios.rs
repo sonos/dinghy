@@ -1,10 +1,10 @@
 use compiler::Compiler;
-use compiler::CompileMode;
 use errors::*;
 use std::fmt::Display;
 use std::process;
 use toolchain::Toolchain;
 use Build;
+use BuildArgs;
 use Device;
 use Platform;
 
@@ -38,13 +38,13 @@ impl IosPlatform {
 }
 
 impl Platform for IosPlatform {
-    fn build(&self, compiler: &Compiler, compile_mode: CompileMode) -> Result<Build> {
+    fn build(&self, compiler: &Compiler, build_args: BuildArgs) -> Result<Build> {
         self.toolchain.setup_cc(self.id().as_str(), "gcc")?;
         self.toolchain.setup_linker(self.id().as_str(),
                                     format!("cc -isysroot {}",
                                             self.linker_command()?.as_str()).as_str())?;
 
-        compiler.build(self.rustc_triple(), compile_mode)
+        compiler.build(self.rustc_triple(), build_args)
     }
 
     fn id(&self) -> String {
