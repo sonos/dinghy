@@ -2,6 +2,8 @@ use clap::App;
 use clap::Arg;
 use clap::ArgMatches;
 use clap::SubCommand;
+use dinghy_lib::compiler::CompileMode;
+use dinghy_lib::BuildArgs;
 use std::ffi::OsString;
 
 pub struct CargoDinghyCli {}
@@ -56,7 +58,8 @@ impl CargoDinghyCli {
                     .no_default_features()
                     .target()
                     .verbose()
-                    .additional_args())
+                    .additional_args()
+                    .overlay())
 
                 .subcommand(SubCommand::with_name("devices")
                     .about("List devices that can be used with Dinghy for the selected platform"))
@@ -101,6 +104,18 @@ impl CargoDinghyCli {
                     .additional_args())
         }.get_matches_from(args)
     }
+
+    pub fn build_args_from(matches: &ArgMatches) -> BuildArgs {
+        BuildArgs {
+            compile_mode: match matches.subcommand() {
+                ("bench", Some(_)) => CompileMode::Bench,
+                ("test", Some(_)) => CompileMode::Test,
+                _ => CompileMode::Build,
+            },
+            debug: matches.is_present("DEBUGGER"),
+            overlays: arg_as_string_vec(matches, "SPEC"),
+        }
+    }
 }
 
 pub trait CargoDinghyCliExt {
@@ -118,6 +133,7 @@ pub trait CargoDinghyCliExt {
     fn lib(self) -> Self;
     fn no_default_features(self) -> Self;
     fn no_fail_fast(self) -> Self;
+    fn overlay(self) -> Self;
     fn package(self) -> Self;
     fn platform(self) -> Self;
     fn release(self) -> Self;
@@ -243,6 +259,16 @@ impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
             .help("Package to bench, build, run or test"))
     }
 
+    fn overlay(self) -> Self {
+        self.arg(Arg::with_name("OVERLAY")
+            .short("o")
+            .long("overlay")
+            .takes_value(true)
+            .multiple(true)
+            .number_of_values(1)
+            .help("Force the use of an overlay during project build"))
+    }
+
     fn platform(self) -> Self {
         self.arg(Arg::with_name("PLATFORM")
             .long("platform")
@@ -277,4 +303,10 @@ impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
             .multiple(true)
             .help("Sets the level of verbosity"))
     }
+}
+
+fn arg_as_string_vec(matches: &ArgMatches, option: &str) -> Vec<String> {
+    matches.values_of(option)
+        .map(|vs| vs.map(|s| s.to_string()).collect())
+        .unwrap_or(vec![])
 }

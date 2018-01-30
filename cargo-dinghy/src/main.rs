@@ -17,7 +17,6 @@ use std::time;
 use clap::ArgMatches;
 use cli::CargoDinghyCli;
 use dinghy_lib::compiler::Compiler;
-use dinghy_lib::compiler::CompileMode;
 use dinghy_lib::config::dinghy_config;
 use dinghy_lib::utils::arg_as_string_vec;
 use dinghy_lib::device::host::HostDevice;
@@ -64,34 +63,30 @@ fn run_command(args: ArgMatches) -> Result<()> {
 
     match args.subcommand() {
         ("all-devices", Some(_)) => show_all_devices(&dinghy),
-        ("bench", Some(sub_args)) => prepare_and_run(device, project, platform, "bench", sub_args),
+        ("bench", Some(sub_args)) => prepare_and_run(device, project, platform, sub_args),
         ("build", Some(sub_args)) => build(platform, sub_args),
         ("devices", Some(_)) => show_all_devices_for_platform(&dinghy, platform),
         ("lldbproxy", Some(_)) => run_lldb(device),
-        ("run", Some(sub_args)) => prepare_and_run(device, project, platform, "run", sub_args),
-        ("test", Some(sub_args)) => prepare_and_run(device, project, platform, "test", sub_args),
+        ("run", Some(sub_args)) => prepare_and_run(device, project, platform, sub_args),
+        ("test", Some(sub_args)) => prepare_and_run(device, project, platform, sub_args),
         (sub, _) => Err(format!("Unknown dinghy command '{}'", sub))?,
     }
 }
 
 fn build(platform: Arc<Box<Platform>>, sub_args: &ArgMatches) -> Result<()> {
-    platform.build(&Compiler::from_args(sub_args), CompileMode::Build).and(Ok(()))
+    platform.build(&Compiler::from_args(sub_args),
+                   CargoDinghyCli::build_args_from(sub_args))
+        .and(Ok(()))
 }
 
 fn prepare_and_run(
     device: Option<Arc<Box<Device>>>,
     project: Project,
     platform: Arc<Box<Platform>>,
-    subcommand: &str,
     sub_args: &ArgMatches,
 ) -> Result<()> {
-    let mode = match subcommand {
-        "test" => CompileMode::Test,
-        "bench" => CompileMode::Bench,
-        _ => CompileMode::Build,
-    };
-
-    let build = platform.build(&Compiler::from_args(sub_args), mode)?;
+    let build = platform.build(&Compiler::from_args(sub_args),
+                               CargoDinghyCli::build_args_from(sub_args))?;
     let args = arg_as_string_vec(sub_args, "ARGS");
     let envs = arg_as_string_vec(sub_args, "ENVS");
     let no_fail_fast = sub_args.is_present("NO_FAIL_FAST");

@@ -199,7 +199,7 @@ pub trait DeviceCompatibility {
 }
 
 pub trait Platform: Debug {
-    fn build(&self, compiler: &Compiler, compile_mode: CompileMode) -> Result<Build>;
+    fn build(&self, compiler: &Compiler, build_args: BuildArgs) -> Result<Build>;
 
     fn id(&self) -> String;
 
@@ -212,11 +212,20 @@ pub trait PlatformManager {
     fn devices(&self) -> Result<Vec<Box<Device>>>;
 }
 
+
 #[derive(Clone, Debug, Default)]
 pub struct Build {
     pub dynamic_libraries: Vec<PathBuf>,
     pub runnables: Vec<Runnable>,
     pub target_path: PathBuf,
+}
+
+
+#[derive(Clone, Debug)]
+pub struct BuildArgs {
+    pub compile_mode: CompileMode,
+    pub debug: bool,
+    pub overlays: Vec<String>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -242,6 +251,7 @@ impl BuildBundle {
         })
     }
 }
+
 
 #[derive(Clone, Debug, Default)]
 pub struct Runnable {

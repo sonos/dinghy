@@ -23,23 +23,24 @@ use utils::arg_as_string_vec;
 use utils::is_library;
 use walkdir::WalkDir;
 use Build;
+use BuildArgs;
 use Result;
 use ResultExt;
 use Runnable;
 
 pub struct Compiler {
-    build_command: Box<Fn(Option<&str>, CompileMode) -> Result<Build>>,
+    build_command: Box<Fn(Option<&str>, BuildArgs) -> Result<Build>>,
 }
 
 impl Compiler {
-    pub fn from_args(matches: &ArgMatches) -> Compiler {
+    pub fn from_args(matches: &ArgMatches) -> Self {
         Compiler {
             build_command: create_build_command(matches),
         }
     }
 
-    pub fn build(&self, rustc_triple: Option<&str>, compile_mode: CompileMode) -> Result<Build> {
-        (self.build_command)(rustc_triple, compile_mode)
+    pub fn build(&self, rustc_triple: Option<&str>, build_args: BuildArgs) -> Result<Build> {
+        (self.build_command)(rustc_triple, build_args)
     }
 
     pub fn project_dir(&self) -> Result<PathBuf> {
@@ -74,7 +75,7 @@ impl ProjectMetadata {
     }
 }
 
-fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, CompileMode) -> Result<Build>> {
+fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs) -> Result<Build>> {
     let all = matches.is_present("ALL");
     let all_features = matches.is_present("ALL_FEATURES");
     let benches = arg_as_string_vec(matches, "BENCH");
@@ -97,8 +98,8 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, CompileMod
     let verbosity = matches.occurrences_of("VERBOSE") as u32;
     let tests = arg_as_string_vec(matches, "TEST");
 
-    Box::new(move |rustc_triple: Option<&str>, compile_mode: CompileMode| {
-        let release = compile_mode == CompileMode::Bench || release;
+    Box::new(move |rustc_triple: Option<&str>, build_args: BuildArgs| {
+        let release = build_args.compile_mode == CompileMode::Bench || release;
         let mut compile_config = CompileConfig::default()?;
         compile_config.configure(
             verbosity,
@@ -140,58 +141,62 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, CompileMod
                 false, // all_targets
             ),
             release,
-            mode: compile_mode,
+            mode: build_args.compile_mode,
             message_format: MessageFormat::Human,
             target_rustdoc_args: None,
             target_rustc_args: None,
         };
 
         let compilation = CargoOps::compile(&workspace, &options)?;
-        Ok(to_build(compilation, compile_mode, &compile_config)?)
+        Ok(to_build(compilation, &compile_config, build_args)?)
     })
 }
 
 fn to_build(compilation: Compilation,
-            compile_mode: CompileMode,
-            compile_config: &CompileConfig) -> Result<Build> {
-    if compile_mode == CompileMode::Build {
-        Ok(Build {
-            dynamic_libraries: find_dynamic_libraries(&compilation, compile_config)?,
-            runnables: compilation.binaries
-                .iter()
-                .map(|exe_path| {
-                    Ok(Runnable {
-                        exe: exe_path.clone(),
-                        id: exe_path.file_name()
-                            .ok_or(format!("Invalid executable file '{}'", &exe_path.display()))?
-                            .to_str()
-                            .ok_or(format!("Invalid executable file '{}'", &exe_path.display()))?
-                            .to_string(),
-                        source: PathBuf::from("."),
+            compile_config: &CompileConfig,
+            build_args: BuildArgs) -> Result<Build> {
+    match build_args.compile_mode {
+        CompileMode::Build => {
+            Ok(Build {
+                dynamic_libraries: find_dynamic_libraries(&compilation, compile_config)?,
+                runnables: compilation.binaries
+                    .iter()
+                    .map(|exe_path| {
+                        Ok(Runnable {
+                            exe: exe_path.clone(),
+                            id: exe_path.file_name()
+                                .ok_or(format!("Invalid executable file '{}'", &exe_path.display()))?
+                                .to_str()
+                                .ok_or(format!("Invalid executable file '{}'", &exe_path.display()))?
+                                .to_string(),
+                            source: PathBuf::from("."),
+                        })
                     })
-                })
-                .collect::<Result<Vec<_>>>()?,
-            target_path: compilation.root_output.clone(),
-        })
-    } else {
-        Ok(Build {
-            dynamic_libraries: find_dynamic_libraries(&compilation, compile_config)?,
-            runnables: compilation.tests
-                .iter()
-                .map(|&(ref pkg, _, _, ref exe_path)| {
-                    Ok(Runnable {
-                        exe: exe_path.clone(),
-                        id: exe_path.file_name()
-                            .ok_or(format!("Invalid executable file '{}'", &exe_path.display()))?
-                            .to_str()
-                            .ok_or(format!("Invalid executable file '{}'", &exe_path.display()))?
-                            .to_string(),
-                        source: pkg.root().to_path_buf(),
+                    .collect::<Result<Vec<_>>>()?,
+                target_path: compilation.root_output.clone(),
+            })
+        }
+
+        _ => {
+            Ok(Build {
+                dynamic_libraries: find_dynamic_libraries(&compilation, compile_config)?,
+                runnables: compilation.tests
+                    .iter()
+                    .map(|&(ref pkg, _, _, ref exe_path)| {
+                        Ok(Runnable {
+                            exe: exe_path.clone(),
+                            id: exe_path.file_name()
+                                .ok_or(format!("Invalid executable file '{}'", &exe_path.display()))?
+                                .to_str()
+                                .ok_or(format!("Invalid executable file '{}'", &exe_path.display()))?
+                                .to_string(),
+                            source: pkg.root().to_path_buf(),
+                        })
                     })
-                })
-                .collect::<Result<Vec<_>>>()?,
-            target_path: compilation.root_output.clone(),
-        })
+                    .collect::<Result<Vec<_>>>()?,
+                target_path: compilation.root_output.clone(),
+            })
+        }
     }
 }
 
