@@ -48,14 +48,14 @@ fn main() {
     };
     pretty_env_logger::init().unwrap();
 
-    if let Err(e) = run_command(matches) {
+    if let Err(e) = run_command(&matches) {
         error!("{}", e.display_chain());
         println!("{}", e.display_chain());
         std::process::exit(1);
     }
 }
 
-fn run_command(args: ArgMatches) -> Result<()> {
+fn run_command(args: &ArgMatches) -> Result<()> {
     let conf = Arc::new(dinghy_config(current_dir().unwrap())?);
     let dinghy = Dinghy::probe(&conf)?;
     let project = Project::new(&conf);
@@ -63,19 +63,19 @@ fn run_command(args: ArgMatches) -> Result<()> {
 
     match args.subcommand() {
         ("all-devices", Some(_)) => show_all_devices(&dinghy),
-        ("bench", Some(sub_args)) => prepare_and_run(device, project, platform, sub_args),
-        ("build", Some(sub_args)) => build(platform, sub_args),
+        ("bench", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
+        ("build", Some(sub_args)) => build(platform, args, sub_args),
         ("devices", Some(_)) => show_all_devices_for_platform(&dinghy, platform),
         ("lldbproxy", Some(_)) => run_lldb(device),
-        ("run", Some(sub_args)) => prepare_and_run(device, project, platform, sub_args),
-        ("test", Some(sub_args)) => prepare_and_run(device, project, platform, sub_args),
+        ("run", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
+        ("test", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
         (sub, _) => Err(format!("Unknown dinghy command '{}'", sub))?,
     }
 }
 
-fn build(platform: Arc<Box<Platform>>, sub_args: &ArgMatches) -> Result<()> {
+fn build(platform: Arc<Box<Platform>>, args: &ArgMatches, sub_args: &ArgMatches) -> Result<()> {
     platform.build(&Compiler::from_args(sub_args),
-                   CargoDinghyCli::build_args_from(sub_args))
+                   CargoDinghyCli::build_args_from(args))
         .and(Ok(()))
 }
 
@@ -83,10 +83,11 @@ fn prepare_and_run(
     device: Option<Arc<Box<Device>>>,
     project: Project,
     platform: Arc<Box<Platform>>,
+    args: &ArgMatches,
     sub_args: &ArgMatches,
 ) -> Result<()> {
     let build = platform.build(&Compiler::from_args(sub_args),
-                               CargoDinghyCli::build_args_from(sub_args))?;
+                               CargoDinghyCli::build_args_from(args))?;
     let args = arg_as_string_vec(sub_args, "ARGS");
     let envs = arg_as_string_vec(sub_args, "ENVS");
     let no_fail_fast = sub_args.is_present("NO_FAIL_FAST");

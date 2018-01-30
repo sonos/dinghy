@@ -11,7 +11,6 @@ use cargo::util::config::Config as CompileConfig;
 use clap::ArgMatches;
 use itertools::Itertools;
 use std::collections::HashSet;
-use std::env;
 use std::env::current_dir;
 use std::fs::File;
 use std::io::prelude::*;
@@ -252,10 +251,10 @@ fn find_dynamic_libraries(compilation: &Compilation,
             .unwrap_or(false)
     };
 
-    Ok(compilation.native_dirs
+    Ok(compilation.native_dirs // Should better use output files instead of deprecated native_dirs
         .iter()
         .map(strip_annoying_prefix)
-        .chain(library_dirs(&compilation, compile_config)?.into_iter())
+        .chain(linker_lib_dirs(&compilation, compile_config)?.into_iter())
         .inspect(|path| debug!("Checking library path {}", path.display()))
         .filter(move |path| !is_system_path(sysroot.as_path(), path).unwrap_or(true))
         .inspect(|path| debug!("{} is not a system library path", path.display()))
@@ -279,7 +278,7 @@ fn find_all_linked_library_names(compilation: &Compilation, build_args: BuildArg
         lib_name.split("=").last().map(|it| it.to_string()).unwrap_or(lib_name)
     }
 
-    Ok(WalkDir::new(&compilation.root_output)
+    let linked_library_names = WalkDir::new(&compilation.root_output)
         .into_iter()
         .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
         .filter(is_output_file)
@@ -289,7 +288,9 @@ fn find_all_linked_library_names(compilation: &Compilation, build_args: BuildArg
         .map(|lib_name| lib_name.clone())
         .map(parse_lib_name)
         .chain(build_args.forced_overlays)
-        .collect())
+        .collect();
+    debug!("Found libraries {:?}", &linked_library_names);
+    Ok(linked_library_names)
 }
 
 fn is_system_path<P1: AsRef<Path>, P2: AsRef<Path>>(sysroot: P1, path: P2) -> Result<bool> {
@@ -304,7 +305,7 @@ fn is_system_path<P1: AsRef<Path>, P2: AsRef<Path>>(sysroot: P1, path: P2) -> Re
     Ok(is_system_path)
 }
 
-pub fn library_dirs(compilation: &Compilation, compile_config: &CompileConfig) -> Result<Vec<PathBuf>> {
+pub fn linker_lib_dirs(compilation: &Compilation, compile_config: &CompileConfig) -> Result<Vec<PathBuf>> {
     let linker = linker(compilation, compile_config)?;
     if !linker.exists() {
         return Ok(vec![]);
