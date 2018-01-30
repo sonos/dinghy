@@ -1,7 +1,9 @@
 use std::env;
 use std::ffi::OsStr;
 use std::ffi::OsString;
+use std::path::PathBuf;
 use super::Result;
+use super::ResultExt;
 
 pub fn append_path_to_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(key: K, value: V) {
     debug!("Appending {:?} to {:?}", value.as_ref(), key.as_ref());
@@ -55,6 +57,10 @@ pub fn set_env_ifndef<K: AsRef<OsStr>, V: AsRef<OsStr>>(k: K, v: V) {
 
 pub fn set_target_env<K: AsRef<OsStr>, R: AsRef<str>, V: AsRef<OsStr>>(k: K, rustc_triple: Option<R>, v: V) {
     set_env(target_key_from_triple(k, rustc_triple), v);
+}
+
+pub fn sysroot_path() -> Result<PathBuf> {
+    env::var_os("TARGET_SYSROOT").map(PathBuf::from).chain_err(|| "You must either define a TARGET_SYSROOT or use Dinghy to build your project.")
 }
 
 pub fn target_env(var_base: &str) -> Result<String> {

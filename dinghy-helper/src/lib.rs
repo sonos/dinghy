@@ -7,17 +7,18 @@ extern crate log;
 
 pub mod build;
 pub mod build_env;
-pub mod toolchain;
-mod utils;
+pub mod utils;
 
 use build::is_cross_compiling;
+use build_env::sysroot_path;
 use build_env::target_env;
 use std::env;
 use std::env::current_dir;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
-use toolchain::sysroot_path;
 use utils::path_to_str;
+use utils::path_between;
 
 error_chain! {
     foreign_links {
@@ -28,12 +29,21 @@ error_chain! {
 }
 
 pub trait CommandExt {
+    fn configure_prefix<P: AsRef<Path>>(&mut self, path: P) -> Result<&mut Command>;
+
     fn with_pkgconfig(&mut self) -> Result<&mut Command>;
 
     fn with_toolchain(&mut self) -> Result<&mut Command>;
 }
 
 impl CommandExt for Command {
+    fn configure_prefix<P: AsRef<Path>>(&mut self, prefix_dir: P) -> Result<&mut Command> {
+        self.args(&["--prefix", path_to_str(&path_between(
+            sysroot_path().unwrap_or(PathBuf::from("/")),
+            prefix_dir))?]);
+        Ok(self)
+    }
+
     fn with_pkgconfig(&mut self) -> Result<&mut Command> {
         if is_cross_compiling()? {
             if let Ok(value) = target_env("PKG_CONFIG_PATH") {

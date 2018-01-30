@@ -63,14 +63,3 @@ pub fn lib_name_from(file_path: &Path) -> Result<String> {
         Ok(file_name[start_index..end_index].to_string())
     }
 }
-
-pub fn path_between<P1: AsRef<Path>, P2: AsRef<Path>>(from: P1, to: P2) -> PathBuf {
-    let mut path = PathBuf::from("/");
-    for _ in from.as_ref() {
-        path.push("..");
-    }
-    for dir in to.as_ref().iter().skip(1) {
-        path.push(dir);
-    }
-    path
-}
