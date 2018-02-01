@@ -143,7 +143,7 @@ impl Dinghy {
     }
 
     #[cfg(not(target_os = "macos"))]
-    fn discover_ios_platform(_rustc_triple: &str) -> Result<Box<Platform>> {
+    fn discover_ios_platform(_rustc_triple: &str, _compiler: &Arc<Compiler>) -> Result<Box<Platform>> {
         unimplemented!()
     }
 
