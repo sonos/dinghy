@@ -2,21 +2,25 @@ use compiler::Compiler;
 use config::PlatformConfiguration;
 use dinghy_helper::build_env::set_all_env;
 use overlay::Overlayer;
+use overlay::overlay_work_dir;
+use std::sync::Arc;
 use Build;
 use BuildArgs;
 use Device;
 use Platform;
 use Result;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct HostPlatform {
+    compiler: Arc<Compiler>,
     pub configuration: PlatformConfiguration,
     pub id: String,
 }
 
 impl HostPlatform {
-    pub fn new(configuration: PlatformConfiguration) -> Result<Box<Platform>> {
+    pub fn new(compiler: &Arc<Compiler>, configuration: PlatformConfiguration) -> Result<Box<Platform>> {
         Ok(Box::new(HostPlatform {
+            compiler: compiler.clone(),
             configuration,
             id: "host".to_string(),
         }))
@@ -24,14 +28,14 @@ impl HostPlatform {
 }
 
 impl Platform for HostPlatform {
-    fn build(&self, compiler: &Compiler, build_args: BuildArgs) -> Result<Build> {
+    fn build(&self, build_args: BuildArgs) -> Result<Build> {
         // Set custom env variables specific to the platform
         set_all_env(&self.configuration.env());
 
-        Overlayer::new(self, "/", compiler.target_dir(self.rustc_triple())?.join(&self.id))
-            .overlay(&self.configuration, compiler.project_dir()?)?;
+        Overlayer::new(self, "/", overlay_work_dir(&self.compiler, self)?)
+            .overlay(&self.configuration, self.compiler.project_dir()?)?;
 
-        compiler.build(None, build_args)
+        self.compiler.build(None, build_args)
     }
 
     fn id(&self) -> String {

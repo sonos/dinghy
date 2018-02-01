@@ -1,6 +1,7 @@
 pub use cargo::ops::CompileMode;
 use cargo::util::important_paths::find_root_manifest_for_wd;
 use cargo::core::Workspace;
+use cargo::ops::CleanOptions;
 use cargo::ops::Compilation;
 use cargo::ops::CompileFilter;
 use cargo::ops::CompileOptions;
@@ -31,12 +32,16 @@ use Runnable;
 
 pub struct Compiler {
     build_command: Box<Fn(Option<&str>, BuildArgs) -> Result<Build>>,
+    clean_command: Box<Fn(Option<&str>, BuildArgs) -> Result<()>>,
+    run_command: Box<Fn(Option<&str>, BuildArgs, &[String]) -> Result<()>>,
 }
 
 impl Compiler {
     pub fn from_args(matches: &ArgMatches) -> Self {
         Compiler {
             build_command: create_build_command(matches),
+            clean_command: create_clean_command(matches),
+            run_command: create_run_command(matches),
         }
     }
 
@@ -101,17 +106,15 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs)
 
     Box::new(move |rustc_triple: Option<&str>, build_args: BuildArgs| {
         let release = build_args.compile_mode == CompileMode::Bench || release;
-        let mut compile_config = CompileConfig::default()?;
-        compile_config.configure(
-            verbosity,
-            None,
-            &None,
-            false,
-            false,
-            &[],
-        )?;
+        let mut config = CompileConfig::default()?;
+        config.configure(verbosity,
+                         None,
+                         &None,
+                         false,
+                         false,
+                         &[])?;
         let workspace = Workspace::new(&find_root_manifest_for_wd(None, &current_dir()?)?,
-                                       &compile_config)?;
+                                       &config)?;
 
         let project_metadata_list = workskpace_metadata(&workspace)?;
         let excludes = if all || workspace.is_virtual() {
@@ -121,7 +124,7 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs)
         } else { excludes.clone() };
 
         let options = CompileOptions {
-            config: &compile_config,
+            config: &config,
             jobs,
             target: rustc_triple,
             features: &*features,
@@ -149,18 +152,122 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs)
         };
 
         let compilation = CargoOps::compile(&workspace, &options)?;
-        Ok(to_build(compilation, &compile_config, build_args)?)
+        Ok(to_build(compilation, &config, build_args)?)
+    })
+}
+
+fn create_clean_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs) -> Result<()>> {
+    let packages = arg_as_string_vec(matches, "SPEC");
+    let release = matches.is_present("RELEASE");
+    let verbosity = matches.occurrences_of("VERBOSE") as u32;
+
+    Box::new(move |rustc_triple: Option<&str>, build_args: BuildArgs| {
+        let release = build_args.compile_mode == CompileMode::Bench || release;
+        let mut config = CompileConfig::default()?;
+        config.configure(verbosity,
+                         None,
+                         &None,
+                         false,
+                         false,
+                         &[])?;
+        let workspace = Workspace::new(&find_root_manifest_for_wd(None, &current_dir()?)?,
+                                       &config)?;
+
+        let options = CleanOptions {
+            config: &config,
+            release,
+            spec: packages.as_slice(),
+            target: rustc_triple,
+        };
+
+        CargoOps::clean(&workspace, &options)?;
+        Ok(())
+    })
+}
+
+fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs, &[String]) -> Result<()>> {
+    let all = matches.is_present("ALL");
+    let all_features = matches.is_present("ALL_FEATURES");
+    let benches = arg_as_string_vec(matches, "BENCH");
+    let bins = arg_as_string_vec(matches, "BIN");
+    let features: Vec<String> = matches
+        .value_of("FEATURES")
+        .unwrap_or("")
+        .split(" ")
+        .map(|s| s.into())
+        .collect();
+    let examples = arg_as_string_vec(matches, "EXAMPLE");
+    let excludes = arg_as_string_vec(matches, "EXCLUDE");
+    let jobs = matches
+        .value_of("JOBS")
+        .map(|v| v.parse::<u32>().unwrap());
+    let lib_only = matches.is_present("LIB");
+    let no_default_features = matches.is_present("NO_DEFAULT_FEATURES");
+    let packages = arg_as_string_vec(matches, "SPEC");
+    let release = matches.is_present("RELEASE");
+    let verbosity = matches.occurrences_of("VERBOSE") as u32;
+    let tests = arg_as_string_vec(matches, "TEST");
+
+    Box::new(move |rustc_triple: Option<&str>, build_args: BuildArgs, args: &[String]| {
+        let release = build_args.compile_mode == CompileMode::Bench || release;
+        let mut config = CompileConfig::default()?;
+        config.configure(verbosity,
+                         None,
+                         &None,
+                         false,
+                         false,
+                         &[])?;
+        let workspace = Workspace::new(&find_root_manifest_for_wd(None, &current_dir()?)?,
+                                       &config)?;
+
+        let project_metadata_list = workskpace_metadata(&workspace)?;
+        let excludes = if all || workspace.is_virtual() {
+            exclude_by_target_triple(rustc_triple,
+                                     project_metadata_list.as_slice(),
+                                     excludes.as_slice())
+        } else { excludes.clone() };
+
+        let options = CompileOptions {
+            config: &config,
+            jobs,
+            target: rustc_triple,
+            features: &*features,
+            all_features,
+            no_default_features,
+            spec: CompilePackages::from_flags(
+                workspace.is_virtual(),
+                all,
+                &excludes,
+                &packages,
+            )?,
+            filter: CompileFilter::new(
+                lib_only,
+                &bins, false,
+                &tests, false,
+                &examples, false,
+                &benches, false,
+                false, // all_targets
+            ),
+            release,
+            mode: build_args.compile_mode,
+            message_format: MessageFormat::Human,
+            target_rustdoc_args: None,
+            target_rustc_args: None,
+        };
+
+        CargoOps::run(&workspace, &options, args)?;
+        Ok(())
     })
 }
 
 fn to_build(compilation: Compilation,
-            compile_config: &CompileConfig,
+            config: &CompileConfig,
             build_args: BuildArgs) -> Result<Build> {
     match build_args.compile_mode {
         CompileMode::Build => {
             Ok(Build {
                 dynamic_libraries: find_dynamic_libraries(&compilation,
-                                                          compile_config,
+                                                          config,
                                                           build_args)?,
                 runnables: compilation.binaries
                     .iter()
@@ -183,7 +290,7 @@ fn to_build(compilation: Compilation,
         _ => {
             Ok(Build {
                 dynamic_libraries: find_dynamic_libraries(&compilation,
-                                                          compile_config,
+                                                          config,
                                                           build_args)?,
                 runnables: compilation.tests
                     .iter()
@@ -222,9 +329,9 @@ fn exclude_by_target_triple(rustc_triple: Option<&str>, project_metadata_list: &
 // Note: This looks highly imperfect and prone to failure (like if multiple version of
 // the same dependency are available). Need improvement.
 fn find_dynamic_libraries(compilation: &Compilation,
-                          compile_config: &CompileConfig,
+                          config: &CompileConfig,
                           build_args: BuildArgs) -> Result<Vec<PathBuf>> {
-    let linker = match linker(compilation, compile_config) {
+    let linker = match linker(compilation, config) {
         Ok(linker) => linker,
         Err(_) => return Ok(vec![]), // On host so we don't care
     };
@@ -254,7 +361,7 @@ fn find_dynamic_libraries(compilation: &Compilation,
 
     Ok(compilation.native_dirs.iter() // Should better use output files instead of deprecated native_dirs
         .map(strip_annoying_prefix)
-        .chain(linker_lib_dirs(&compilation, compile_config)?.into_iter())
+        .chain(linker_lib_dirs(&compilation, config)?.into_iter())
         .chain(overlay_lib_dirs(rustc_triple)?.into_iter())
         .inspect(|path| debug!("Checking library path {}", path.display()))
         .filter(move |path| !is_system_path(sysroot.as_path(), path).unwrap_or(true))
@@ -306,8 +413,8 @@ fn is_system_path<P1: AsRef<Path>, P2: AsRef<Path>>(sysroot: P1, path: P2) -> Re
     Ok(is_system_path)
 }
 
-pub fn linker_lib_dirs(compilation: &Compilation, compile_config: &CompileConfig) -> Result<Vec<PathBuf>> {
-    let linker = linker(compilation, compile_config)?;
+pub fn linker_lib_dirs(compilation: &Compilation, config: &CompileConfig) -> Result<Vec<PathBuf>> {
+    let linker = linker(compilation, config)?;
     if !linker.exists() {
         return Ok(vec![]);
     }

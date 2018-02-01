@@ -1,5 +1,5 @@
 use errors::*;
-use device::make_app;
+use device::make_remote_app;
 use platform::regular_platform::RegularPlatform;
 use project::Project;
 use std::env;
@@ -17,7 +17,6 @@ use DeviceCompatibility;
 use PlatformManager;
 use Runnable;
 
-#[derive(Debug)]
 pub struct AndroidDevice {
     adb: String,
     id: String,
@@ -49,7 +48,7 @@ impl AndroidDevice {
             id: id.into(),
             supported_targets: supported_targets,
         };
-        debug!("device: {:?}", device);
+        debug!("device: {}", device);
         Ok(device)
     }
 
@@ -108,7 +107,7 @@ impl Device for AndroidDevice {
     }
 
     fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
-        let build_bundle = make_app(project, build, runnable)?;
+        let build_bundle = make_remote_app(project, build, runnable)?;
         let remote_bundle = AndroidDevice::to_remote_bundle(&build_bundle)?;
 
         self.sync(&build_bundle.bundle_dir, &remote_bundle.bundle_dir.parent()
@@ -143,7 +142,7 @@ impl Device for AndroidDevice {
             .args(args)
             .status()?;
         if !status.success() {
-            Err("Test failed 📍")?
+            Err("Test failed 🐛")?
         }
         Ok(())
     }
@@ -199,7 +198,7 @@ impl PlatformManager for AndroidManager {
         for line in String::from_utf8(result.stdout)?.split("\n").skip(1) {
             if let Some(caps) = device_regex.captures(line) {
                 let d = AndroidDevice::from_id(self.adb.clone(), &caps[1])?;
-                debug!("Discovered Android device {:?}", d);
+                debug!("Discovered Android device {}", d);
                 devices.push(Box::new(d) as Box<Device>);
             }
         }

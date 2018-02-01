@@ -1,6 +1,6 @@
 use config::{Configuration, SshDeviceConfiguration};
 use errors::*;
-use device::make_app;
+use device::make_remote_app;
 use platform::regular_platform::RegularPlatform;
 use project::Project;
 use std::fmt;
@@ -18,7 +18,6 @@ use PlatformManager;
 use BuildBundle;
 use Runnable;
 
-#[derive(Debug, Clone)]
 pub struct SshDevice {
     id: String,
     conf: SshDeviceConfiguration,
@@ -92,7 +91,7 @@ impl Device for SshDevice {
     }
 
     fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
-        let build_bundle = make_app(project, build, runnable)?;
+        let build_bundle = make_remote_app(project, build, runnable)?;
         let remote_bundle = self.to_remote_bundle(&build_bundle)?;
 
         let _ = self.ssh_command()?
@@ -118,6 +117,7 @@ impl Device for SshDevice {
             path_to_str(&remote_bundle.lib_dir)?,
             path_to_str(&remote_bundle.bundle_exe)?);
         debug!("Running {}", command);
+
         let status = self.ssh_command()?
             .arg(&command)
             .args(args)

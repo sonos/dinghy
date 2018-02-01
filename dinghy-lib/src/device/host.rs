@@ -1,8 +1,11 @@
+use compiler::Compiler;
+use device::make_host_app;
 use platform::host::HostPlatform;
 use project::Project;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::sync::Arc;
 use Build;
 use BuildBundle;
 use Device;
@@ -11,56 +14,64 @@ use DeviceCompatibility;
 use Result;
 use Runnable;
 
-pub struct HostManager {}
+pub struct HostManager {
+    compiler: Arc<Compiler>
+}
 
 impl HostManager {
-    pub fn probe() -> Option<HostManager> {
-        Some(HostManager {})
+    pub fn probe(compiler: &Arc<Compiler>) -> Option<HostManager> {
+        Some(HostManager {
+            compiler: compiler.clone(),
+        })
     }
 }
 
 impl PlatformManager for HostManager {
     fn devices(&self) -> Result<Vec<Box<Device>>> {
-        Ok(vec![Box::new(HostDevice::new())])
+        Ok(vec![Box::new(HostDevice::new(&self.compiler))])
     }
 }
 
 
-#[derive(Debug)]
-pub struct HostDevice {}
+pub struct HostDevice {
+    compiler: Arc<Compiler>
+}
 
 impl HostDevice {
-    pub fn new() -> Self {
-        HostDevice {}
+    pub fn new(compiler: &Arc<Compiler>) -> Self {
+        HostDevice {
+            compiler: compiler.clone()
+        }
     }
 }
 
 impl Device for HostDevice {
-    fn name(&self) -> &str {
-        "host device"
+    fn clean_app(&self, _build_bundle: &BuildBundle) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn debug_app(&self, _build_bundle: &BuildBundle, _args: &[&str], _envs: &[&str]) -> Result<()> {
+        unimplemented!()
     }
 
     fn id(&self) -> &str {
         "HOST"
     }
 
-    fn start_remote_lldb(&self) -> Result<String> {
-        unimplemented!()
-    }
-
-    fn install_app(&self, _project: &Project, _build: &Build, _runnable: &Runnable) -> Result<BuildBundle> {
+    fn install_app(&self, _project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
         debug!("No installation performed as it is not required for host platform");
+        Ok(make_host_app(build, runnable)?)
     }
 
-    fn clean_app(&self, _build_bundle: &BuildBundle) -> Result<()> {
-        unimplemented!()
+    fn name(&self) -> &str {
+        "host device"
     }
 
     fn run_app(&self, _build_bundle: &BuildBundle, _args: &[&str], _envs: &[&str]) -> Result<()> {
         unimplemented!()
     }
 
-    fn debug_app(&self, _build_bundle: &BuildBundle, _args: &[&str], _envs: &[&str]) -> Result<()> {
+    fn start_remote_lldb(&self) -> Result<String> {
         unimplemented!()
     }
 }

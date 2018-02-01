@@ -6,6 +6,7 @@ use overlay::overlay_work_dir;
 use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
+use std::sync::Arc;
 use toolchain::ToolchainConfig;
 use Build;
 use BuildArgs;
@@ -13,15 +14,16 @@ use Device;
 use Platform;
 use Result;
 
-#[derive(Debug)]
 pub struct RegularPlatform {
+    compiler: Arc<Compiler>,
     pub configuration: PlatformConfiguration,
     pub id: String,
     pub toolchain: ToolchainConfig,
 }
 
 impl RegularPlatform {
-    pub fn new<P: AsRef<Path>>(configuration: PlatformConfiguration,
+    pub fn new<P: AsRef<Path>>(compiler: &Arc<Compiler>,
+                               configuration: PlatformConfiguration,
                                id: String,
                                rustc_triple: String,
                                toolchain_path: P) -> Result<Box<Platform>> {
@@ -49,6 +51,7 @@ impl RegularPlatform {
         let sysroot = find_sysroot(&toolchain_path)?;
 
         Ok(Box::new(RegularPlatform {
+            compiler: compiler.clone(),
             configuration,
             id,
             toolchain: ToolchainConfig {
@@ -69,7 +72,7 @@ impl Display for RegularPlatform {
 }
 
 impl Platform for RegularPlatform {
-    fn build(&self, compiler: &Compiler, build_args: BuildArgs) -> Result<Build> {
+    fn build(&self, build_args: BuildArgs) -> Result<Build> {
         // Cleanup environment
         set_all_env(&[
             ("LIBRARY_PATH", ""),
@@ -78,8 +81,8 @@ impl Platform for RegularPlatform {
         // Set custom env variables specific to the platform
         set_all_env(&self.configuration.env());
 
-        Overlayer::new(self, &self.toolchain.sysroot, overlay_work_dir(compiler, self)?)
-            .overlay(&self.configuration, compiler.project_dir()?)?;
+        Overlayer::new(self, &self.toolchain.sysroot, overlay_work_dir(&self.compiler, self)?)
+            .overlay(&self.configuration, self.compiler.project_dir()?)?;
 
         self.toolchain.setup_ar(&self.toolchain.executable("ar"))?;
         self.toolchain.setup_cc(&self.id, &self.toolchain.executable("gcc"))?;
@@ -98,7 +101,7 @@ impl Platform for RegularPlatform {
         self.toolchain.setup_sysroot();
         self.toolchain.shim_executables(&self.id)?;
 
-        compiler.build(self.rustc_triple(), build_args)
+        self.compiler.build(self.rustc_triple(), build_args)
     }
 
     fn id(&self) -> String {

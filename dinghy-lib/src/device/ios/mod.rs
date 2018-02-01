@@ -6,7 +6,7 @@ use core_foundation::data::CFData;
 use core_foundation::number::CFNumber;
 use core_foundation::boolean::CFBoolean;
 use core_foundation_sys::number::kCFBooleanTrue;
-use device::make_app;
+use device::make_remote_app;
 use errors::*;
 use libc::*;
 use project::Project;
@@ -102,7 +102,7 @@ impl IosDevice {
     }
 
     fn make_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
-        let build_bundle = make_app(project, build, runnable)?;
+        let build_bundle = make_remote_app(project, build, runnable)?;
         let signing = xcode::look_for_signature_settings(&runnable.id)?
             .pop()
             .ok_or("no signing identity found")?;
@@ -188,7 +188,7 @@ impl IosSimDevice {
             "Dinghy",
             loc,
         )?;
-        Ok(make_app(project, build, runnable)?)
+        Ok(make_remote_app(project, build, runnable)?)
     }
 }
 

@@ -50,7 +50,6 @@ use platform::host::HostPlatform;
 use platform::ios::IosPlatform;
 use platform::regular_platform::RegularPlatform;
 use project::Project;
-use std::fmt::Debug;
 use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
@@ -61,16 +60,16 @@ use std::time::Duration;
 use errors::*;
 
 pub struct Dinghy {
-    platforms: Vec<(String, Arc<Box<Platform>>)>,
+    compiler: Arc<Compiler>,
     devices: Vec<Arc<Box<Device>>>,
+    platforms: Vec<(String, Arc<Box<Platform>>)>,
 }
 
 impl Dinghy {
-    pub fn probe(conf: &Arc<Configuration>) -> Result<Dinghy> {
-        let mut managers: Vec<Box<PlatformManager>> = vec![];
-        if let Some(host) = HostManager::probe() {
-            managers.push(Box::new(host))
-        }
+    pub fn probe(conf: &Arc<Configuration>, compiler: &Arc<Compiler>) -> Result<Dinghy> {
+        let host = HostManager::probe(compiler).ok_or("Host platform couldn't be determined.")?;
+        let mut managers: Vec<Box<PlatformManager>> = vec![Box::new(host)];
+
         if let Some(android) = AndroidManager::probe() {
             managers.push(Box::new(android))
         }
@@ -82,8 +81,9 @@ impl Dinghy {
         }
 
         Ok(Dinghy {
-            platforms: Dinghy::discover_platforms(&conf)?,
+            compiler: compiler.clone(),
             devices: Dinghy::discover_devices(&managers)?,
+            platforms: Dinghy::discover_platforms(compiler, &conf)?,
         })
     }
 
@@ -97,21 +97,24 @@ impl Dinghy {
         IosManager::new().unwrap_or(None).map(|it| Box::new(it) as Box<IosManager>)
     }
 
-    pub fn discover_platforms(conf: &Configuration) -> Result<Vec<(String, Arc<Box<Platform>>)>> {
-        conf.platforms
+    pub fn discover_platforms(compiler: &Arc<Compiler>, conf: &Configuration) -> Result<Vec<(String, Arc<Box<Platform>>)>> {
+        let host_conf = conf.platforms.get("host")
+            .map(|it| (*it).clone())
+            .unwrap_or(PlatformConfiguration::empty());
+        let mut platforms = vec![("host".to_string(),
+                                  Arc::new(HostPlatform::new(compiler, host_conf)?))];
+
+        platforms.extend(conf.platforms
             .iter()
-            .filter(Dinghy::available_platforms)
+            .filter(|&(platform_name, _)| platform_name != "host")
+            .filter(Dinghy::is_usable_platform)
             .map(|(platform_name, platform_conf)| {
-                if platform_name == "host" {
-                    if platform_conf.rustc_triple.is_some() || platform_conf.toolchain.is_some() {
-                        bail!("Host platform cannot have a rustc_triple nor toolchain defined in configuration.")
-                    }
-                    HostPlatform::new((*platform_conf).clone())
-                } else if let Some(rustc_triple) = platform_conf.rustc_triple.as_ref() {
+                if let Some(rustc_triple) = platform_conf.rustc_triple.as_ref() {
                     if rustc_triple.ends_with("-ios") {
                         Dinghy::discover_ios_platform(rustc_triple)
                     } else {
                         RegularPlatform::new(
+                            compiler,
                             (*platform_conf).clone(),
                             platform_name.to_string(),
                             rustc_triple.clone(),
@@ -122,11 +125,12 @@ impl Dinghy {
                 }
                     .map(|platform| (platform_name.clone(), Arc::new(platform)))
             })
-            .collect()
+            .collect::<Result<Vec<_>>>()?);
+        Ok(platforms)
     }
 
     #[cfg(target_os = "macos")]
-    fn available_platforms(&(_platform_name, _platform_conf): &(&String, &PlatformConfiguration)) -> bool {
+    fn is_usable_platform(&(_platform_name, _platform_conf): &(&String, &PlatformConfiguration)) -> bool {
         true
     }
 
@@ -136,7 +140,7 @@ impl Dinghy {
     }
 
     #[cfg(not(target_os = "macos"))]
-    fn available_platforms(&(_platform_name, platform_conf): &(&String, &PlatformConfiguration)) -> bool {
+    fn is_usable_platform(&(_platform_name, platform_conf): &(&String, &PlatformConfiguration)) -> bool {
         platform_conf.rustc_triple.as_ref().map(|it| !it.ends_with("-ios")).unwrap_or(true)
     }
 
@@ -158,6 +162,14 @@ impl Dinghy {
         self.devices.clone()
     }
 
+    pub fn host_device(&self) -> Arc<Box<Device>> {
+        self.devices[0].clone()
+    }
+
+    pub fn host_platform(&self) -> Arc<Box<Platform>> {
+        self.platforms[0].1.clone()
+    }
+
     pub fn platforms(&self) -> Vec<Arc<Box<Platform>>> {
         self.platforms.iter()
             .map(|&(_, ref platform)| platform.clone())
@@ -172,7 +184,7 @@ impl Dinghy {
     }
 }
 
-pub trait Device: Debug + Display + DeviceCompatibility {
+pub trait Device: Display + DeviceCompatibility {
     fn clean_app(&self, build_bundle: &BuildBundle) -> Result<()>;
 
     fn debug_app(&self, build_bundle: &BuildBundle, args: &[&str], envs: &[&str]) -> Result<()>;
@@ -203,8 +215,8 @@ pub trait DeviceCompatibility {
     }
 }
 
-pub trait Platform: Debug {
-    fn build(&self, compiler: &Compiler, build_args: BuildArgs) -> Result<Build>;
+pub trait Platform {
+    fn build(&self, build_args: BuildArgs) -> Result<Build>;
 
     fn id(&self) -> String;
 
