@@ -14,11 +14,7 @@ use clap::ArgMatches;
 use cli::CargoDinghyCli;
 use dinghy_lib::compiler::Compiler;
 use dinghy_lib::config::dinghy_config;
-use dinghy_lib::config::Configuration;
-use dinghy_lib::config::PlatformConfiguration;
-use dinghy_lib::device::host::HostDevice;
 use dinghy_lib::errors::*;
-use dinghy_lib::platform::host::HostPlatform;
 use dinghy_lib::project::Project;
 use dinghy_lib::utils::arg_as_string_vec;
 use dinghy_lib::Device;
@@ -58,9 +54,10 @@ fn main() {
 
 fn run_command(args: &ArgMatches) -> Result<()> {
     let conf = Arc::new(dinghy_config(current_dir().unwrap())?);
-    let dinghy = Dinghy::probe(&conf)?;
+    let compiler = Arc::new(Compiler::from_args(args.subcommand().1.unwrap_or(args)));
+    let dinghy = Dinghy::probe(&conf, &compiler)?;
     let project = Project::new(&conf);
-    let (platform, device) = select_platform_and_device_from_cli(&args, &dinghy, &conf)?;
+    let (platform, device) = select_platform_and_device_from_cli(&args, &dinghy)?;
 
     match args.subcommand() {
         ("all-devices", Some(_)) => show_all_devices(&dinghy),
@@ -150,8 +147,7 @@ fn show_devices(dinghy: &Dinghy, platform: Option<Arc<Box<Platform>>>) -> Result
 }
 
 fn select_platform_and_device_from_cli(matches: &ArgMatches,
-                                       dinghy: &Dinghy,
-                                       conf: &Arc<Configuration>) -> Result<(Arc<Box<Platform>>, Option<Arc<Box<Device>>>)> {
+                                       dinghy: &Dinghy) -> Result<(Arc<Box<Platform>>, Option<Arc<Box<Device>>>)> {
     if let Some(platform_name) = matches.value_of("PLATFORM") {
         let platform = dinghy
             .platform_by_name(platform_name)
@@ -173,15 +169,13 @@ fn select_platform_and_device_from_cli(matches: &ArgMatches,
             .collect_vec();
 
         // Would need some ordering here to make sure we select the most relevant platform... or else fail if we have several.
-        let platform: Result<Arc<Box<Platform>>> = dinghy.platforms()
+        dinghy.platforms()
             .into_iter()
-            .filter(|it| filtered_devices.iter().find(|device| it.is_compatible_with((***device).as_ref())).is_some())
-            .next().ok_or("No device found".into());
-
-        Ok((platform?, Some(Arc::new(Box::new(HostDevice::new())))))
+            .filter_map(|platform| filtered_devices.iter()
+                .find(|device| platform.is_compatible_with((***device).as_ref()))
+                .map(|device| (platform, Some(device.clone()))))
+            .next().ok_or("No device found".into())
     } else {
-        Ok((Arc::new(HostPlatform::new(
-            conf.platforms.get("host").map(|it| (*it).clone()).unwrap_or(PlatformConfiguration::empty()))?),
-            Some(Arc::new(Box::new(HostDevice::new())))))
+        Ok((dinghy.host_platform(), Some(dinghy.host_device())))
     }
 }
