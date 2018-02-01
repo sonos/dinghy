@@ -2,25 +2,27 @@ use compiler::Compiler;
 use errors::*;
 use std::fmt::Display;
 use std::process;
+use std::sync::Arc;
 use toolchain::Toolchain;
 use Build;
 use BuildArgs;
 use Device;
 use Platform;
 
-#[derive(Debug)]
 pub struct IosPlatform {
     pub sim: bool,
     pub toolchain: Toolchain,
+    compiler: Arc<Compiler>,
 }
 
 impl IosPlatform {
-    pub fn new(rustc_triple: &str) -> Result<Box<Platform>> {
+    pub fn new(rustc_triple: &str, compiler:&Arc<Compiler>) -> Result<Box<Platform>> {
         Ok(Box::new(IosPlatform {
             sim: false,
             toolchain: Toolchain {
                 rustc_triple: rustc_triple.to_string()
             },
+            compiler: Arc::clone(compiler)
         }))
     }
 
@@ -38,13 +40,13 @@ impl IosPlatform {
 }
 
 impl Platform for IosPlatform {
-    fn build(&self, compiler: &Compiler, build_args: BuildArgs) -> Result<Build> {
+    fn build(&self, build_args: BuildArgs) -> Result<Build> {
         self.toolchain.setup_cc(self.id().as_str(), "gcc")?;
         self.toolchain.setup_linker(self.id().as_str(),
                                     format!("cc -isysroot {}",
                                             self.linker_command()?.as_str()).as_str())?;
 
-        compiler.build(self.rustc_triple(), build_args)
+        self.compiler.build(self.rustc_triple(), build_args)
     }
 
     fn id(&self) -> String {

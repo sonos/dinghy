@@ -25,6 +25,7 @@ use std::fmt::Formatter;
 use std::time::Duration;
 use platform::ios::IosPlatform;
 use Build;
+use BuildArgs;
 use BuildBundle;
 use Device;
 use DeviceCompatibility;
@@ -153,7 +154,7 @@ impl Device for IosDevice {
         &self.name
     }
 
-    fn run_app(&self, build_bundle: &BuildBundle, args: &[&str], _envs: &[&str]) -> Result<()> {
+    fn run_app(&self, build_bundle: &BuildBundle, _build_args:BuildArgs, args: &[&str], _envs: &[&str]) -> Result<()> {
         let remote_bundle = IosDevice::to_remote_bundle(&build_bundle)?;
         let lldb_proxy = self.start_remote_lldb()?;
         run_remote(self.ptr, &lldb_proxy, remote_bundle.bundle_exe, args, false)
@@ -235,7 +236,7 @@ impl Device for IosSimDevice {
         &self.name
     }
 
-    fn run_app(&self, _build_bundle: &BuildBundle, args: &[&str], _envs: &[&str]) -> Result<()> {
+    fn run_app(&self, _build_bundle: &BuildBundle, _build_args:BuildArgs, args: &[&str], _envs: &[&str]) -> Result<()> {
         let install_path = String::from_utf8(
             process::Command::new("xcrun")
                 .args(&["simctl", "get_app_container", &self.id, "Dinghy"])

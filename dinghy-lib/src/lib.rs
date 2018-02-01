@@ -109,7 +109,7 @@ impl Dinghy {
             .map(|(platform_name, platform_conf)| {
                 if let Some(rustc_triple) = platform_conf.rustc_triple.as_ref() {
                     if rustc_triple.ends_with("-ios") {
-                        Dinghy::discover_ios_platform(rustc_triple)
+                        Dinghy::discover_ios_platform(rustc_triple, compiler)
                     } else {
                         RegularPlatform::new(
                             compiler,
@@ -133,8 +133,8 @@ impl Dinghy {
     }
 
     #[cfg(target_os = "macos")]
-    fn discover_ios_platform(rustc_triple: &str) -> Result<Box<Platform>> {
-        Ok(IosPlatform::new(rustc_triple.clone())?)
+    fn discover_ios_platform(rustc_triple: &str, compiler: &Arc<Compiler>) -> Result<Box<Platform>> {
+        Ok(IosPlatform::new(rustc_triple.clone(), compiler)?)
     }
 
     #[cfg(not(target_os = "macos"))]
