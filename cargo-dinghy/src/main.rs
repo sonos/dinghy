@@ -63,6 +63,7 @@ fn run_command(args: &ArgMatches) -> Result<()> {
         ("all-devices", Some(_)) => show_all_devices(&dinghy),
         ("bench", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
         ("build", Some(_)) => build(platform, args),
+        ("clean", Some(_)) => compiler.clean(None),
         ("devices", Some(_)) => show_all_devices_for_platform(&dinghy, platform),
         ("lldbproxy", Some(_)) => run_lldb(device),
         ("run", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),

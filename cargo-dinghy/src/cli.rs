@@ -61,6 +61,9 @@ impl CargoDinghyCli {
                     .verbose()
                     .additional_args())
 
+                .subcommand(SubCommand::with_name("clean")
+                    .about("Remove artifacts that cargo has generated in the past"))
+
                 .subcommand(SubCommand::with_name("devices")
                     .about("List devices that can be used with Dinghy for the selected platform"))
 

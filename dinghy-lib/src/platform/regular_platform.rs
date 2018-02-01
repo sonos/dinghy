@@ -94,6 +94,7 @@ impl Platform for RegularPlatform {
         for forced_overlay in &build_args.forced_overlays {
             linker_cmd.push_str(" -l");
             linker_cmd.push_str(&forced_overlay);
+            // TODO Add -L
         }
         self.toolchain.setup_linker(&self.id, &linker_cmd)?;
 

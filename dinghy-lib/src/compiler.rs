@@ -35,7 +35,7 @@ use Runnable;
 
 pub struct Compiler {
     build_command: Box<Fn(Option<&str>, BuildArgs) -> Result<Build>>,
-    clean_command: Box<Fn(Option<&str>, BuildArgs) -> Result<()>>,
+    clean_command: Box<Fn(Option<&str>) -> Result<()>>,
     run_command: Box<Fn(Option<&str>, BuildArgs, &[&str]) -> Result<()>>,
 }
 
@@ -50,6 +50,10 @@ impl Compiler {
 
     pub fn build(&self, rustc_triple: Option<&str>, build_args: BuildArgs) -> Result<Build> {
         (self.build_command)(rustc_triple, build_args)
+    }
+
+    pub fn clean(&self, rustc_triple: Option<&str>) -> Result<()> {
+        (self.clean_command)(rustc_triple)
     }
 
     pub fn run(&self, rustc_triple: Option<&str>, build_args: BuildArgs, args: &[&str]) -> Result<()> {
@@ -163,13 +167,12 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs)
     })
 }
 
-fn create_clean_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs) -> Result<()>> {
+fn create_clean_command(matches: &ArgMatches) -> Box<Fn(Option<&str>) -> Result<()>> {
     let packages = arg_as_string_vec(matches, "SPEC");
     let release = matches.is_present("RELEASE");
     let verbosity = matches.occurrences_of("VERBOSE") as u32;
 
-    Box::new(move |rustc_triple: Option<&str>, build_args: BuildArgs| {
-        let release = build_args.compile_mode == CompileMode::Bench || release;
+    Box::new(move |rustc_triple: Option<&str>| {
         let mut config = CompileConfig::default()?;
         config.configure(verbosity,
                          None,
