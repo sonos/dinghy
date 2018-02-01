@@ -1,4 +1,5 @@
 use compiler::Compiler;
+use dinghy_helper::build_env::set_env;
 use errors::*;
 use std::fmt::Display;
 use std::process;
@@ -8,6 +9,7 @@ use Build;
 use BuildArgs;
 use Device;
 use Platform;
+
 
 pub struct IosPlatform {
     pub sim: bool,
@@ -26,7 +28,7 @@ impl IosPlatform {
         }))
     }
 
-    fn linker_command(&self) -> Result<String> {
+    fn sysroot_path(&self) -> Result<String> {
         let sdk_name = if self.sim {
             "iphonesimulator"
         } else {
@@ -42,9 +44,10 @@ impl IosPlatform {
 impl Platform for IosPlatform {
     fn build(&self, build_args: BuildArgs) -> Result<Build> {
         self.toolchain.setup_cc(self.id().as_str(), "gcc")?;
-        self.toolchain.setup_linker(self.id().as_str(),
-                                    format!("cc -isysroot {}",
-                                            self.linker_command()?.as_str()).as_str())?;
+        let sysroot = self.sysroot_path()?;
+        set_env("TARGET_SYSROOT", &sysroot);
+        self.toolchain.setup_linker(&self.id(),
+                                    &format!("cc -isysroot {}", sysroot))?;
 
         self.compiler.build(self.rustc_triple(), build_args)
     }
