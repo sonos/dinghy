@@ -1,5 +1,6 @@
 use compiler::Compiler;
 use config::PlatformConfiguration;
+use dinghy_helper::build_env::set_all_env;
 use overlay::Overlayer;
 use Build;
 use BuildArgs;
@@ -14,15 +15,9 @@ pub struct HostPlatform {
 }
 
 impl HostPlatform {
-    pub fn new() -> Result<Box<Platform>> {
+    pub fn new(configuration: PlatformConfiguration) -> Result<Box<Platform>> {
         Ok(Box::new(HostPlatform {
-            configuration: PlatformConfiguration {
-                env: None,
-                overlays: None,
-                rustc_triple: None,
-                sysroot: None,
-                toolchain: None,
-            },
+            configuration,
             id: "host".to_string(),
         }))
     }
@@ -30,6 +25,9 @@ impl HostPlatform {
 
 impl Platform for HostPlatform {
     fn build(&self, compiler: &Compiler, build_args: BuildArgs) -> Result<Build> {
+        // Set custom env variables specific to the platform
+        set_all_env(&self.configuration.env());
+
         Overlayer::new(self, "/", compiler.target_dir(self.rustc_triple())?.join(&self.id))
             .overlay(&self.configuration, compiler.project_dir()?)?;
 

@@ -102,7 +102,12 @@ impl Dinghy {
             .iter()
             .filter(Dinghy::available_platforms)
             .map(|(platform_name, platform_conf)| {
-                if let Some(rustc_triple) = platform_conf.rustc_triple.as_ref() {
+                if platform_name == "host" {
+                    if platform_conf.rustc_triple.is_some() || platform_conf.toolchain.is_some() {
+                        bail!("Host platform cannot have a rustc_triple nor toolchain defined in configuration.")
+                    }
+                    HostPlatform::new((*platform_conf).clone())
+                } else if let Some(rustc_triple) = platform_conf.rustc_triple.as_ref() {
                     if rustc_triple.ends_with("-ios") {
                         Dinghy::discover_ios_platform(rustc_triple)
                     } else {
@@ -113,7 +118,7 @@ impl Dinghy {
                             platform_conf.toolchain.clone().ok_or(format!("Toolchain missing for platform {}", platform_name))?)
                     }
                 } else {
-                    HostPlatform::new()
+                    bail!("Platform configuration for '{}' requires a rustc_triple.", platform_name)
                 }
                     .map(|platform| (platform_name.clone(), Arc::new(platform)))
             })

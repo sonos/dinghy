@@ -10,25 +10,26 @@ extern crate pretty_env_logger;
 
 mod cli;
 
-use std::env;
-use std::thread;
-use std::time;
-
 use clap::ArgMatches;
 use cli::CargoDinghyCli;
 use dinghy_lib::compiler::Compiler;
 use dinghy_lib::config::dinghy_config;
-use dinghy_lib::utils::arg_as_string_vec;
+use dinghy_lib::config::Configuration;
+use dinghy_lib::config::PlatformConfiguration;
 use dinghy_lib::device::host::HostDevice;
 use dinghy_lib::errors::*;
 use dinghy_lib::platform::host::HostPlatform;
 use dinghy_lib::project::Project;
+use dinghy_lib::utils::arg_as_string_vec;
 use dinghy_lib::Device;
 use dinghy_lib::Dinghy;
 use dinghy_lib::Platform;
 use error_chain::ChainedError;
 use itertools::Itertools;
+use std::env;
 use std::env::current_dir;
+use std::thread;
+use std::time;
 use std::sync::Arc;
 
 fn main() {
@@ -59,7 +60,7 @@ fn run_command(args: &ArgMatches) -> Result<()> {
     let conf = Arc::new(dinghy_config(current_dir().unwrap())?);
     let dinghy = Dinghy::probe(&conf)?;
     let project = Project::new(&conf);
-    let (platform, device) = select_platform_and_device_from_cli(&args, &dinghy)?;
+    let (platform, device) = select_platform_and_device_from_cli(&args, &dinghy, &conf)?;
 
     match args.subcommand() {
         ("all-devices", Some(_)) => show_all_devices(&dinghy),
@@ -148,7 +149,9 @@ fn show_devices(dinghy: &Dinghy, platform: Option<Arc<Box<Platform>>>) -> Result
     Ok(())
 }
 
-fn select_platform_and_device_from_cli(matches: &ArgMatches, dinghy: &Dinghy) -> Result<(Arc<Box<Platform>>, Option<Arc<Box<Device>>>)> {
+fn select_platform_and_device_from_cli(matches: &ArgMatches,
+                                       dinghy: &Dinghy,
+                                       conf: &Arc<Configuration>) -> Result<(Arc<Box<Platform>>, Option<Arc<Box<Device>>>)> {
     if let Some(platform_name) = matches.value_of("PLATFORM") {
         let platform = dinghy
             .platform_by_name(platform_name)
@@ -177,6 +180,8 @@ fn select_platform_and_device_from_cli(matches: &ArgMatches, dinghy: &Dinghy) ->
 
         Ok((platform?, Some(Arc::new(Box::new(HostDevice::new())))))
     } else {
-        Ok((Arc::new(HostPlatform::new()?), Some(Arc::new(Box::new(HostDevice::new())))))
+        Ok((Arc::new(HostPlatform::new(
+            conf.platforms.get("host").map(|it| (*it).clone()).unwrap_or(PlatformConfiguration::empty()))?),
+            Some(Arc::new(Box::new(HostDevice::new())))))
     }
 }

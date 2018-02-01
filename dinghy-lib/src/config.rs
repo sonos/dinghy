@@ -101,6 +101,16 @@ pub struct PlatformConfiguration {
 }
 
 impl PlatformConfiguration {
+    pub fn empty() -> Self {
+        PlatformConfiguration {
+            env: None,
+            overlays: None,
+            rustc_triple: None,
+            sysroot: None,
+            toolchain: None,
+        }
+    }
+
     pub fn env(&self) -> Vec<(String, String)> {
         self.env.as_ref()
             .map(|it| it.iter()
