@@ -49,7 +49,7 @@ impl Device for HostDevice {
     }
 
     fn install_app(&self, _project: &Project, _build: &Build, _runnable: &Runnable) -> Result<BuildBundle> {
-        unimplemented!()
+        debug!("No installation performed as it is not required for host platform");
     }
 
     fn clean_app(&self, _build_bundle: &BuildBundle) -> Result<()> {
