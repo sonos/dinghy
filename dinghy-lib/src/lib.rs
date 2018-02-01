@@ -60,7 +60,6 @@ use std::time::Duration;
 use errors::*;
 
 pub struct Dinghy {
-    compiler: Arc<Compiler>,
     devices: Vec<Arc<Box<Device>>>,
     platforms: Vec<(String, Arc<Box<Platform>>)>,
 }
@@ -81,7 +80,6 @@ impl Dinghy {
         }
 
         Ok(Dinghy {
-            compiler: compiler.clone(),
             devices: Dinghy::discover_devices(&managers)?,
             platforms: Dinghy::discover_platforms(compiler, &conf)?,
         })

@@ -75,7 +75,7 @@ impl Device for HostDevice {
         for (env_key, env_value) in envs.iter().tuples() {
             set_env(env_key, env_value);
         }
-        self.compiler.run(None, build_args, args);
+        self.compiler.run(None, build_args, args)?;
         Ok(())
     }
 
