@@ -1,5 +1,7 @@
 use compiler::Compiler;
 use device::make_host_app;
+use dinghy_helper::build_env::set_env;
+use itertools::Itertools;
 use platform::host::HostPlatform;
 use project::Project;
 use std::fmt;
@@ -7,6 +9,7 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::sync::Arc;
 use Build;
+use BuildArgs;
 use BuildBundle;
 use Device;
 use PlatformManager;
@@ -47,7 +50,8 @@ impl HostDevice {
 
 impl Device for HostDevice {
     fn clean_app(&self, _build_bundle: &BuildBundle) -> Result<()> {
-        unimplemented!()
+        debug!("No cleanup performed as it is not required for host platform");
+        Ok(())
     }
 
     fn debug_app(&self, _build_bundle: &BuildBundle, _args: &[&str], _envs: &[&str]) -> Result<()> {
@@ -67,8 +71,12 @@ impl Device for HostDevice {
         "host device"
     }
 
-    fn run_app(&self, _build_bundle: &BuildBundle, _args: &[&str], _envs: &[&str]) -> Result<()> {
-        unimplemented!()
+    fn run_app(&self, _build_bundle: &BuildBundle, build_args: BuildArgs, args: &[&str], envs: &[&str]) -> Result<()> {
+        for (env_key, env_value) in envs.iter().tuples() {
+            set_env(env_key, env_value);
+        }
+        self.compiler.run(None, build_args, args);
+        Ok(())
     }
 
     fn start_remote_lldb(&self) -> Result<String> {

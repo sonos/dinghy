@@ -33,7 +33,7 @@ use Runnable;
 pub struct Compiler {
     build_command: Box<Fn(Option<&str>, BuildArgs) -> Result<Build>>,
     clean_command: Box<Fn(Option<&str>, BuildArgs) -> Result<()>>,
-    run_command: Box<Fn(Option<&str>, BuildArgs, &[String]) -> Result<()>>,
+    run_command: Box<Fn(Option<&str>, BuildArgs, &[&str]) -> Result<()>>,
 }
 
 impl Compiler {
@@ -47,6 +47,10 @@ impl Compiler {
 
     pub fn build(&self, rustc_triple: Option<&str>, build_args: BuildArgs) -> Result<Build> {
         (self.build_command)(rustc_triple, build_args)
+    }
+
+    pub fn run(&self, rustc_triple: Option<&str>, build_args: BuildArgs, args: &[&str]) -> Result<()> {
+        (self.run_command)(rustc_triple, build_args, args)
     }
 
     pub fn project_dir(&self) -> Result<PathBuf> {
@@ -185,7 +189,7 @@ fn create_clean_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs)
     })
 }
 
-fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs, &[String]) -> Result<()>> {
+fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs, &[&str]) -> Result<()>> {
     let all = matches.is_present("ALL");
     let all_features = matches.is_present("ALL_FEATURES");
     let benches = arg_as_string_vec(matches, "BENCH");
@@ -208,7 +212,7 @@ fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs, &
     let verbosity = matches.occurrences_of("VERBOSE") as u32;
     let tests = arg_as_string_vec(matches, "TEST");
 
-    Box::new(move |rustc_triple: Option<&str>, build_args: BuildArgs, args: &[String]| {
+    Box::new(move |rustc_triple: Option<&str>, build_args: BuildArgs, args: &[&str]| {
         let release = build_args.compile_mode == CompileMode::Bench || release;
         let mut config = CompileConfig::default()?;
         config.configure(verbosity,
@@ -255,7 +259,9 @@ fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs, &
             target_rustc_args: None,
         };
 
-        CargoOps::run(&workspace, &options, args)?;
+        CargoOps::run(&workspace,
+                      &options,
+                      args.into_iter().map(|it| it.to_string()).collect_vec().as_slice())?;
         Ok(())
     })
 }

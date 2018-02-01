@@ -12,6 +12,7 @@ use std::process::Command;
 use std::sync::Arc;
 use utils::path_to_str;
 use Build;
+use BuildArgs;
 use Device;
 use DeviceCompatibility;
 use PlatformManager;
@@ -108,7 +109,7 @@ impl Device for SshDevice {
         &self.id
     }
 
-    fn run_app(&self, build_bundle: &BuildBundle, args: &[&str], envs: &[&str]) -> Result<()> {
+    fn run_app(&self, build_bundle: &BuildBundle, _build_args: BuildArgs, args: &[&str], envs: &[&str]) -> Result<()> {
         let remote_bundle = self.to_remote_bundle(build_bundle)?;
         let command = format!(
             "cd '{}/target/' ; {} RUST_BACKTRACE=1 DINGHY=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {}",

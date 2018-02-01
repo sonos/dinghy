@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use utils::path_to_str;
 use Build;
+use BuildArgs;
 use BuildBundle;
 use Device;
 use DeviceCompatibility;
@@ -126,7 +127,7 @@ impl Device for AndroidDevice {
         "android device"
     }
 
-    fn run_app(&self, build_bundle: &BuildBundle, args: &[&str], envs: &[&str]) -> Result<()> {
+    fn run_app(&self, build_bundle: &BuildBundle, _build_args: BuildArgs, args: &[&str], envs: &[&str]) -> Result<()> {
         let remote_bundle = AndroidDevice::to_remote_bundle(&build_bundle)?;
         let command = format!(
             "cd '{}/target/'; {} DINGHY=1 RUST_BACKTRACE=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {}",

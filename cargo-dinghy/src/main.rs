@@ -82,7 +82,8 @@ fn prepare_and_run(
     args: &ArgMatches,
     sub_args: &ArgMatches,
 ) -> Result<()> {
-    let build = platform.build(CargoDinghyCli::build_args_from(args))?;
+    let build_args = CargoDinghyCli::build_args_from(args);
+    let build = platform.build(build_args.clone())?;
     let args = arg_as_string_vec(sub_args, "ARGS");
     let envs = arg_as_string_vec(sub_args, "ENVS");
     let no_fail_fast = sub_args.is_present("NO_FAIL_FAST");
@@ -99,6 +100,7 @@ fn prepare_and_run(
         } else {
             device.run_app(
                 &build_bundle,
+                build_args.clone(),
                 &*args.iter().map(|s| &s[..]).collect::<Vec<_>>(),
                 &*envs.iter().map(|s| &s[..]).collect::<Vec<_>>(),
             )

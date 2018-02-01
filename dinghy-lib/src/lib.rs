@@ -195,7 +195,7 @@ pub trait Device: Display + DeviceCompatibility {
 
     fn name(&self) -> &str;
 
-    fn run_app(&self, build_bundle: &BuildBundle, args: &[&str], envs: &[&str]) -> Result<()>;
+    fn run_app(&self, build_bundle: &BuildBundle, build_args: BuildArgs, args: &[&str], envs: &[&str]) -> Result<()>;
 
     fn start_remote_lldb(&self) -> Result<String>;
 }
