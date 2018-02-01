@@ -1,3 +1,5 @@
+extern crate cargo;
+
 pub use cargo::ops::CompileMode;
 use cargo::util::important_paths::find_root_manifest_for_wd;
 use cargo::core::Workspace;
@@ -8,6 +10,7 @@ use cargo::ops::CompileOptions;
 use cargo::ops::MessageFormat;
 use cargo::ops::Packages as CompilePackages;
 use cargo::ops as CargoOps;
+use cargo::ops::TestOptions;
 use cargo::util::config::Config as CompileConfig;
 use clap::ArgMatches;
 use dinghy_helper::build_env::target_env_from_triple;
@@ -127,7 +130,7 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs)
                                      excludes.as_slice())
         } else { excludes.clone() };
 
-        let options = CompileOptions {
+        let compile_options = CompileOptions {
             config: &config,
             jobs,
             target: rustc_triple,
@@ -155,7 +158,7 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs)
             target_rustc_args: None,
         };
 
-        let compilation = CargoOps::compile(&workspace, &options)?;
+        let compilation = CargoOps::compile(&workspace, &compile_options)?;
         Ok(to_build(compilation, &config, build_args)?)
     })
 }
@@ -207,6 +210,7 @@ fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs, &
         .map(|v| v.parse::<u32>().unwrap());
     let lib_only = matches.is_present("LIB");
     let no_default_features = matches.is_present("NO_DEFAULT_FEATURES");
+    let no_fail_fast = matches.is_present("NO_FAIL_FAST");
     let packages = arg_as_string_vec(matches, "SPEC");
     let release = matches.is_present("RELEASE");
     let verbosity = matches.occurrences_of("VERBOSE") as u32;
@@ -231,7 +235,7 @@ fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs, &
                                      excludes.as_slice())
         } else { excludes.clone() };
 
-        let options = CompileOptions {
+        let compile_options = CompileOptions {
             config: &config,
             jobs,
             target: rustc_triple,
@@ -259,9 +263,33 @@ fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs, &
             target_rustc_args: None,
         };
 
-        CargoOps::run(&workspace,
-                      &options,
-                      args.into_iter().map(|it| it.to_string()).collect_vec().as_slice())?;
+        let test_options = TestOptions {
+            compile_opts: compile_options,
+            no_run: false,
+            no_fail_fast: no_fail_fast,
+            only_doc: false,
+        };
+
+        match build_args.compile_mode {
+            CompileMode::Bench => {
+                CargoOps::run_benches(&workspace,
+                                      &test_options,
+                                      args.into_iter().map(|it| it.to_string()).collect_vec().as_slice())?;
+            }
+            CompileMode::Build => {
+                CargoOps::run(&workspace,
+                              &test_options.compile_opts,
+                              args.into_iter().map(|it| it.to_string()).collect_vec().as_slice())?;
+            }
+            CompileMode::Test => {
+                CargoOps::run_tests(&workspace,
+                                    &test_options,
+                                    args.into_iter().map(|it| it.to_string()).collect_vec().as_slice())?;
+            }
+            otherwise => {
+                bail!("Invalid run option {:?}", otherwise);
+            }
+        }
         Ok(())
     })
 }
