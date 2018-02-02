@@ -192,5 +192,6 @@ impl Overlayer {
 pub fn overlay_work_dir(compiler: &Compiler, platform: &Platform) -> Result<PathBuf> {
     Ok(compiler
         .target_dir(platform.rustc_triple())?
-        .join(platform.id()))
+        .join(platform.id())
+        .join("overlays"))
 }

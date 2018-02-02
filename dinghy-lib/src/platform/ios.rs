@@ -1,6 +1,9 @@
 use compiler::Compiler;
+use config::PlatformConfiguration;
 use dinghy_helper::build_env::set_env;
 use errors::*;
+use overlay::Overlayer;
+use overlay::overlay_work_dir;
 use std::fmt::Display;
 use std::process;
 use std::sync::Arc;
@@ -12,19 +15,23 @@ use Platform;
 
 
 pub struct IosPlatform {
+    id: String,
     pub sim: bool,
     pub toolchain: Toolchain,
+    pub configuration: PlatformConfiguration,
     compiler: Arc<Compiler>,
 }
 
 impl IosPlatform {
-    pub fn new(rustc_triple: &str, compiler:&Arc<Compiler>) -> Result<Box<Platform>> {
+    pub fn new(id: String, rustc_triple: &str, compiler:&Arc<Compiler>, configuration:&PlatformConfiguration) -> Result<Box<Platform>> {
         Ok(Box::new(IosPlatform {
+            id,
             sim: false,
             toolchain: Toolchain {
                 rustc_triple: rustc_triple.to_string()
             },
-            compiler: Arc::clone(compiler)
+            compiler: Arc::clone(compiler),
+            configuration: configuration.clone()
         }))
     }
 
@@ -43,8 +50,10 @@ impl IosPlatform {
 
 impl Platform for IosPlatform {
     fn build(&self, build_args: BuildArgs) -> Result<Build> {
-        self.toolchain.setup_cc(self.id().as_str(), "gcc")?;
         let sysroot = self.sysroot_path()?;
+        Overlayer::new(self, &sysroot, overlay_work_dir(&self.compiler, self)?)
+            .overlay(&self.configuration, self.compiler.project_dir()?)?;
+        self.toolchain.setup_cc(self.id().as_str(), "gcc")?;
         set_env("TARGET_SYSROOT", &sysroot);
         self.toolchain.setup_linker(&self.id(),
                                     &format!("cc -isysroot {}", sysroot))?;
@@ -53,7 +62,7 @@ impl Platform for IosPlatform {
     }
 
     fn id(&self) -> String {
-        self.toolchain.rustc_triple.to_string()
+        self.id.to_string()
     }
 
     fn is_compatible_with(&self, device: &Device) -> bool {
