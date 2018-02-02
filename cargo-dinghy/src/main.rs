@@ -58,6 +58,8 @@ fn run_command(args: &ArgMatches) -> Result<()> {
     let dinghy = Dinghy::probe(&conf, &compiler)?;
     let project = Project::new(&conf);
     let (platform, device) = select_platform_and_device_from_cli(&args, &dinghy)?;
+    info!("Targeting platform '{}' and device '{}'",
+          platform.id(), device.as_ref().map(|it| it.id()).unwrap_or("<none>"));
 
     match args.subcommand() {
         ("all-devices", Some(_)) => show_all_devices(&dinghy),
