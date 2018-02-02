@@ -4,24 +4,34 @@ use std::{env, fs, io, path, process};
 use std::io::Write;
 use super::{SignatureSettings, SigningIdentity};
 
-pub fn wrap_as_app<P1, P2, P3>(
-    target: &str,
-    project: &Project,
-    source: P1,
-    executable: P2,
-    app_bundle_id: &str,
-    app_path: P3,
-) -> Result<path::PathBuf>
-where
-    P1: AsRef<path::Path>,
-    P2: AsRef<path::Path>,
-    P3: AsRef<path::Path>,
-{
+use BuildBundle;
+
+pub fn add_plist_to_app(bundle:&BuildBundle, arch:&str, app_bundle_id:&str) -> Result<()> {
+    let mut plist = fs::File::create(bundle.bundle_dir.join("Info.plist"))?;
+    writeln!(plist, r#"<?xml version="1.0" encoding="UTF-8"?>"#)?;
+    writeln!(plist, r#"<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">"#)?;
+    writeln!(plist, r#"<plist version="1.0"><dict>"#)?;
+    writeln!(
+        plist,
+        "<key>CFBundleExecutable</key><string>Dinghy</string>",
+    )?;
+    writeln!(
+        plist,
+        "<key>CFBundleIdentifier</key><string>{}</string>",
+        app_bundle_id
+    )?;
+    writeln!(plist, "<key>UIRequiredDeviceCapabilities</key>")?;
+    writeln!(plist, "<array><string>{}</string></array>", arch)?;
+    writeln!(plist, r#"</dict></plist>"#)?;
+    /*
     let app_name = app_bundle_id.split(".").last().unwrap();
     let app_path = app_path.as_ref().join(format!("{}.app", app_name));
+    println!("WRAP AS APP: {:?} -> {:?}", executable.as_ref(), app_path);
     let _ = fs::remove_dir_all(&app_path);
     fs::create_dir_all(&app_path)?;
     fs::copy(&executable, app_path.join(app_name))?;
+
+
     let mut plist = fs::File::create(app_path.join("Info.plist"))?;
     writeln!(plist, r#"<?xml version="1.0" encoding="UTF-8"?>"#)?;
     writeln!(plist, r#"<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">"#)?;
@@ -46,22 +56,20 @@ where
 
     project.rec_copy(&source, &app_path, false)?;
     project.copy_test_data(&app_path)?;
-    Ok(app_path)
+    */
+    Ok(())
 }
 
-pub fn sign_app<P: AsRef<path::Path>>(app: P, settings: &SignatureSettings) -> Result<()> {
+pub fn sign_app(bundle: &BuildBundle, settings: &SignatureSettings) -> Result<()> {
     info!(
         "Will sign {:?} with team: {} using key: {} and profile: {}",
-        app.as_ref(),
+        bundle.bundle_dir,
         settings.identity.team,
         settings.identity.name,
         settings.file
     );
 
-    let entitlements = app.as_ref()
-        .parent()
-        .ok_or("not building in root")?
-        .join("entitlements.xcent");
+    let entitlements = bundle.root_dir.join("entitlements.xcent");
     debug!("entitlements file: {}", entitlements.to_str().unwrap_or(""));
     let mut plist = fs::File::create(&entitlements)?;
     writeln!(plist, r#"<?xml version="1.0" encoding="UTF-8"?>"#)?;
@@ -74,10 +82,9 @@ pub fn sign_app<P: AsRef<path::Path>>(app: P, settings: &SignatureSettings) -> R
         .args(&[
             "-s",
             &*settings.identity.name,
-            "--entitlements",
-            entitlements.to_str().ok_or("not utf8 path")?,
-            app.as_ref().to_str().ok_or("not utf8 path")?,
-        ])
+            "--entitlements"])
+        .arg(entitlements)
+        .arg(&bundle.bundle_dir)
         .status()?;
     Ok(())
 }
