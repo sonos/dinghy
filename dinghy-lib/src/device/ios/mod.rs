@@ -102,9 +102,9 @@ impl IosDevice {
         })
     }
 
-    fn make_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
+    fn make_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
         let build_bundle = make_remote_app(project, build, runnable)?;
-        let signing = xcode::look_for_signature_settings(&runnable.id)?
+        let signing = xcode::look_for_signature_settings(&self.id)?
             .pop()
             .ok_or("no signing identity found")?;
         let app_id = signing.name.split(" ").last().ok_or("no app id ?")?;
@@ -145,8 +145,9 @@ impl Device for IosDevice {
     }
 
     fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
-        let build_bundle = IosDevice::make_app(project, build, runnable)?;
-        install_app(self.ptr, &runnable.exe)?;
+        let build_bundle = self.make_app(project, build, runnable)?;
+        println!("BUNDLE: {:?}", build_bundle);
+        install_app(self.ptr, &build_bundle.bundle_dir)?;
         Ok(build_bundle)
     }
 
