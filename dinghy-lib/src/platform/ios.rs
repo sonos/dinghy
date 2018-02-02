@@ -3,7 +3,6 @@ use config::PlatformConfiguration;
 use dinghy_helper::build_env::set_env;
 use errors::*;
 use overlay::Overlayer;
-use overlay::overlay_work_dir;
 use project::Project;
 use std::fmt::Display;
 use std::process;
@@ -52,7 +51,7 @@ impl IosPlatform {
 impl Platform for IosPlatform {
     fn build(&self, project: &Project, build_args: BuildArgs) -> Result<Build> {
         let sysroot = self.sysroot_path()?;
-        Overlayer::overlay(&self.configuration, self, project, &self.toolchain.sysroot)?;
+        Overlayer::overlay(&self.configuration, self, project, &self.sysroot_path()?)?;
         self.toolchain.setup_cc(self.id().as_str(), "gcc")?;
         set_env("TARGET_SYSROOT", &sysroot);
         self.toolchain.setup_linker(&self.id(),
