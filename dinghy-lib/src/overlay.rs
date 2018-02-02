@@ -1,4 +1,3 @@
-use compiler::Compiler;
 use config::PlatformConfiguration;
 use dinghy_helper::build_env::append_path_to_target_env;
 use dinghy_helper::build_env::envify;
@@ -6,6 +5,7 @@ use dinghy_helper::build_env::set_env_ifndef;
 use dinghy_helper::utils::path_between;
 use errors::*;
 use itertools::Itertools;
+use project::Project;
 use std::io::Write;
 use std::path::PathBuf;
 use std::env::home_dir;
@@ -42,22 +42,22 @@ pub struct Overlayer {
 }
 
 impl Overlayer {
-    pub fn new<P1, P2>(platform: &Platform, sysroot: P1, work_dir: P2) -> Self
-        where P1: AsRef<Path>, P2: AsRef<Path> {
-        Overlayer {
+    pub fn overlay<P: AsRef<Path>>(configuration: &PlatformConfiguration,
+                                   platform: &Platform,
+                                   project: &Project,
+                                   sysroot: P) -> Result<()> {
+        let overlayer = Overlayer {
             platform_id: platform.id().to_string(),
             rustc_triple: platform.rustc_triple().map(|it| it.to_string()),
             sysroot: sysroot.as_ref().to_path_buf(),
-            work_dir: work_dir.as_ref().to_path_buf(),
-        }
-    }
+            work_dir: project.overlay_work_dir(platform)?,
+        };
 
-    pub fn overlay<P: AsRef<Path>>(&self, configuration: &PlatformConfiguration, target_path: P) -> Result<()> {
         let mut path_to_try = vec![];
-        let target_path = target_path.as_ref().to_path_buf();
-        let mut current_path = target_path.as_path();
+        let project_path = project.project_dir()?;
+        let mut current_path = project_path.as_path();
         while current_path.parent().is_some() {
-            path_to_try.push(current_path.join(".dinghy").join("overlay").join(&self.platform_id));
+            path_to_try.push(current_path.join(".dinghy").join("overlay").join(&overlayer.platform_id));
             if let Some(parent_path) = current_path.parent() {
                 current_path = parent_path;
             } else {
@@ -67,13 +67,13 @@ impl Overlayer {
 
         // Project may be outside home directory. So add it too.
         if let Some(dinghy_home_dir) = home_dir()
-            .map(|it| it.join(".dinghy").join("overlay").join(&self.platform_id)) {
+            .map(|it| it.join(".dinghy").join("overlay").join(&overlayer.platform_id)) {
             if !path_to_try.contains(&dinghy_home_dir) {
                 path_to_try.push(dinghy_home_dir)
             }
         }
 
-        self.apply_overlay(Overlayer::from_conf(configuration)?
+        overlayer.apply_overlay(Overlayer::from_conf(configuration)?
             .into_iter()
             .chain(path_to_try
                 .into_iter()
@@ -187,11 +187,4 @@ impl Overlayer {
             .chain_err(|| format!("Dinghy couldn't generate pkg-config pc file {}",
                                   pc_file.as_path().display()))
     }
-}
-
-pub fn overlay_work_dir(compiler: &Compiler, platform: &Platform) -> Result<PathBuf> {
-    Ok(compiler
-        .target_dir(platform.rustc_triple())?
-        .join(platform.id())
-        .join("overlays"))
 }

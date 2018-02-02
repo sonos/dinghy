@@ -59,21 +59,6 @@ impl Compiler {
     pub fn run(&self, rustc_triple: Option<&str>, build_args: BuildArgs, args: &[&str]) -> Result<()> {
         (self.run_command)(rustc_triple, build_args, args)
     }
-
-    pub fn project_dir(&self) -> Result<PathBuf> {
-        let wd_path = ::cargo::util::important_paths::find_root_manifest_for_wd(None, &current_dir()?)?;
-        Ok(wd_path.parent()
-            .ok_or(format!("Couldn't read project directory {}.", wd_path.display()))?
-            .to_path_buf())
-    }
-
-    pub fn target_dir(&self, rustc_triple: Option<&str>) -> Result<PathBuf> {
-        let mut target_path = self.project_dir()?.join("target");
-        if let Some(rustc_triple) = rustc_triple {
-            target_path = target_path.join(rustc_triple);
-        }
-        Ok(target_path)
-    }
 }
 
 #[derive(Clone, Debug, Default)]

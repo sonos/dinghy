@@ -214,7 +214,7 @@ pub trait DeviceCompatibility {
 }
 
 pub trait Platform {
-    fn build(&self, build_args: BuildArgs) -> Result<Build>;
+    fn build(&self, project: &Project, build_args: BuildArgs) -> Result<Build>;
 
     fn id(&self) -> String;
 

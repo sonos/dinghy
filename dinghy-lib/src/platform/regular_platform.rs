@@ -2,7 +2,7 @@ use compiler::Compiler;
 use config::PlatformConfiguration;
 use dinghy_helper::build_env::set_all_env;
 use overlay::Overlayer;
-use overlay::overlay_work_dir;
+use project::Project;
 use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
@@ -72,7 +72,7 @@ impl Display for RegularPlatform {
 }
 
 impl Platform for RegularPlatform {
-    fn build(&self, build_args: BuildArgs) -> Result<Build> {
+    fn build(&self, project: &Project, build_args: BuildArgs) -> Result<Build> {
         // Cleanup environment
         set_all_env(&[
             ("LIBRARY_PATH", ""),
@@ -81,8 +81,7 @@ impl Platform for RegularPlatform {
         // Set custom env variables specific to the platform
         set_all_env(&self.configuration.env());
 
-        Overlayer::new(self, &self.toolchain.sysroot, overlay_work_dir(&self.compiler, self)?)
-            .overlay(&self.configuration, self.compiler.project_dir()?)?;
+        Overlayer::overlay(&self.configuration, self, project, &self.toolchain.sysroot)?;
 
         self.toolchain.setup_ar(&self.toolchain.executable("ar"))?;
         self.toolchain.setup_cc(&self.id, &self.toolchain.executable("gcc"))?;

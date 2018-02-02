@@ -4,6 +4,7 @@ use dinghy_helper::build_env::set_env;
 use errors::*;
 use overlay::Overlayer;
 use overlay::overlay_work_dir;
+use project::Project;
 use std::fmt::Display;
 use std::process;
 use std::sync::Arc;
@@ -23,7 +24,7 @@ pub struct IosPlatform {
 }
 
 impl IosPlatform {
-    pub fn new(id: String, rustc_triple: &str, compiler:&Arc<Compiler>, configuration:&PlatformConfiguration) -> Result<Box<Platform>> {
+    pub fn new(id: String, rustc_triple: &str, compiler: &Arc<Compiler>, configuration: &PlatformConfiguration) -> Result<Box<Platform>> {
         Ok(Box::new(IosPlatform {
             id,
             sim: false,
@@ -31,7 +32,7 @@ impl IosPlatform {
                 rustc_triple: rustc_triple.to_string()
             },
             compiler: Arc::clone(compiler),
-            configuration: configuration.clone()
+            configuration: configuration.clone(),
         }))
     }
 
@@ -49,10 +50,9 @@ impl IosPlatform {
 }
 
 impl Platform for IosPlatform {
-    fn build(&self, build_args: BuildArgs) -> Result<Build> {
+    fn build(&self, project: &Project, build_args: BuildArgs) -> Result<Build> {
         let sysroot = self.sysroot_path()?;
-        Overlayer::new(self, &sysroot, overlay_work_dir(&self.compiler, self)?)
-            .overlay(&self.configuration, self.compiler.project_dir()?)?;
+        Overlayer::overlay(&self.configuration, self, project, &self.toolchain.sysroot)?;
         self.toolchain.setup_cc(self.id().as_str(), "gcc")?;
         set_env("TARGET_SYSROOT", &sysroot);
         self.toolchain.setup_linker(&self.id(),

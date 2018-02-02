@@ -4,9 +4,11 @@ use filetime::set_file_times;
 use filetime::FileTime;
 use ignore::WalkBuilder;
 use std::fs;
+use std::env::current_dir;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use Platform;
 use Result;
 use Runnable;
 
@@ -20,6 +22,27 @@ impl Project {
         Project {
             conf: conf.clone(),
         }
+    }
+
+    pub fn project_dir(&self) -> Result<PathBuf> {
+        let wd_path = ::cargo::util::important_paths::find_root_manifest_for_wd(None, &current_dir()?)?;
+        Ok(wd_path.parent()
+            .ok_or(format!("Couldn't read project directory {}.", wd_path.display()))?
+            .to_path_buf())
+    }
+
+    pub fn overlay_work_dir(&self, platform: &Platform) -> Result<PathBuf> {
+        Ok(self
+            .target_dir(platform.rustc_triple())?
+            .join(platform.id()))
+    }
+
+    pub fn target_dir(&self, rustc_triple: Option<&str>) -> Result<PathBuf> {
+        let mut target_path = self.project_dir()?.join("target");
+        if let Some(rustc_triple) = rustc_triple {
+            target_path = target_path.join(rustc_triple);
+        }
+        Ok(target_path)
     }
 
     pub fn for_runnable(&self, runnable: &Runnable) -> Result<Self> {

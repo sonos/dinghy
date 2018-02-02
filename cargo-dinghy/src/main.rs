@@ -64,7 +64,7 @@ fn run_command(args: &ArgMatches) -> Result<()> {
     match args.subcommand() {
         ("all-devices", Some(_)) => show_all_devices(&dinghy),
         ("bench", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
-        ("build", Some(_)) => build(platform, args),
+        ("build", Some(_)) => build(platform, project, args),
         ("clean", Some(_)) => compiler.clean(None),
         ("devices", Some(_)) => show_all_devices_for_platform(&dinghy, platform),
         ("lldbproxy", Some(_)) => run_lldb(device),
@@ -74,8 +74,8 @@ fn run_command(args: &ArgMatches) -> Result<()> {
     }
 }
 
-fn build(platform: Arc<Box<Platform>>, args: &ArgMatches) -> Result<()> {
-    platform.build(CargoDinghyCli::build_args_from(args)).and(Ok(()))
+fn build(platform: Arc<Box<Platform>>, project: Project, args: &ArgMatches) -> Result<()> {
+    platform.build(&project, CargoDinghyCli::build_args_from(args)).and(Ok(()))
 }
 
 fn prepare_and_run(
@@ -86,7 +86,7 @@ fn prepare_and_run(
     sub_args: &ArgMatches,
 ) -> Result<()> {
     let build_args = CargoDinghyCli::build_args_from(args);
-    let build = platform.build(build_args.clone())?;
+    let build = platform.build(&project, build_args.clone())?;
     let args = arg_as_string_vec(sub_args, "ARGS");
     let envs = arg_as_string_vec(sub_args, "ENVS");
     let no_fail_fast = sub_args.is_present("NO_FAIL_FAST");

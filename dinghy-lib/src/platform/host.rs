@@ -2,7 +2,7 @@ use compiler::Compiler;
 use config::PlatformConfiguration;
 use dinghy_helper::build_env::set_all_env;
 use overlay::Overlayer;
-use overlay::overlay_work_dir;
+use project::Project;
 use std::sync::Arc;
 use Build;
 use BuildArgs;
@@ -28,12 +28,11 @@ impl HostPlatform {
 }
 
 impl Platform for HostPlatform {
-    fn build(&self, build_args: BuildArgs) -> Result<Build> {
+    fn build(&self, project: &Project, build_args: BuildArgs) -> Result<Build> {
         // Set custom env variables specific to the platform
         set_all_env(&self.configuration.env());
 
-        Overlayer::new(self, "/", overlay_work_dir(&self.compiler, self)?)
-            .overlay(&self.configuration, self.compiler.project_dir()?)?;
+        Overlayer::overlay(&self.configuration, self, project, "/")?;
 
         self.compiler.build(None, build_args)
     }
