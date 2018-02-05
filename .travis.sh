@@ -1,5 +1,6 @@
 #!/bin/sh
 set -e
+set -x
 
 curl https://sh.rustup.rs -sSf | sh -s -- -y
 
@@ -24,23 +25,31 @@ cargo test --verbose
 cd test-ws/test-app
 cargo test pass
 ! cargo test fails
-echo "## last failure was expected ##"
+echo "##"
+echo "## latest failure was expected ##"
+echo "##"
 
 if [ `uname` = Darwin ]
 then
     ../../target/debug/cargo-dinghy dinghy test pass
     ! ../../target/debug/cargo-dinghy dinghy test fails
-    echo "## last failure was expected ##"
+    echo "##"
+    echo "## latest failure was expected"
+    echo "##"
 fi
 
 cd ..
 cargo test -p test-app pass
 ! cargo test -p test-app fails
-echo "## last failure was expected ##"
+echo "##"
+echo "## latest failure was expected ##"
+echo "##"
 
 if [ `uname` = Darwin ]
 then
     ../target/debug/cargo-dinghy dinghy test -p test-app pass
     ! ../target/debug/cargo-dinghy dinghy test -p test-app fails
-    echo "## last failure was expected ##"
+    echo "##"
+    echo "## latest failure was expected ##"
+    echo "##"
 fi
