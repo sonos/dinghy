@@ -149,7 +149,7 @@ fn rec_copy<P1: AsRef<path::Path>,P2: AsRef<path::Path>>(src:P1, dst:P2, copy_ig
         let entry = entry?;
         let metadata = entry.metadata()?;
         let path = entry.path().strip_prefix(src)?;
-        if path.components().any(|comp| comp.as_ref() == "target" ) {
+        if path.components().any(|comp| comp == std::path::Component::Normal("target".as_ref()) ) {
             continue;
         }
         let target = dst.join(path);
