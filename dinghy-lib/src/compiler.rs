@@ -113,7 +113,7 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs)
                                        &config)?;
 
         let project_metadata_list = workskpace_metadata(&workspace)?;
-        let excludes = if all || workspace.is_virtual() {
+        let excludes = if (all || workspace.is_virtual()) && packages.is_empty() {
             exclude_by_target_triple(rustc_triple,
                                      project_metadata_list.as_slice(),
                                      excludes.as_slice())
@@ -217,7 +217,7 @@ fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs, &
                                        &config)?;
 
         let project_metadata_list = workskpace_metadata(&workspace)?;
-        let excludes = if all || workspace.is_virtual() {
+        let excludes = if (all || workspace.is_virtual()) && packages.is_empty() {
             exclude_by_target_triple(rustc_triple,
                                      project_metadata_list.as_slice(),
                                      excludes.as_slice())
