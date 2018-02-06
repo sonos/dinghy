@@ -10,6 +10,6 @@ pub fn test_file_path(file_name: &str) -> PathBuf {
             .expect(&format!("Current exe directory not accessible {}", current_exe.display()))
             .join(file_name)
     } else {
-        PathBuf::from("../resources").join(file_name)
+        PathBuf::from(file_name)
     }
 }
