@@ -62,9 +62,9 @@ impl Device for HostDevice {
         "HOST"
     }
 
-    fn install_app(&self, _project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
+    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
         debug!("No installation performed as it is not required for host platform");
-        Ok(make_host_app(build, runnable)?)
+        Ok(make_host_app(project, build, runnable)?)
     }
 
     fn name(&self) -> &str {

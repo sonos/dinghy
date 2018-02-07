@@ -10,6 +10,7 @@ use errors::*;
 
 #[derive(Clone, Debug)]
 pub struct TestData {
+    pub id: String,
     pub base: path::PathBuf,
     pub source: String,
     pub target: String,
@@ -145,8 +146,9 @@ impl Configuration {
         }
         self.ssh_devices
             .extend(other.ssh_devices.unwrap_or(collections::BTreeMap::new()));
-        for (_, source) in other.test_data.unwrap_or(collections::BTreeMap::new()) { // TODO Remove key
+        for (id, source) in other.test_data.unwrap_or(collections::BTreeMap::new()) { // TODO Remove key
             self.test_data.push(TestData {
+                id: id.to_string(),
                 base: file.to_path_buf(),
                 source: source.source.clone(),
                 target: source.target.unwrap_or(source.source.clone()),

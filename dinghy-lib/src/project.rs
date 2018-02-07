@@ -4,7 +4,9 @@ use filetime::set_file_times;
 use filetime::FileTime;
 use ignore::WalkBuilder;
 use std::fs;
+use std::fs::File;
 use std::env::current_dir;
+use std::io::prelude::*;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -51,17 +53,44 @@ impl Project {
         })
     }
 
+    pub fn link_test_data<T: AsRef<Path>>(&self, runnable: &Runnable, app_path: T) -> Result<()> {
+        let app_path = app_path.as_ref();
+        let sub_project = self.for_runnable(runnable)?;
+        let test_data_path = app_path.join("test_data");
+        fs::create_dir_all(&test_data_path)?;
+        let test_data_cfg_path = test_data_path.join("test_data.cfg");
+        let mut test_data_cfg = File::create(&test_data_cfg_path)?;
+        debug!("Generating {}", test_data_cfg_path.display());
+
+        for td in sub_project.conf.test_data.iter() {
+            let target_path = td.base.parent().unwrap_or(&PathBuf::from("/")).join(&td.source);
+            let target_path = target_path.to_str().ok_or(format!("Invalid UTF-8 path {}", target_path.display()))?;
+
+            test_data_cfg.write_all(td.id.as_bytes())?;
+            test_data_cfg.write_all(b":")?;
+            test_data_cfg.write_all(target_path.as_bytes())?;
+            test_data_cfg.write_all(b"\n")?;
+        }
+        Ok(())
+    }
+
     pub fn copy_test_data<T: AsRef<Path>>(&self, app_path: T) -> Result<()> {
         let app_path = app_path.as_ref();
-        fs::create_dir_all(app_path)?;
+        let test_data_path = app_path.join("test_data");
+        fs::create_dir_all(&test_data_path)?;
+
         for td in self.conf.test_data.iter() {
-            let root = PathBuf::from("/");
-            let file = td.base.parent().unwrap_or(&root).join(&td.source);
+            let file = td.base.parent().unwrap_or(&PathBuf::from("/")).join(&td.source);
             if Path::new(&file).exists() {
-                let dst = app_path.join(&td.target);
-                self.rec_copy(file, dst, td.copy_git_ignored)?;
+                let metadata = file.metadata()?;
+                let dst = test_data_path.join(&td.id);
+                if metadata.is_dir() {
+                    self.rec_copy(file, dst, td.copy_git_ignored)?;
+                } else {
+                    fs::copy(file, dst)?;
+                }
             } else {
-                warn!("Configuration required test_data {:?} but it could not be found", td);
+                warn!("configuration required test_data `{:?}` but it could not be found", td);
             }
         }
         Ok(())
@@ -76,6 +105,7 @@ impl Project {
         let src = src.as_ref();
         let dst = dst.as_ref();
         let ignore_file = src.join(".dinghyignore");
+        debug!("Copying recursively from {} to {}", src.display(), dst.display());
 
         let mut walker = WalkBuilder::new(src);
         walker.git_ignore(!copy_ignored_test_data);

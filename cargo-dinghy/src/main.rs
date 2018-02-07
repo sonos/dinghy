@@ -93,6 +93,8 @@ fn prepare_and_run(
 
     let device = device.ok_or("No device found")?;
     for runnable in &build.runnables {
+        debug!("Processing {}", &runnable.id);
+
         let build_bundle = device.install_app(&project, &build, &runnable)?;
         let result = if sub_args.is_present("DEBUGGER") {
             device.debug_app(

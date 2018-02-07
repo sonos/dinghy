@@ -1,36 +1,22 @@
 #[cfg(test)]
-mod tests {
+extern crate dinghy_test;
 
+#[cfg(test)]
+mod tests {
     mod pass {
+        use dinghy_test::test_file_path;
         use std::path;
 
         pub fn src_path() -> path::PathBuf {
             if cfg!(any(target_os = "ios", target_os = "android"))
                 || ::std::env::var("DINGHY").is_ok()
-            {
-                ::std::env::current_exe()
-                    .unwrap()
-                    .parent()
-                    .unwrap()
-                    .into()
-            } else {
+                {
+                    ::std::env::current_exe().unwrap()
+                        .parent().unwrap()
+                        .parent().unwrap()
+                        .into()
+                } else {
                 path::PathBuf::from(".")
-            }
-        }
-
-        pub fn test_data_path() -> Option<path::PathBuf> {
-            if cfg!(any(target_os = "ios", target_os = "android"))
-                || ::std::env::var("DINGHY").is_ok()
-            {
-                Some(
-                    ::std::env::current_exe()
-                        .unwrap()
-                        .parent()
-                        .unwrap()
-                        .join("test_data"),
-                )
-            } else {
-                None
             }
         }
 
@@ -44,19 +30,16 @@ mod tests {
         #[test]
         fn it_finds_test_data_files() {
             println!("pwd: {:?}", ::std::env::current_dir());
-            println!("test_data path: {:?}", test_data_path());
-            let license = test_data_path()
-                .map(|p| p.join("dinghy_source"))
-                .unwrap_or(path::PathBuf::from("../.."))
+            let license = test_file_path("dinghy_source")
                 .join("LICENSE");
+            println!("Found path: {:?}", license);
             assert!(
                 license.exists(),
                 "File from dinghy_source not found: {:?}",
                 license
             );
-            let license = test_data_path()
-                .map(|p| p.join("dinghy_license"))
-                .unwrap_or(path::PathBuf::from("../../LICENSE"));
+            let license = test_file_path("dinghy_license");
+            println!("Found path: {:?}", license);
             assert!(
                 license.exists(),
                 "File dinghy_license not found: {:?}",

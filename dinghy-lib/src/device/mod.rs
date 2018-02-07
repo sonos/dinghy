@@ -13,11 +13,13 @@ pub mod ios;
 pub mod ssh;
 
 
-fn make_host_app(build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
-    let root_dir = build.target_path.clone();
-    let bundle_path = build.target_path.clone();
+fn make_host_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
+    let root_dir = build.target_path.join("dinghy");
+    let bundle_path = root_dir.join(&runnable.id).clone();
     let bundle_libs_path = build.target_path.clone();
     let bundle_exe_path = build.target_path.join(&runnable.id);
+
+    project.link_test_data(&runnable, &bundle_path)?; // TODO Fix for runnable
 
     Ok(BuildBundle {
         id: runnable.id.clone(),
@@ -27,11 +29,12 @@ fn make_host_app(build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
         root_dir: root_dir,
     })
 }
+
 fn make_remote_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
     make_remote_app_with_name(project, build, runnable, None)
 }
 
-fn make_remote_app_with_name(project: &Project, build: &Build, runnable: &Runnable, bundle_name:Option<&str>) -> Result<BuildBundle> {
+fn make_remote_app_with_name(project: &Project, build: &Build, runnable: &Runnable, bundle_name: Option<&str>) -> Result<BuildBundle> {
     let project = project.for_runnable(runnable)?;
     let root_dir = build.target_path.join("dinghy");
     let bundle_path = match bundle_name {
