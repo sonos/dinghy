@@ -7,7 +7,7 @@ pub fn test_file_path(test_data_id: &str) -> PathBuf {
     let current_exe = env::current_exe()
         .expect("Current exe path not accessible");
 
-    if env::var("DINGHY").is_ok() {
+    if cfg!(any(target_os = "ios", target_os = "android")) || env::var("DINGHY").is_ok() {
         current_exe.parent()
             .expect(&format!("Current exe directory not accessible {}", current_exe.display()))
             .parent()
