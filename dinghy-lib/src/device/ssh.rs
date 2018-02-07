@@ -12,7 +12,6 @@ use std::process::Command;
 use std::sync::Arc;
 use utils::path_to_str;
 use Build;
-use BuildArgs;
 use Device;
 use DeviceCompatibility;
 use PlatformManager;
@@ -25,6 +24,20 @@ pub struct SshDevice {
 }
 
 impl SshDevice {
+    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<(BuildBundle, BuildBundle)> {
+        let build_bundle = make_remote_app(project, build, runnable)?;
+        let remote_bundle = self.to_remote_bundle(&build_bundle)?;
+
+        let _ = self.ssh_command()?
+            .arg("mkdir").arg("-p").arg(&remote_bundle.bundle_dir)
+            .status();
+
+        info!("Rsyncing {}", self.name());
+        self.sync(&build_bundle.bundle_dir, &remote_bundle.bundle_dir)?;
+        self.sync(&build_bundle.lib_dir, &remote_bundle.lib_dir)?;
+        Ok((build_bundle, remote_bundle))
+    }
+
     fn ssh_command(&self) -> Result<Command> {
         let mut command = Command::new("ssh");
         command.arg(format!("{}@{}", self.conf.username, self.conf.hostname));
@@ -83,7 +96,7 @@ impl Device for SshDevice {
         Ok(())
     }
 
-    fn debug_app(&self, _build_bundle: &BuildBundle, _args: &[&str], _envs: &[&str]) -> Result<()> {
+    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str]) -> Result<Vec<BuildBundle>> {
         unimplemented!()
     }
 
@@ -91,42 +104,33 @@ impl Device for SshDevice {
         &self.id
     }
 
-    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
-        let build_bundle = make_remote_app(project, build, runnable)?;
-        let remote_bundle = self.to_remote_bundle(&build_bundle)?;
-
-        let _ = self.ssh_command()?
-            .arg("mkdir").arg("-p").arg(&remote_bundle.bundle_dir)
-            .status();
-
-        info!("Rsyncing {}", self.name());
-        self.sync(&build_bundle.bundle_dir, &remote_bundle.bundle_dir)?;
-        self.sync(&build_bundle.lib_dir, &remote_bundle.lib_dir)?;
-        Ok(build_bundle)
-    }
-
     fn name(&self) -> &str {
         &self.id
     }
 
-    fn run_app(&self, build_bundle: &BuildBundle, _build_args: BuildArgs, args: &[&str], envs: &[&str]) -> Result<()> {
-        let remote_bundle = self.to_remote_bundle(build_bundle)?;
-        let command = format!(
-            "cd '{}/target/' ; {} RUST_BACKTRACE=1 DINGHY=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {}",
-            path_to_str(&remote_bundle.bundle_dir)?,
-            envs.join(" "),
-            path_to_str(&remote_bundle.lib_dir)?,
-            path_to_str(&remote_bundle.bundle_exe)?);
-        debug!("Running {}", command);
+    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>> {
+        let mut build_bundles = vec![];
+        for runnable in &build.runnables {
+            let (build_bundle, remote_bundle) = self.install_app(&project, &build, &runnable)?;
+            let command = format!(
+                "cd '{}/target/' ; {} RUST_BACKTRACE=1 DINGHY=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {}",
+                path_to_str(&remote_bundle.bundle_dir)?,
+                envs.join(" "),
+                path_to_str(&remote_bundle.lib_dir)?,
+                path_to_str(&remote_bundle.bundle_exe)?);
+            debug!("Running {}", command);
 
-        let status = self.ssh_command()?
-            .arg(&command)
-            .args(args)
-            .status()?;
-        if !status.success() {
-            Err("Test failed 📍")?
+            let status = self.ssh_command()?
+                .arg(&command)
+                .args(args)
+                .status()?;
+            if !status.success() {
+                Err("Test failed 🐛")?
+            }
+
+            build_bundles.push(build_bundle)
         }
-        Ok(())
+        Ok(build_bundles)
     }
 
     fn start_remote_lldb(&self) -> Result<String> {

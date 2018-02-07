@@ -187,7 +187,7 @@ pub fn dinghy_config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
     }
     for file in files_to_try {
         if path::Path::new(&file).exists() {
-            info!("Loading configuration from {:?}", file);
+            debug!("Loading configuration from {:?}", file);
             conf.merge(&file)?;
         } else {
             trace!("No configuration found at {:?}", file);

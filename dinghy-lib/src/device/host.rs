@@ -1,5 +1,4 @@
 use compiler::Compiler;
-use device::make_host_app;
 use dinghy_helper::build_env::set_env;
 use itertools::Itertools;
 use platform::host::HostPlatform;
@@ -9,13 +8,11 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::sync::Arc;
 use Build;
-use BuildArgs;
 use BuildBundle;
 use Device;
 use PlatformManager;
 use DeviceCompatibility;
 use Result;
-use Runnable;
 
 pub struct HostManager {
     compiler: Arc<Compiler>
@@ -46,6 +43,28 @@ impl HostDevice {
             compiler: compiler.clone()
         }
     }
+
+    fn install_all_apps(&self, project: &Project, build: &Build) -> Result<Vec<BuildBundle>> {
+        let root_dir = build.target_path.join("dinghy");
+        let bundle_libs_path = build.target_path.clone();
+
+        let mut build_bundles = vec![];
+        for runnable in &build.runnables {
+            let bundle_path = root_dir.join(&runnable.id).clone();
+            let bundle_exe_path = build.target_path.join(&runnable.id);
+
+            project.link_test_data(&runnable, &bundle_path)?;
+
+            build_bundles.push(BuildBundle {
+                id: runnable.id.clone(),
+                bundle_dir: bundle_path.to_path_buf(),
+                bundle_exe: bundle_exe_path.to_path_buf(),
+                lib_dir: bundle_libs_path.to_path_buf(),
+                root_dir: root_dir.clone(),
+            });
+        }
+        Ok(build_bundles)
+    }
 }
 
 impl Device for HostDevice {
@@ -54,7 +73,7 @@ impl Device for HostDevice {
         Ok(())
     }
 
-    fn debug_app(&self, _build_bundle: &BuildBundle, _args: &[&str], _envs: &[&str]) -> Result<()> {
+    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str]) -> Result<Vec<BuildBundle>> {
         unimplemented!()
     }
 
@@ -62,21 +81,17 @@ impl Device for HostDevice {
         "HOST"
     }
 
-    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
-        debug!("No installation performed as it is not required for host platform");
-        Ok(make_host_app(project, build, runnable)?)
-    }
-
     fn name(&self) -> &str {
         "host device"
     }
 
-    fn run_app(&self, _build_bundle: &BuildBundle, build_args: BuildArgs, args: &[&str], envs: &[&str]) -> Result<()> {
+    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>> {
         for (env_key, env_value) in envs.iter().tuples() {
             set_env(env_key, env_value);
         }
-        self.compiler.run(None, build_args, args)?;
-        Ok(())
+        let build_bundles = self.install_all_apps(project, build)?;
+        self.compiler.run(None, &build.build_args, args)?;
+        Ok(build_bundles)
     }
 
     fn start_remote_lldb(&self) -> Result<String> {

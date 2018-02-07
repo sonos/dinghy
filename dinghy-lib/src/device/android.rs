@@ -11,7 +11,6 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use utils::path_to_str;
 use Build;
-use BuildArgs;
 use BuildBundle;
 use Device;
 use DeviceCompatibility;
@@ -56,8 +55,23 @@ impl AndroidDevice {
     fn adb(&self) -> Result<Command> {
         let mut command = Command::new(&self.adb);
         command.arg("-s").arg(&self.id);
-        debug!("Running command {:?}", command);
         Ok(command)
+    }
+
+    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<(BuildBundle, BuildBundle)> {
+        let build_bundle = make_remote_app(project, build, runnable)?;
+        let remote_bundle = AndroidDevice::to_remote_bundle(&build_bundle)?;
+
+        self.sync(&build_bundle.bundle_dir, &remote_bundle.bundle_dir.parent()
+            .ok_or(format!("Invalid path {}", remote_bundle.bundle_dir.display()))?)?;
+        self.sync(&build_bundle.lib_dir, &remote_bundle.lib_dir.parent()
+            .ok_or(format!("Invalid path {}", remote_bundle.lib_dir.display()))?)?;
+
+        debug!("Chmod target exe {}", remote_bundle.bundle_exe.display());
+        if !self.adb()?.arg("shell").arg("chmod").arg("755").arg(&remote_bundle.bundle_exe).status()?.success() {
+            Err("failure in android install")?;
+        }
+        Ok((build_bundle, remote_bundle))
     }
 
     fn sync<FP: AsRef<Path>, TP: AsRef<Path>>(&self, from_path: FP, to_path: TP) -> Result<()> {
@@ -99,7 +113,7 @@ impl Device for AndroidDevice {
         Ok(())
     }
 
-    fn debug_app(&self, _build_bundle: &BuildBundle, _args: &[&str], _envs: &[&str]) -> Result<()> {
+    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str]) -> Result<Vec<BuildBundle>> {
         unimplemented!()
     }
 
@@ -107,45 +121,34 @@ impl Device for AndroidDevice {
         &self.id
     }
 
-    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
-        let build_bundle = make_remote_app(project, build, runnable)?;
-        let remote_bundle = AndroidDevice::to_remote_bundle(&build_bundle)?;
-
-        self.sync(&build_bundle.bundle_dir, &remote_bundle.bundle_dir.parent()
-            .ok_or(format!("Invalid path {}", remote_bundle.bundle_dir.display()))?)?;
-        self.sync(&build_bundle.lib_dir, &remote_bundle.lib_dir.parent()
-            .ok_or(format!("Invalid path {}", remote_bundle.lib_dir.display()))?)?;
-
-        debug!("Chmod target exe {}", remote_bundle.bundle_exe.display());
-        if !self.adb()?.arg("shell").arg("chmod").arg("755").arg(&remote_bundle.bundle_exe).status()?.success() {
-            Err("failure in android install")?;
-        }
-        Ok(build_bundle)
-    }
-
     fn name(&self) -> &str {
         "android device"
     }
 
-    fn run_app(&self, build_bundle: &BuildBundle, _build_args: BuildArgs, args: &[&str], envs: &[&str]) -> Result<()> {
-        let remote_bundle = AndroidDevice::to_remote_bundle(&build_bundle)?;
-        let command = format!(
-            "cd '{}/target/'; {} DINGHY=1 RUST_BACKTRACE=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {}",
-            path_to_str(&remote_bundle.bundle_dir)?,
-            envs.join(" "),
-            path_to_str(&remote_bundle.lib_dir)?,
-            path_to_str(&remote_bundle.bundle_exe)?);
-        debug!("Running {}", command);
+    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>> {
+        let mut build_bundles = vec![];
+        for runnable in &build.runnables {
+            let (build_bundle, remote_bundle) = self.install_app(&project, &build, &runnable)?;
+            let command = format!(
+                "cd '{}/target/'; {} DINGHY=1 RUST_BACKTRACE=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {}",
+                path_to_str(&remote_bundle.bundle_dir)?,
+                envs.join(" "),
+                path_to_str(&remote_bundle.lib_dir)?,
+                path_to_str(&remote_bundle.bundle_exe)?);
+            debug!("Running {}", command);
 
-        let status = self.adb()?
-            .arg("shell")
-            .arg(&command)
-            .args(args)
-            .status()?;
-        if !status.success() {
-            Err("Test failed 🐛")?
+            let status = self.adb()?
+                .arg("shell")
+                .arg(&command)
+                .args(args)
+                .status()?;
+            if !status.success() {
+                Err("Test failed 🐛")?
+            }
+
+            build_bundles.push(build_bundle)
         }
-        Ok(())
+        Ok(build_bundles)
     }
 
     fn start_remote_lldb(&self) -> Result<String> {

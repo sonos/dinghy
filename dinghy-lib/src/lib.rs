@@ -143,7 +143,7 @@ impl Dinghy {
     }
 
     #[cfg(not(target_os = "macos"))]
-    fn discover_ios_platform(_id:String, _rustc_triple: &str, _compiler: &Arc<Compiler>, _config:&PlatformConfiguration) -> Result<Box<Platform>> {
+    fn discover_ios_platform(_id: String, _rustc_triple: &str, _compiler: &Arc<Compiler>, _config: &PlatformConfiguration) -> Result<Box<Platform>> {
         unimplemented!()
     }
 
@@ -185,15 +185,13 @@ impl Dinghy {
 pub trait Device: Display + DeviceCompatibility {
     fn clean_app(&self, build_bundle: &BuildBundle) -> Result<()>;
 
-    fn debug_app(&self, build_bundle: &BuildBundle, args: &[&str], envs: &[&str]) -> Result<()>;
+    fn debug_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>>;
 
     fn id(&self) -> &str;
 
-    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle>;
-
     fn name(&self) -> &str;
 
-    fn run_app(&self, build_bundle: &BuildBundle, build_args: BuildArgs, args: &[&str], envs: &[&str]) -> Result<()>;
+    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>>;
 
     fn start_remote_lldb(&self) -> Result<String>;
 }
@@ -214,7 +212,7 @@ pub trait DeviceCompatibility {
 }
 
 pub trait Platform {
-    fn build(&self, project: &Project, build_args: BuildArgs) -> Result<Build>;
+    fn build(&self, project: &Project, build_args: &BuildArgs) -> Result<Build>;
 
     fn id(&self) -> String;
 
@@ -228,8 +226,9 @@ pub trait PlatformManager {
 }
 
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Build {
+    pub build_args: BuildArgs,
     pub dynamic_libraries: Vec<PathBuf>,
     pub runnables: Vec<Runnable>,
     pub target_path: PathBuf,

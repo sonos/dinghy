@@ -102,7 +102,6 @@ impl CargoDinghyCli {
                     .release()
                     .target()
                     .verbose()
-                    .no_fail_fast()
                     .common_remote()
                     .additional_args())
         }.get_matches_from(args)
@@ -135,7 +134,6 @@ pub trait CargoDinghyCliExt {
     fn job(self) -> Self;
     fn lib(self) -> Self;
     fn no_default_features(self) -> Self;
-    fn no_fail_fast(self) -> Self;
     fn overlay(self) -> Self;
     fn package(self) -> Self;
     fn platform(self) -> Self;
@@ -244,12 +242,6 @@ impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
         self.arg(Arg::with_name("NO_DEFAULT_FEATURES")
             .long("no-default-features")
             .help("Do not build the `default` feature"))
-    }
-
-    fn no_fail_fast(self) -> Self {
-        self.arg(Arg::with_name("NO_FAIL_FAST")
-            .long("no-fail-fast")
-            .help("Run all tests regardless of failure"))
     }
 
     fn package(self) -> Self {

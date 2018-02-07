@@ -72,7 +72,7 @@ impl Display for RegularPlatform {
 }
 
 impl Platform for RegularPlatform {
-    fn build(&self, project: &Project, build_args: BuildArgs) -> Result<Build> {
+    fn build(&self, project: &Project, build_args: &BuildArgs) -> Result<Build> {
         // Cleanup environment
         set_all_env(&[
             ("LIBRARY_PATH", ""),
@@ -101,7 +101,7 @@ impl Platform for RegularPlatform {
         self.toolchain.setup_sysroot();
         self.toolchain.shim_executables(&self.id)?;
 
-        self.compiler.build(self.rustc_triple(), build_args)
+        self.compiler.build(self.rustc_triple(), &build_args)
     }
 
     fn id(&self) -> String {

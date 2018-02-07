@@ -75,7 +75,7 @@ fn run_command(args: &ArgMatches) -> Result<()> {
 }
 
 fn build(platform: Arc<Box<Platform>>, project: Project, args: &ArgMatches) -> Result<()> {
-    platform.build(&project, CargoDinghyCli::build_args_from(args)).and(Ok(()))
+    platform.build(&project, &CargoDinghyCli::build_args_from(args)).and(Ok(()))
 }
 
 fn prepare_and_run(
@@ -86,33 +86,23 @@ fn prepare_and_run(
     sub_args: &ArgMatches,
 ) -> Result<()> {
     let build_args = CargoDinghyCli::build_args_from(args);
-    let build = platform.build(&project, build_args.clone())?;
+    let build = platform.build(&project, &build_args)?;
+    let device = device.ok_or("No device found")?;
     let args = arg_as_string_vec(sub_args, "ARGS");
     let envs = arg_as_string_vec(sub_args, "ENVS");
-    let no_fail_fast = sub_args.is_present("NO_FAIL_FAST");
 
-    let device = device.ok_or("No device found")?;
-    for runnable in &build.runnables {
-        debug!("Processing {}", &runnable.id);
+    let args = args.iter().map(|s| &s[..]).collect::<Vec<_>>();
+    let envs = envs.iter().map(|s| &s[..]).collect::<Vec<_>>();
+    let build_bundles = if sub_args.is_present("DEBUGGER") {
+        device.debug_app(&project, &build, &*args, &*envs)?
+    } else {
+        device.run_app(&project, &build, &*args, &*envs)?
+    };
 
-        let build_bundle = device.install_app(&project, &build, &runnable)?;
-        let result = if sub_args.is_present("DEBUGGER") {
-            device.debug_app(
-                &build_bundle,
-                &*args.iter().map(|s| &s[..]).collect::<Vec<_>>(),
-                &*envs.iter().map(|s| &s[..]).collect::<Vec<_>>(),
-            )
-        } else {
-            device.run_app(
-                &build_bundle,
-                build_args.clone(),
-                &*args.iter().map(|s| &s[..]).collect::<Vec<_>>(),
-                &*envs.iter().map(|s| &s[..]).collect::<Vec<_>>(),
-            )
-        };
-
-        if sub_args.is_present("CLEANUP") { device.clean_app(&build_bundle)?; }
-        if !no_fail_fast && result.is_err() { return result; }
+    if sub_args.is_present("CLEANUP") {
+        for build_bundle in build_bundles {
+            device.clean_app(&build_bundle)?;
+        }
     }
     Ok(())
 }

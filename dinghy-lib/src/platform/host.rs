@@ -28,7 +28,7 @@ impl HostPlatform {
 }
 
 impl Platform for HostPlatform {
-    fn build(&self, project: &Project, build_args: BuildArgs) -> Result<Build> {
+    fn build(&self, project: &Project, build_args: &BuildArgs) -> Result<Build> {
         // Set custom env variables specific to the platform
         set_all_env(&self.configuration.env());
 

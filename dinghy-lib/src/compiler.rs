@@ -34,9 +34,9 @@ use ResultExt;
 use Runnable;
 
 pub struct Compiler {
-    build_command: Box<Fn(Option<&str>, BuildArgs) -> Result<Build>>,
+    build_command: Box<Fn(Option<&str>, &BuildArgs) -> Result<Build>>,
     clean_command: Box<Fn(Option<&str>) -> Result<()>>,
-    run_command: Box<Fn(Option<&str>, BuildArgs, &[&str]) -> Result<()>>,
+    run_command: Box<Fn(Option<&str>, &BuildArgs, &[&str]) -> Result<()>>,
 }
 
 impl Compiler {
@@ -48,7 +48,7 @@ impl Compiler {
         }
     }
 
-    pub fn build(&self, rustc_triple: Option<&str>, build_args: BuildArgs) -> Result<Build> {
+    pub fn build(&self, rustc_triple: Option<&str>, build_args: &BuildArgs) -> Result<Build> {
         (self.build_command)(rustc_triple, build_args)
     }
 
@@ -56,7 +56,7 @@ impl Compiler {
         (self.clean_command)(rustc_triple)
     }
 
-    pub fn run(&self, rustc_triple: Option<&str>, build_args: BuildArgs, args: &[&str]) -> Result<()> {
+    pub fn run(&self, rustc_triple: Option<&str>, build_args: &BuildArgs, args: &[&str]) -> Result<()> {
         (self.run_command)(rustc_triple, build_args, args)
     }
 }
@@ -77,7 +77,7 @@ impl ProjectMetadata {
     }
 }
 
-fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs) -> Result<Build>> {
+fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs) -> Result<Build>> {
     let all = matches.is_present("ALL");
     let all_features = matches.is_present("ALL_FEATURES");
     let benches = arg_as_string_vec(matches, "BENCH");
@@ -100,7 +100,7 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs)
     let verbosity = matches.occurrences_of("VERBOSE") as u32;
     let tests = arg_as_string_vec(matches, "TEST");
 
-    Box::new(move |rustc_triple: Option<&str>, build_args: BuildArgs| {
+    Box::new(move |rustc_triple: Option<&str>, build_args: &BuildArgs| {
         let release = build_args.compile_mode == CompileMode::Bench || release;
         let mut config = CompileConfig::default()?;
         config.configure(verbosity,
@@ -180,7 +180,7 @@ fn create_clean_command(matches: &ArgMatches) -> Box<Fn(Option<&str>) -> Result<
     })
 }
 
-fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs, &[&str]) -> Result<()>> {
+fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs, &[&str]) -> Result<()>> {
     let all = matches.is_present("ALL");
     let all_features = matches.is_present("ALL_FEATURES");
     let benches = arg_as_string_vec(matches, "BENCH");
@@ -198,13 +198,12 @@ fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs, &
         .map(|v| v.parse::<u32>().unwrap());
     let lib_only = matches.is_present("LIB");
     let no_default_features = matches.is_present("NO_DEFAULT_FEATURES");
-    let no_fail_fast = matches.is_present("NO_FAIL_FAST");
     let packages = arg_as_string_vec(matches, "SPEC");
     let release = matches.is_present("RELEASE");
     let verbosity = matches.occurrences_of("VERBOSE") as u32;
     let tests = arg_as_string_vec(matches, "TEST");
 
-    Box::new(move |rustc_triple: Option<&str>, build_args: BuildArgs, args: &[&str]| {
+    Box::new(move |rustc_triple: Option<&str>, build_args: &BuildArgs, args: &[&str]| {
         let release = build_args.compile_mode == CompileMode::Bench || release;
         let mut config = CompileConfig::default()?;
         config.configure(verbosity,
@@ -254,7 +253,7 @@ fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs, &
         let test_options = TestOptions {
             compile_opts: compile_options,
             no_run: false,
-            no_fail_fast: no_fail_fast,
+            no_fail_fast: false,
             only_doc: false,
         };
 
@@ -284,10 +283,11 @@ fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, BuildArgs, &
 
 fn to_build(compilation: Compilation,
             config: &CompileConfig,
-            build_args: BuildArgs) -> Result<Build> {
+            build_args: &BuildArgs) -> Result<Build> {
     match build_args.compile_mode {
         CompileMode::Build => {
             Ok(Build {
+                build_args: build_args.clone(),
                 dynamic_libraries: find_dynamic_libraries(&compilation,
                                                           config,
                                                           build_args)?,
@@ -311,6 +311,7 @@ fn to_build(compilation: Compilation,
 
         _ => {
             Ok(Build {
+                build_args: build_args.clone(),
                 dynamic_libraries: find_dynamic_libraries(&compilation,
                                                           config,
                                                           build_args)?,
@@ -352,7 +353,7 @@ fn exclude_by_target_triple(rustc_triple: Option<&str>, project_metadata_list: &
 // the same dependency are available). Need improvement.
 fn find_dynamic_libraries(compilation: &Compilation,
                           config: &CompileConfig,
-                          build_args: BuildArgs) -> Result<Vec<PathBuf>> {
+                          build_args: &BuildArgs) -> Result<Vec<PathBuf>> {
     let linker = match linker(compilation, config) {
         Ok(linker) => linker,
         Err(_) => return Ok(vec![]), // On host so we don't care
@@ -396,7 +397,7 @@ fn find_dynamic_libraries(compilation: &Compilation,
         .collect())
 }
 
-fn find_all_linked_library_names(compilation: &Compilation, build_args: BuildArgs) -> Result<HashSet<String>> {
+fn find_all_linked_library_names(compilation: &Compilation, build_args: &BuildArgs) -> Result<HashSet<String>> {
     fn is_output_file(file_path: &PathBuf) -> bool {
         file_path.is_file() && file_path.file_name()
             .and_then(|it| it.to_str())
@@ -417,7 +418,7 @@ fn find_all_linked_library_names(compilation: &Compilation, build_args: BuildArg
         .flatten()
         .map(|lib_name| lib_name.clone())
         .map(parse_lib_name)
-        .chain(build_args.forced_overlays)
+        .chain(build_args.forced_overlays.clone())
         .collect();
     debug!("Found libraries {:?}", &linked_library_names);
     Ok(linked_library_names)
