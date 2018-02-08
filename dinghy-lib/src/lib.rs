@@ -185,7 +185,7 @@ impl Dinghy {
 pub trait Device: Display + DeviceCompatibility {
     fn clean_app(&self, build_bundle: &BuildBundle) -> Result<()>;
 
-    fn debug_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>>;
+    fn debug_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<BuildBundle>;
 
     fn id(&self) -> &str;
 

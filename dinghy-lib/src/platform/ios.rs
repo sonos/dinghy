@@ -49,7 +49,7 @@ impl IosPlatform {
 }
 
 impl Platform for IosPlatform {
-    fn build(&self, project: &Project, build_args: BuildArgs) -> Result<Build> {
+    fn build(&self, project: &Project, build_args: &BuildArgs) -> Result<Build> {
         let sysroot = self.sysroot_path()?;
         Overlayer::overlay(&self.configuration, self, project, &self.sysroot_path()?)?;
         self.toolchain.setup_cc(self.id().as_str(), "gcc")?;

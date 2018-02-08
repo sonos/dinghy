@@ -1,6 +1,5 @@
 use errors::*;
-use project::Project;
-use std::{env, fs, io, path, process};
+use std::{env, fs, io, process};
 use std::io::Write;
 use super::{SignatureSettings, SigningIdentity};
 

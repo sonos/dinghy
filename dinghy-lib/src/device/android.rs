@@ -113,7 +113,7 @@ impl Device for AndroidDevice {
         Ok(())
     }
 
-    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str]) -> Result<Vec<BuildBundle>> {
+    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str]) -> Result<BuildBundle> {
         unimplemented!()
     }
 
@@ -146,7 +146,7 @@ impl Device for AndroidDevice {
                 Err("Test failed 🐛")?
             }
 
-            build_bundles.push(build_bundle)
+            build_bundles.push(build_bundle);
         }
         Ok(build_bundles)
     }

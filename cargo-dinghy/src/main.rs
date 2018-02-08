@@ -94,7 +94,7 @@ fn prepare_and_run(
     let args = args.iter().map(|s| &s[..]).collect::<Vec<_>>();
     let envs = envs.iter().map(|s| &s[..]).collect::<Vec<_>>();
     let build_bundles = if sub_args.is_present("DEBUGGER") {
-        device.debug_app(&project, &build, &*args, &*envs)?
+        vec![device.debug_app(&project, &build, &*args, &*envs)?]
     } else {
         device.run_app(&project, &build, &*args, &*envs)?
     };

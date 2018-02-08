@@ -25,7 +25,6 @@ use std::fmt::Formatter;
 use std::time::Duration;
 use platform::ios::IosPlatform;
 use Build;
-use BuildArgs;
 use BuildBundle;
 use Device;
 use DeviceCompatibility;
@@ -66,12 +65,6 @@ pub struct IosSimDevice {
     id: String,
     name: String,
     os: String,
-}
-
-impl IosDevice {
-    fn to_remote_bundle(build_bundle: &BuildBundle) -> Result<BuildBundle> {
-        build_bundle.replace_prefix_with(PathBuf::from("/data/local/tmp").join("dinghy")) // TODO
-    }
 }
 
 unsafe impl Send for IosDevice {}
@@ -118,6 +111,12 @@ impl IosDevice {
         xcode::sign_app(&build_bundle, &signing)?;
         Ok(build_bundle)
     }
+
+    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
+        let build_bundle = self.make_app(project, build, runnable)?;
+        install_app(self.ptr, &build_bundle.bundle_dir)?;
+        Ok(build_bundle)
+    }
 }
 
 impl Device for IosDevice {
@@ -125,28 +124,31 @@ impl Device for IosDevice {
         unimplemented!()
     }
 
-    fn debug_app(&self, build_bundle: &BuildBundle, args: &[&str], _envs: &[&str]) -> Result<()> {
+    fn debug_app(&self, project: &Project, build: &Build, args: &[&str], _envs: &[&str]) -> Result<BuildBundle> {
+        let runnable = build.runnables.iter().next().ok_or("No executable compiled")?;
+        let build_bundle = self.install_app(project, build, runnable)?;
         let lldb_proxy = self.start_remote_lldb()?;
-        run_remote(self.ptr, &lldb_proxy, &build_bundle.bundle_dir, args, true)
+        run_remote(self.ptr, &lldb_proxy, &build_bundle.bundle_dir, args, true)?;
+        Ok(build_bundle)
     }
 
     fn id(&self) -> &str {
         &self.id
     }
 
-    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
-        let build_bundle = self.make_app(project, build, runnable)?;
-        install_app(self.ptr, &build_bundle.bundle_dir)?;
-        Ok(build_bundle)
-    }
-
     fn name(&self) -> &str {
         &self.name
     }
 
-    fn run_app(&self, build_bundle: &BuildBundle, _build_args:BuildArgs, args: &[&str], _envs: &[&str]) -> Result<()> {
-        let lldb_proxy = self.start_remote_lldb()?;
-        run_remote(self.ptr, &lldb_proxy, &build_bundle.bundle_dir, args, false)
+    fn run_app(&self, project: &Project, build: &Build, args: &[&str], _envs: &[&str]) -> Result<Vec<BuildBundle>> {
+        let mut build_bundles = vec![];
+        for runnable in &build.runnables {
+            let build_bundle = self.install_app(&project, &build, &runnable)?;
+            let lldb_proxy = self.start_remote_lldb()?;
+            run_remote(self.ptr, &lldb_proxy, &build_bundle.bundle_dir, args, false)?;
+            build_bundles.push(build_bundle)
+        }
+        Ok(build_bundles)
     }
 
     fn start_remote_lldb(&self) -> Result<String> {
@@ -161,40 +163,6 @@ impl Device for IosDevice {
 
 
 impl IosSimDevice {
-    fn make_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
-        let name = runnable.exe.file_name().expect("root ?");
-        let parent = runnable.exe.parent().expect("no parents? too sad...");
-        let loc = parent.join("dinghy").join(name);
-        let magic = process::Command::new("file")
-            .arg(&runnable.exe.to_str().ok_or("path conversion to string")?)
-            .output()?;
-        let magic = String::from_utf8(magic.stdout)?;
-        let target = magic.split(" ").last().ok_or("empty magic")?;
-        let bundle = make_remote_app_with_name(project, build, runnable, Some("Dinghy.app"))?;
-        xcode::add_plist_to_app(&bundle, target, "Dinghy")?;
-        Ok(bundle)
-    }
-}
-
-impl Device for IosSimDevice {
-    fn clean_app(&self, _build_bundle: &BuildBundle) -> Result<()> {
-        unimplemented!()
-    }
-
-    fn debug_app(&self, _build_bundle: &BuildBundle, args: &[&str], _envs: &[&str]) -> Result<()> {
-        let install_path = String::from_utf8(
-            process::Command::new("xcrun")
-                .args(&["simctl", "get_app_container", &self.id, "Dinghy"])
-                .output()?
-                .stdout,
-        )?;
-        launch_lldb_simulator(&self, &install_path, args, true)
-    }
-
-    fn id(&self) -> &str {
-        &self.id
-    }
-
     fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
         let build_bundle = IosSimDevice::make_app(project, build, runnable)?;
         let _ = process::Command::new("xcrun")
@@ -215,18 +183,58 @@ impl Device for IosSimDevice {
         }
     }
 
-    fn name(&self) -> &str {
-        &self.name
+    fn make_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
+        let magic = process::Command::new("file")
+            .arg(&runnable.exe.to_str().ok_or("path conversion to string")?)
+            .output()?;
+        let magic = String::from_utf8(magic.stdout)?;
+        let target = magic.split(" ").last().ok_or("empty magic")?;
+        let bundle = make_remote_app_with_name(project, build, runnable, Some("Dinghy.app"))?;
+        xcode::add_plist_to_app(&bundle, target, "Dinghy")?;
+        Ok(bundle)
+    }
+}
+
+impl Device for IosSimDevice {
+    fn clean_app(&self, _build_bundle: &BuildBundle) -> Result<()> {
+        unimplemented!()
     }
 
-    fn run_app(&self, _build_bundle: &BuildBundle, _build_args:BuildArgs, args: &[&str], _envs: &[&str]) -> Result<()> {
+    fn debug_app(&self, project: &Project, build: &Build, args: &[&str], _envs: &[&str]) -> Result<BuildBundle> {
+        let runnable = build.runnables.iter().next().ok_or("No executable compiled")?;
+        let build_bundle = self.install_app(project, build, runnable)?;
         let install_path = String::from_utf8(
             process::Command::new("xcrun")
                 .args(&["simctl", "get_app_container", &self.id, "Dinghy"])
                 .output()?
                 .stdout,
         )?;
-        launch_lldb_simulator(&self, &install_path, args, false)
+        launch_lldb_simulator(&self, &install_path, args, true)?;
+        Ok(build_bundle)
+    }
+
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    fn run_app(&self, project: &Project, build: &Build, args: &[&str], _envs: &[&str]) -> Result<Vec<BuildBundle>> {
+        let mut build_bundles = vec![];
+        for runnable in &build.runnables {
+            let build_bundle = self.install_app(&project, &build, &runnable)?;
+            let install_path = String::from_utf8(
+                process::Command::new("xcrun")
+                    .args(&["simctl", "get_app_container", &self.id, "Dinghy"])
+                    .output()?
+                    .stdout,
+            )?;
+            launch_lldb_simulator(&self, &install_path, args, false)?;
+            build_bundles.push(build_bundle);
+        }
+        Ok(build_bundles)
     }
 
     fn start_remote_lldb(&self) -> Result<String> {
