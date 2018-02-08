@@ -259,19 +259,25 @@ fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs, 
 
         match build_args.compile_mode {
             CompileMode::Bench => {
-                CargoOps::run_benches(&workspace,
-                                      &test_options,
-                                      args.into_iter().map(|it| it.to_string()).collect_vec().as_slice())?;
+                if let Some(err) = CargoOps::run_benches(&workspace,
+                                                         &test_options,
+                                                         args.into_iter().map(|it| it.to_string()).collect_vec().as_slice())? {
+                    bail!("An error occured: {:?}", err);
+                };
             }
             CompileMode::Build => {
-                CargoOps::run(&workspace,
-                              &test_options.compile_opts,
-                              args.into_iter().map(|it| it.to_string()).collect_vec().as_slice())?;
+                if let Some(err) = CargoOps::run(&workspace,
+                                                 &test_options.compile_opts,
+                                                 args.into_iter().map(|it| it.to_string()).collect_vec().as_slice())? {
+                    bail!("An error occured: {:?}", err);
+                };
             }
             CompileMode::Test => {
-                CargoOps::run_tests(&workspace,
-                                    &test_options,
-                                    args.into_iter().map(|it| it.to_string()).collect_vec().as_slice())?;
+                if let Some(err) = CargoOps::run_tests(&workspace,
+                                                       &test_options,
+                                                       args.into_iter().map(|it| it.to_string()).collect_vec().as_slice())? {
+                    bail!("An error occured: {:?}", err);
+                };
             }
             otherwise => {
                 bail!("Invalid run option {:?}", otherwise);
