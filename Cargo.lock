@@ -159,11 +159,11 @@ dependencies = [
 
 [[package]]
 name = "cargo-dinghy"
-version = "0.2.16-pre"
+version = "0.3.0-pre"
 dependencies = [
  "cargo 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.27.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "dinghy-lib 0.2.16-pre",
+ "dinghy-lib 0.3.0-pre",
  "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.7.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -348,7 +348,7 @@ dependencies = [
 
 [[package]]
 name = "dinghy-helper"
-version = "0.2.16-pre"
+version = "0.3.0-pre"
 dependencies = [
  "bindgen 0.30.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -357,14 +357,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "dinghy"
-version = "0.2.17-pre"
+name = "dinghy-lib"
+version = "0.3.0-pre"
 dependencies = [
  "cargo 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.27.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-foundation 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-foundation-sys 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "dinghy-helper 0.2.16-pre",
+ "dinghy-helper 0.3.0-pre",
  "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "filetime 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "ignore 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
