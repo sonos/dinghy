@@ -26,7 +26,7 @@ impl IosPlatform {
     pub fn new(id: String, rustc_triple: &str, compiler: &Arc<Compiler>, configuration: &PlatformConfiguration) -> Result<Box<Platform>> {
         Ok(Box::new(IosPlatform {
             id,
-            sim: false,
+            sim: rustc_triple.starts_with("x86"),
             toolchain: Toolchain {
                 rustc_triple: rustc_triple.to_string()
             },

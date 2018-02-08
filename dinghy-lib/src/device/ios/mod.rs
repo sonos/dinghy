@@ -179,7 +179,7 @@ impl IosSimDevice {
         if stat.success() {
             Ok(build_bundle)
         } else {
-            Err("failed to install")?
+            Err(format!("Failed to install {} for {}", runnable.exe.display(), self.id))?
         }
     }
 
