@@ -3,4 +3,5 @@ members = [
     "cargo-dinghy",
     "dinghy-helper",
     "dinghy-lib",
+    "dinghy-test",
 ]
