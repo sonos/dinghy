@@ -14,7 +14,6 @@ pub fn try_test_file_path(test_data_id: &str) -> Option<PathBuf> {
 
     if cfg!(any(target_os = "ios", target_os = "android")) || env::var("DINGHY").is_ok() {
         current_exe.parent()
-            .and_then(|it| it.parent())
             .map(|it| it.join("test_data"))
             .map(|it| it.join(test_data_id))
     } else {

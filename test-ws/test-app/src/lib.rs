@@ -14,7 +14,6 @@ mod tests {
                 {
                     ::std::env::current_exe().unwrap()
                         .parent().unwrap()
-                        .parent().unwrap()
                         .into()
                 } else {
                 path::PathBuf::from(".")

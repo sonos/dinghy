@@ -25,7 +25,7 @@ fn make_remote_app_with_name(project: &Project, build: &Build, runnable: &Runnab
         None => root_dir.join(&runnable.id),
     };
     let bundle_libs_path = root_dir.join("overlay");
-    let bundle_target_path = bundle_path.join("target");
+    let bundle_target_path = bundle_path.clone();
     let bundle_exe_path = bundle_target_path.join(&runnable.id);
 
     debug!("Removing previous bundle {:?}", bundle_path);
