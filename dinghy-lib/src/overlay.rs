@@ -117,6 +117,10 @@ impl Overlayer {
 
     fn apply_overlay<I>(&self, overlays: I) -> Result<()>
         where I: IntoIterator<Item=Overlay> {
+        let pkg_config_env_var = self.rustc_triple.as_ref().map(|_| "PKG_CONFIG_LIBDIR")
+            // Fallback on PKG_CONFIG_LIBPATH for host as it doesn't erase pkg_config paths
+            .unwrap_or("PKG_CONFIG_LIBPATH");
+
         // Setup overlay work directory
         if let Err(error) = remove_dir_all(&self.work_dir) {
             if self.work_dir.exists() {
@@ -125,7 +129,7 @@ impl Overlayer {
         }
         create_dir_all(&self.work_dir).chain_err(|| format!("Couldn't create overlay work directory {}.",
                                                             self.work_dir.display()))?;
-        append_path_to_target_env("PKG_CONFIG_LIBDIR", self.rustc_triple.as_ref(), &self.work_dir);
+        append_path_to_target_env(pkg_config_env_var, self.rustc_triple.as_ref(), &self.work_dir);
 
         for overlay in overlays {
             debug!("Overlaying '{}'", overlay.id.as_str());
@@ -140,12 +144,12 @@ impl Overlayer {
 
             for pkg_config_path in pkg_config_path_list {
                 debug!("Discovered pkg-config directory '{}'", pkg_config_path.display());
-                append_path_to_target_env("PKG_CONFIG_LIBDIR", self.rustc_triple.as_ref(), pkg_config_path);
+                append_path_to_target_env(pkg_config_env_var, self.rustc_triple.as_ref(), pkg_config_path);
                 has_pkg_config_files = true;
             }
             if !has_pkg_config_files {
                 self.generate_pkg_config_file(&overlay)?;
-                append_path_to_target_env("PKG_CONFIG_LIBDIR", self.rustc_triple.as_ref(), &overlay.path);
+                append_path_to_target_env(pkg_config_env_var, self.rustc_triple.as_ref(), &overlay.path);
             }
 
             // Override the 'prefix' pkg-config variable for the specified overlay only.
