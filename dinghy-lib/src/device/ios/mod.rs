@@ -96,18 +96,13 @@ impl IosDevice {
     }
 
     fn make_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
-        let build_bundle = make_remote_app_with_name(project, build, runnable, Some("Dinghy.app"))?;
-        fs::copy(&runnable.exe, build_bundle.bundle_dir.join("Dinghy"))?;
-        let magic = process::Command::new("file")
-            .arg(runnable.exe.to_str().ok_or("path conversion to string")?)
-            .output()?;
-        let magic = String::from_utf8(magic.stdout)?;
-        let target = magic.split(" ").last().ok_or("empty magic")?;
         let signing = xcode::look_for_signature_settings(&self.id)?
             .pop()
             .ok_or("no signing identity found")?;
         let app_id = signing.name.split(" ").last().ok_or("no app id ?")?;
-        xcode::add_plist_to_app(&build_bundle, target, app_id)?;
+
+        let build_bundle = make_ios_app(project, build, runnable, &app_id)?;
+
         xcode::sign_app(&build_bundle, &signing)?;
         Ok(build_bundle)
     }
@@ -173,7 +168,7 @@ impl IosSimDevice {
                 "simctl",
                 "install",
                 &self.id,
-                runnable.exe.to_str().ok_or("conversion to string")?,
+                build_bundle.bundle_dir.to_str().ok_or("conversion to string")?,
             ])
             .status()?;
         if stat.success() {
@@ -184,14 +179,7 @@ impl IosSimDevice {
     }
 
     fn make_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
-        let magic = process::Command::new("file")
-            .arg(&runnable.exe.to_str().ok_or("path conversion to string")?)
-            .output()?;
-        let magic = String::from_utf8(magic.stdout)?;
-        let target = magic.split(" ").last().ok_or("empty magic")?;
-        let bundle = make_remote_app_with_name(project, build, runnable, Some("Dinghy.app"))?;
-        xcode::add_plist_to_app(&bundle, target, "Dinghy")?;
-        Ok(bundle)
+        make_ios_app(project, build, runnable, "Dinghy")
     }
 }
 
@@ -513,6 +501,18 @@ fn mount_developper_image(dev: *const am_device) -> Result<()> {
         mk_result(r)?;
         Ok(())
     }
+}
+
+fn make_ios_app(project: &Project, build: &Build, runnable: &Runnable, app_id:&str) -> Result<BuildBundle> {
+    let build_bundle = make_remote_app_with_name(project, build, runnable, Some("Dinghy.app"))?;
+    fs::copy(&runnable.exe, build_bundle.bundle_dir.join("Dinghy"))?;
+    let magic = process::Command::new("file")
+        .arg(runnable.exe.to_str().ok_or("path conversion to string")?)
+        .output()?;
+    let magic = String::from_utf8(magic.stdout)?;
+    let target = magic.split(" ").last().ok_or("empty magic")?;
+    xcode::add_plist_to_app(&build_bundle, target, app_id)?;
+    Ok(build_bundle)
 }
 
 struct Session(*const am_device);
