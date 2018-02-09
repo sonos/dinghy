@@ -3,27 +3,19 @@ set -e
 set -x
 export CARGO_DINGHY="`pwd`/target/debug/cargo-dinghy"
 export RUST_BACKTRACE=1
-export TARGET_ARCH="x86_64-apple-ios"
-
-curl https://sh.rustup.rs -sSf | sh -s -- -y
-
-export PATH=$PATH:$HOME/.cargo/bin
-RUST_VERSION=${RUST_VERSION:=stable}
-
-rustup install $RUST_VERSION
-rustup override set $RUST_VERSION
 
 if [ `uname` = Darwin ]
 then
     (xcrun simctl list devices | grep Booted) || xcrun simctl boot "iPhone 6"
-    rustup target install $TARGET_ARCH
-    pip install six
+    rustup target install "x86_64-apple-ios"
+    pip2 install six
+    pip2 install six
     export OPENSSL_INCLUDE_DIR=`brew --prefix openssl`/include
     export OPENSSL_LIB_DIR=`brew --prefix openssl`/lib
 
     # Setup dinghy config
     echo "[platforms.ios]" >> .dinghy.toml
-    echo "rustc_triple='$TARGET_ARCH'" >> .dinghy.toml
+    echo "rustc_triple='x86_64-apple-ios'" >> .dinghy.toml
 fi
 
 cargo build --verbose
