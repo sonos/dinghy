@@ -14,6 +14,7 @@ use build_env::sysroot_path;
 use build_env::target_env;
 use std::env;
 use std::env::current_dir;
+use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -29,6 +30,8 @@ error_chain! {
 }
 
 pub trait CommandExt {
+    fn arg_for_macos<S: AsRef<OsStr>>(&mut self, arg: S) -> Result<&mut Command>;
+
     fn configure_prefix<P: AsRef<Path>>(&mut self, path: P) -> Result<&mut Command>;
 
     fn with_pkgconfig(&mut self) -> Result<&mut Command>;
@@ -37,6 +40,13 @@ pub trait CommandExt {
 }
 
 impl CommandExt for Command {
+    fn arg_for_macos<S: AsRef<OsStr>>(&mut self, arg: S) -> Result<&mut Command> {
+        if env::var("TARGET").map(|target| target.contains("-apple-darwin")).unwrap_or(false) {
+            self.arg(arg.as_ref());
+        }
+        Ok(self)
+    }
+
     fn configure_prefix<P: AsRef<Path>>(&mut self, prefix_dir: P) -> Result<&mut Command> {
         self.args(&["--prefix", path_to_str(&path_between(
             sysroot_path().unwrap_or(PathBuf::from("/")),
