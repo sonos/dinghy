@@ -3,6 +3,20 @@ use std::env;
 use std::io::prelude::*;
 use std::path::PathBuf;
 
+pub fn test_project_path() -> PathBuf {
+    if cfg!(any(target_os = "ios", target_os = "android"))
+        || env::var("DINGHY").is_ok() {
+        let current_exe = env::current_exe()
+            .expect("Current exe path not accessible");
+
+        current_exe.parent()
+            .expect(&format!("Current exe path is invalid {}", current_exe.display()))
+            .into()
+    } else {
+        PathBuf::from(".")
+    }
+}
+
 pub fn test_file_path(test_data_id: &str) -> PathBuf {
     try_test_file_path(test_data_id)
         .expect(&format!("Couldn't find test data {}", test_data_id))

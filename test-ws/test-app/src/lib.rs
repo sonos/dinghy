@@ -5,26 +5,15 @@ extern crate dinghy_test;
 mod tests {
     mod pass {
         use dinghy_test::test_file_path;
+        use dinghy_test::test_project_path;
         use dinghy_test::try_test_file_path;
         use std::path;
-
-        pub fn src_path() -> path::PathBuf {
-            if cfg!(any(target_os = "ios", target_os = "android"))
-                || ::std::env::var("DINGHY").is_ok()
-                {
-                    ::std::env::current_exe().unwrap()
-                        .parent().unwrap()
-                        .into()
-                } else {
-                path::PathBuf::from(".")
-            }
-        }
 
         #[test]
         fn it_finds_source_files() {
             println!("pwd: {:?}", ::std::env::current_dir());
-            println!("src_path: {:?}", src_path());
-            assert!(src_path().join("src/lib.rs").exists());
+            println!("test_project_path: {:?}", test_project_path());
+            assert!(test_project_path().join("src/lib.rs").exists());
         }
 
         #[test]
