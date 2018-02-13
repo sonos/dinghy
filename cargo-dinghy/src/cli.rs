@@ -40,7 +40,8 @@ impl CargoDinghyCli {
                     .common_remote()
                     .target()
                     .verbose()
-                    .additional_args())
+                    .additional_args()
+                    .bearded())
 
                 .subcommand(SubCommand::with_name("build")
                     .about("Compile the current project")
@@ -59,7 +60,8 @@ impl CargoDinghyCli {
                     .no_default_features()
                     .target()
                     .verbose()
-                    .additional_args())
+                    .additional_args()
+                    .bearded())
 
                 .subcommand(SubCommand::with_name("clean")
                     .about("Remove artifacts that cargo has generated in the past"))
@@ -83,7 +85,8 @@ impl CargoDinghyCli {
                     .target()
                     .verbose()
                     .common_remote()
-                    .additional_args())
+                    .additional_args()
+                    .bearded())
 
                 .subcommand(SubCommand::with_name("test")
                     .about("Run the tests")
@@ -103,7 +106,8 @@ impl CargoDinghyCli {
                     .target()
                     .verbose()
                     .common_remote()
-                    .additional_args())
+                    .additional_args()
+                    .bearded())
         }.get_matches_from(args)
     }
 
@@ -141,6 +145,7 @@ pub trait CargoDinghyCliExt {
     fn target(self) -> Self;
     fn test(self) -> Self;
     fn verbose(self) -> Self;
+    fn bearded(self) -> Self;
 }
 
 impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
@@ -297,6 +302,12 @@ impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
             .long("verbose")
             .multiple(true)
             .help("Sets the level of verbosity"))
+    }
+
+    fn bearded(self) -> Self {
+        self.arg(Arg::with_name("BEARDED")
+            .long("bearded")
+            .help("Do some naughty stuff"))
     }
 }
 

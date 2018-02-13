@@ -16,10 +16,13 @@ use clap::ArgMatches;
 use dinghy_helper::build_env::target_env_from_triple;
 use itertools::Itertools;
 use std::collections::HashSet;
+use std::env;
 use std::env::current_dir;
+use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
 use std::iter::FromIterator;
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -99,6 +102,7 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs
     let release = matches.is_present("RELEASE");
     let verbosity = matches.occurrences_of("VERBOSE") as u32;
     let tests = arg_as_string_vec(matches, "TEST");
+    let bearded = matches.is_present("BEARDED");
 
     Box::new(move |rustc_triple: Option<&str>, build_args: &BuildArgs| {
         let release = build_args.compile_mode == CompileMode::Bench || release;
@@ -147,6 +151,7 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs
             target_rustc_args: None,
         };
 
+        if bearded { setup_dinghy_wrapper(&workspace, rustc_triple)?; }
         let compilation = CargoOps::compile(&workspace, &compile_options)?;
         Ok(to_build(compilation, &config, build_args)?)
     })
@@ -257,6 +262,7 @@ fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs, 
             only_doc: false,
         };
 
+        setup_dinghy_wrapper(&workspace, rustc_triple)?;
         match build_args.compile_mode {
             CompileMode::Bench => {
                 if let Some(err) = CargoOps::run_benches(&workspace,
@@ -285,6 +291,29 @@ fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs, 
         }
         Ok(())
     })
+}
+
+fn setup_dinghy_wrapper(workspace: &Workspace, rustc_triple: Option<&str>) -> Result<()> {
+    let mut target_dir = workspace.target_dir();
+    target_dir.push(rustc_triple.unwrap_or("host"));
+    target_dir.create_dir()?;
+    let target_dir = target_dir.into_path_unlocked();
+    let measure_sh_path = target_dir.join("dinghy-wrapper.sh");
+    {
+        let mut measure_sh = File::create(&measure_sh_path)?;
+        measure_sh.write_all(b"#!/bin/bash\n")?;
+        measure_sh.write_all(b"START_TIME=$SECONDS\n")?;
+        if let Ok(rustc_wrapper) = env::var("RUSTC_WRAPPER") {
+            measure_sh.write_all(format!("(exec {} \"$@\")\n", rustc_wrapper).as_bytes())?;
+        } else {
+            measure_sh.write_all(b"(exec \"$@\")\n")?;
+        }
+        measure_sh.write_all(b"ELAPSED_TIME=$(($SECONDS - $START_TIME))\n")?;
+        measure_sh.write_all(format!("echo \"$4 = $ELAPSED_TIME s\" >> {}\n", target_dir.join("dinghy-wrapper.log").display()).as_bytes())?;
+    }
+    fs::set_permissions(&measure_sh_path, PermissionsExt::from_mode(0o755))?;
+    env::set_var("RUSTC_WRAPPER", measure_sh_path);
+    Ok(())
 }
 
 fn to_build(compilation: Compilation,
