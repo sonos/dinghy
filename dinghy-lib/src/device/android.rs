@@ -17,6 +17,9 @@ use DeviceCompatibility;
 use PlatformManager;
 use Runnable;
 
+
+static ANDROID_WORK_DIR: &str = "/data/local/tmp/dinghy";
+
 pub struct AndroidDevice {
     adb: String,
     id: String,
@@ -59,6 +62,10 @@ impl AndroidDevice {
     }
 
     fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<(BuildBundle, BuildBundle)> {
+        if !self.adb()?.arg("shell").arg("mkdir").arg("-p").arg(ANDROID_WORK_DIR).status()?.success() {
+            Err(format!("Failure to create dinghy work dir '{}' on target android device", ANDROID_WORK_DIR))?;
+        }
+
         let build_bundle = make_remote_app(project, build, runnable)?;
         let remote_bundle = AndroidDevice::to_remote_bundle(&build_bundle)?;
 
@@ -69,7 +76,7 @@ impl AndroidDevice {
 
         debug!("Chmod target exe {}", remote_bundle.bundle_exe.display());
         if !self.adb()?.arg("shell").arg("chmod").arg("755").arg(&remote_bundle.bundle_exe).status()?.success() {
-            Err("failure in android install")?;
+            Err("Failure in android install")?;
         }
         Ok((build_bundle, remote_bundle))
     }
@@ -90,7 +97,7 @@ impl AndroidDevice {
     }
 
     fn to_remote_bundle(build_bundle: &BuildBundle) -> Result<BuildBundle> {
-        build_bundle.replace_prefix_with(PathBuf::from("/data/local/tmp").join("dinghy"))
+        build_bundle.replace_prefix_with(PathBuf::from(ANDROID_WORK_DIR))
     }
 }
 
