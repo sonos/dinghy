@@ -181,11 +181,21 @@ fn adb() -> Result<String> {
     if try_out("adb") {
         return Ok("adb".into());
     }
+    if let Ok(android_home) = env::var("ANDROID_HOME") {
+        let adb = format!("{}/platform-tools/adb", android_home);
+        if try_out(&adb) { return Ok(adb); }
+    }
+    if let Ok(android_sdk) = env::var("ANDROID_SDK") {
+        let adb = format!("{}/platform-tools/adb", android_sdk);
+        if try_out(&adb) { return Ok(adb); }
+    }
+    if let Ok(android_sdk_home) = env::var("ANDROID_SDK_HOME") {
+        let adb = format!("{}/platform-tools/adb", android_sdk_home);
+        if try_out(&adb) { return Ok(adb); }
+    }
     if let Ok(home) = env::var("HOME") {
         let mac_place = format!("{}/Library/Android/sdk/platform-tools/adb", home);
-        if try_out(&mac_place) {
-            return Ok(mac_place);
-        }
+        if try_out(&mac_place) { return Ok(mac_place); }
     }
     Err("Neither fb-adb or adb could be found")?
 }
