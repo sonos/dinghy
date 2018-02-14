@@ -130,7 +130,7 @@ impl Device for AndroidDevice {
         for runnable in &build.runnables {
             let (build_bundle, remote_bundle) = self.install_app(&project, &build, &runnable)?;
             let command = format!(
-                "cd '{}/target/'; {} DINGHY=1 RUST_BACKTRACE=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {}",
+                "cd '{}'; {} DINGHY=1 RUST_BACKTRACE=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {}",
                 path_to_str(&remote_bundle.bundle_dir)?,
                 envs.join(" "),
                 path_to_str(&remote_bundle.lib_dir)?,
