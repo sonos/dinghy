@@ -207,6 +207,7 @@ fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs, 
     let release = matches.is_present("RELEASE");
     let verbosity = matches.occurrences_of("VERBOSE") as u32;
     let tests = arg_as_string_vec(matches, "TEST");
+    let bearded = matches.is_present("BEARDED");
 
     Box::new(move |rustc_triple: Option<&str>, build_args: &BuildArgs, args: &[&str]| {
         let release = build_args.compile_mode == CompileMode::Bench || release;
@@ -262,7 +263,7 @@ fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs, 
             only_doc: false,
         };
 
-        setup_dinghy_wrapper(&workspace, rustc_triple)?;
+        if bearded { setup_dinghy_wrapper(&workspace, rustc_triple)?; }
         match build_args.compile_mode {
             CompileMode::Bench => {
                 if let Some(err) = CargoOps::run_benches(&workspace,
