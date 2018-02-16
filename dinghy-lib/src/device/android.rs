@@ -6,6 +6,9 @@ use std::env;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::io::stderr;
+use std::io::stdout;
+use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -137,19 +140,28 @@ impl Device for AndroidDevice {
         for runnable in &build.runnables {
             let (build_bundle, remote_bundle) = self.install_app(&project, &build, &runnable)?;
             let command = format!(
-                "cd '{}'; {} DINGHY=1 RUST_BACKTRACE=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {}",
+                "cd '{}'; {} DINGHY=1 RUST_BACKTRACE=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {} ; echo FORWARD_RESULT_TO_DINGHY_BECAUSE_ADB_IS_CRAPPY=$?",
                 path_to_str(&remote_bundle.bundle_dir)?,
                 envs.join(" "),
                 path_to_str(&remote_bundle.lib_dir)?,
-                path_to_str(&remote_bundle.bundle_exe)?);
+                path_to_str(&remote_bundle.bundle_exe)?,
+                args.join(" ")); // TODO Might cause issues with quoted args
             debug!("Running {}", command);
 
-            let status = self.adb()?
+            if !self.adb()?
                 .arg("shell")
                 .arg(&command)
-                .args(args)
-                .status()?;
-            if !status.success() {
+                .output()
+                .chain_err(|| format!("Couldn't run {} using adb.", runnable.exe.display()))
+                .and_then(|output| if output.status.success() {
+                    let _ = stdout().write(output.stdout.as_slice());
+                    let _ = stderr().write(output.stderr.as_slice());
+                    String::from_utf8(output.stdout).chain_err(|| format!("Couldn't run {} using adb.", runnable.exe.display()))
+                } else {
+                    bail!("Couldn't run {} using adb.", runnable.exe.display())
+                })
+                .map(|output| output.lines().last().unwrap_or("").to_string())
+                .map(|last_line| last_line.contains("FORWARD_RESULT_TO_DINGHY_BECAUSE_ADB_IS_CRAPPY=0"))? {
                 Err("Test failed 🐛")?
             }
 
