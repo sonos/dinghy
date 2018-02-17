@@ -26,25 +26,20 @@ pub struct Toolchain {
 impl Toolchain {
     pub fn setup_ar(&self, ar_command: &str) -> Result<()> {
         set_env("TARGET_AR", ar_command);
+        set_env(format!("AR_{}", self.rustc_triple), ar_command);
         Ok(())
     }
 
-    pub fn setup_cc(&self, id: &str, compiler_command: &str) -> Result<()> {
-        Ok(setup_shim(
-            &self.rustc_triple,
-            id,
-            "TARGET_CC",
-            "cc",
-            format!("{} {}", compiler_command, GLOB_ARGS).as_str())?)
+    pub fn setup_cc(&self, _id: &str, compiler_command: &str) -> Result<()> {
+        set_env("TARGET_CC", compiler_command);
+        set_env(format!("CC_{}", self.rustc_triple), compiler_command);
+        Ok(())
     }
 
     pub fn setup_linker(&self, id: &str, linker_command: &str) -> Result<()> {
-        Ok(setup_shim(
-            &self.rustc_triple,
-            id,
-            format!("CARGO_TARGET_{}_LINKER", envify(self.rustc_triple.as_str())).as_str(),
-            "linker",
-            format!("{} {}", linker_command, GLOB_ARGS).as_str())?)
+        let shim = create_shim(project_root()?, &self.rustc_triple, id, "linker", format!("{} {}", linker_command, GLOB_ARGS).as_str())?;
+        set_env(format!("CARGO_TARGET_{}_LINKER", envify(self.rustc_triple.as_str())).as_str(), shim);
+        Ok(())
     }
 }
 
@@ -125,14 +120,6 @@ impl ToolchainConfig {
     fn as_toolchain(&self) -> Toolchain {
         Toolchain { rustc_triple: self.rustc_triple.clone() }
     }
-}
-
-
-fn setup_shim(rustc_triple: &str, id: &str, var: &str, name: &str, shell: &str) -> Result<()> {
-    debug!("Shim {} -> {}", name, shell);
-    let shim = create_shim(project_root()?, rustc_triple, id, name, shell)?;
-    env::set_var(var, shim);
-    Ok(())
 }
 
 fn create_shim<P: AsRef<path::Path>>(
