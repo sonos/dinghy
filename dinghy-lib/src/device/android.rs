@@ -188,6 +188,7 @@ fn adb() -> Result<String> {
         match Command::new(command)
             .arg("--version")
             .stdout(Stdio::null())
+            .stderr(Stdio::null())
             .status()
             {
                 Ok(_) => true,
