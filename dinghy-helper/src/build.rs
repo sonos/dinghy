@@ -34,5 +34,5 @@ pub fn link_system_lib(lib_name: &str) -> Result<()> {
 }
 
 pub fn rerun_if_changed<P: AsRef<Path>>(filepath: P) {
-    println!("cargo:rerun-if-env-changed={}", filepath.as_ref().display());
+    println!("cargo:rerun-if-changed={}", filepath.as_ref().display());
 }
