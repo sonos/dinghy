@@ -22,7 +22,11 @@ pub fn append_path_to_target_env<K: AsRef<OsStr>, R: AsRef<str>, V: AsRef<OsStr>
 }
 
 pub fn build_env(name: &str) -> Result<String> {
-    println!("cargo:rerun-if-env-changed={}", name);
+    let is_build_rs = env::var("CARGO_PKG_NAME").is_ok() && env::var("OUT_DIR").is_ok();
+
+    if is_build_rs {
+        println!("cargo:rerun-if-env-changed={}", name);
+    }
     Ok(env::var(name)?)
 }
 
