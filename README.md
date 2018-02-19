@@ -139,7 +139,6 @@ the fun stuff come.
 ## Android setup
 
 You'll need to make a stand-alone toolchain as explained in the [official Android documentation](https://developer.android.com/ndk/guides/standalone_toolchain.html) (Dinghy cannot use the NDK directly), and `adb` somewhere in your path.
-`fb-adb` will be used if its available on the path. It allows dinghy to forward correctly binaries/benches/tests exit codes from the conneced device to the host platform.
 Also, your phone must have developer options enabled.
 
 You will also probably have to set up a toolchain: rustc needs a working linker to be able to generate executable. On my case, to use android devices and emulators, I added the following lines in `~/.cargo/config`:

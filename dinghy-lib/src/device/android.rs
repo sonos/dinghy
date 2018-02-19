@@ -195,9 +195,6 @@ fn adb() -> Result<String> {
                 Err(_) => false,
             }
     }
-    if try_out("fb_adb") {
-        return Ok("fb-adb".into());
-    }
     if try_out("adb") {
         return Ok("adb".into());
     }
@@ -217,7 +214,7 @@ fn adb() -> Result<String> {
         let mac_place = format!("{}/Library/Android/sdk/platform-tools/adb", home);
         if try_out(&mac_place) { return Ok(mac_place); }
     }
-    Err("Neither fb-adb or adb could be found")?
+    Err("Adb could be found")?
 }
 
 pub struct AndroidManager {
