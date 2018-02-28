@@ -8,25 +8,26 @@ extern crate itertools;
 extern crate log;
 extern crate pretty_env_logger;
 
-mod cli;
-
 use clap::ArgMatches;
 use cli::CargoDinghyCli;
+use dinghy_lib::Build;
 use dinghy_lib::compiler::Compiler;
 use dinghy_lib::config::dinghy_config;
-use dinghy_lib::errors::*;
-use dinghy_lib::project::Project;
-use dinghy_lib::utils::arg_as_string_vec;
 use dinghy_lib::Device;
 use dinghy_lib::Dinghy;
+use dinghy_lib::errors::*;
 use dinghy_lib::Platform;
+use dinghy_lib::project::Project;
+use dinghy_lib::utils::arg_as_string_vec;
 use error_chain::ChainedError;
 use itertools::Itertools;
 use std::env;
 use std::env::current_dir;
+use std::sync::Arc;
 use std::thread;
 use std::time;
-use std::sync::Arc;
+
+mod cli;
 
 fn main() {
     let filtered_args = env::args()
@@ -65,7 +66,7 @@ fn run_command(args: &ArgMatches) -> Result<()> {
         ("all-devices", Some(_)) => show_all_devices(&dinghy),
         ("all-platforms", Some(_)) => show_all_platforms(&dinghy),
         ("bench", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
-        ("build", Some(_)) => build(platform, project, args),
+        ("build", Some(sub_args)) => build(&platform, &project, args, sub_args).and(Ok(())),
         ("clean", Some(_)) => compiler.clean(None),
         ("devices", Some(_)) => show_all_devices_for_platform(&dinghy, platform),
         ("lldbproxy", Some(_)) => run_lldb(device),
@@ -75,8 +76,17 @@ fn run_command(args: &ArgMatches) -> Result<()> {
     }
 }
 
-fn build(platform: Arc<Box<Platform>>, project: Project, args: &ArgMatches) -> Result<()> {
-    platform.build(&project, &CargoDinghyCli::build_args_from(args)).and(Ok(()))
+fn build(platform: &Arc<Box<Platform>>,
+         project: &Project,
+         args: &ArgMatches,
+         sub_args: &ArgMatches) -> Result<Build> {
+    let build_args = CargoDinghyCli::build_args_from(args);
+    let build = platform.build(&project, &build_args)?;
+
+    if sub_args.is_present("STRIP") {
+        platform.strip(&build)?;
+    }
+    Ok(build)
 }
 
 fn prepare_and_run(
@@ -86,8 +96,7 @@ fn prepare_and_run(
     args: &ArgMatches,
     sub_args: &ArgMatches,
 ) -> Result<()> {
-    let build_args = CargoDinghyCli::build_args_from(args);
-    let build = platform.build(&project, &build_args)?;
+    let build = build(&platform.clone(), &project, args, sub_args)?;
     let device = device.ok_or("No device found")?;
     let args = arg_as_string_vec(sub_args, "ARGS");
     let envs = arg_as_string_vec(sub_args, "ENVS");

@@ -2,8 +2,8 @@ use clap::App;
 use clap::Arg;
 use clap::ArgMatches;
 use clap::SubCommand;
-use dinghy_lib::compiler::CompileMode;
 use dinghy_lib::BuildArgs;
+use dinghy_lib::compiler::CompileMode;
 use std::ffi::OsString;
 
 pub struct CargoDinghyCli {}
@@ -44,6 +44,7 @@ impl CargoDinghyCli {
                     .target()
                     .verbose()
                     .additional_args()
+                    .strip()
                     .bearded())
 
                 .subcommand(SubCommand::with_name("build")
@@ -64,6 +65,7 @@ impl CargoDinghyCli {
                     .target()
                     .verbose()
                     .additional_args()
+                    .strip()
                     .bearded())
 
                 .subcommand(SubCommand::with_name("clean")
@@ -89,6 +91,7 @@ impl CargoDinghyCli {
                     .verbose()
                     .common_remote()
                     .additional_args()
+                    .strip()
                     .bearded())
 
                 .subcommand(SubCommand::with_name("test")
@@ -110,6 +113,7 @@ impl CargoDinghyCli {
                     .verbose()
                     .common_remote()
                     .additional_args()
+                    .strip()
                     .bearded())
         }.get_matches_from(args)
     }
@@ -137,6 +141,7 @@ pub trait CargoDinghyCliExt {
     fn device(self) -> Self;
     fn example(self) -> Self;
     fn exclude(self) -> Self;
+    fn exe(self) -> Self;
     fn features(self) -> Self;
     fn job(self) -> Self;
     fn lib(self) -> Self;
@@ -145,6 +150,7 @@ pub trait CargoDinghyCliExt {
     fn package(self) -> Self;
     fn platform(self) -> Self;
     fn release(self) -> Self;
+    fn strip(self) -> Self;
     fn target(self) -> Self;
     fn test(self) -> Self;
     fn verbose(self) -> Self;
@@ -225,6 +231,13 @@ impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
             .help("Exclude package to from the build"))
     }
 
+    fn exe(self) -> Self {
+        self.arg(Arg::with_name("EXE")
+            .long("exe")
+            .takes_value(true)
+            .help("Executable to strip"))
+    }
+
     fn features(self) -> Self {
         self.arg(Arg::with_name("FEATURES")
             .long("features")
@@ -250,6 +263,13 @@ impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
         self.arg(Arg::with_name("NO_DEFAULT_FEATURES")
             .long("no-default-features")
             .help("Do not build the `default` feature"))
+    }
+
+    fn strip(self) -> Self {
+        self.arg(Arg::with_name("STRIP")
+            .long("strip")
+            .takes_value(false)
+            .help("strip the final executable (will have '-stripped' extension)"))
     }
 
     fn package(self) -> Self {

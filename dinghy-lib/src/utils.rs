@@ -1,7 +1,7 @@
 use clap::ArgMatches;
 use errors::Result;
-use std::path::PathBuf;
 use std::path::Path;
+use std::path::PathBuf;
 
 pub fn arg_as_string_vec(matches: &ArgMatches, option: &str) -> Vec<String> {
     matches.values_of(option)
@@ -62,4 +62,10 @@ pub fn lib_name_from(file_path: &Path) -> Result<String> {
     } else {
         Ok(file_name[start_index..end_index].to_string())
     }
+}
+
+pub fn file_name_as_str(file_path: &Path) -> Result<&str> {
+    Ok(file_path.file_name()
+        .and_then(|it| it.to_str())
+        .ok_or(format!("'{}' is not a valid file name", file_path.display()))?)
 }
