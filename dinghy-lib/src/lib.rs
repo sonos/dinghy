@@ -21,6 +21,7 @@ extern crate regex;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+extern crate shell_escape;
 #[cfg(target_os = "macos")]
 extern crate tempdir;
 extern crate toml;

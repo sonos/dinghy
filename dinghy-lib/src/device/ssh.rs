@@ -110,19 +110,22 @@ impl Device for SshDevice {
 
     fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>> {
         let mut build_bundles = vec![];
+        let args:Vec<String> = args.iter().map(|&a| ::shell_escape::escape(a.into()).to_string()).collect();
         for runnable in &build.runnables {
             let (build_bundle, remote_bundle) = self.install_app(&project, &build, &runnable)?;
             let command = format!(
-                "cd '{}' ; {} RUST_BACKTRACE=1 DINGHY=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {}",
+                "cd '{}' ; {} RUST_BACKTRACE=1 DINGHY=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {} {}",
                 path_to_str(&remote_bundle.bundle_dir)?,
                 envs.join(" "),
                 path_to_str(&remote_bundle.lib_dir)?,
-                path_to_str(&remote_bundle.bundle_exe)?);
+                path_to_str(&remote_bundle.bundle_exe)?,
+                if build.build_args.compile_mode == ::cargo::ops::CompileMode::Bench { "--bench" } else { "" },
+                args.join(" ")
+                );
             debug!("Running {}", command);
 
             let status = self.ssh_command()?
                 .arg(&command)
-                .args(args)
                 .status()?;
             if !status.success() {
                 Err("Test failed 🐛")?

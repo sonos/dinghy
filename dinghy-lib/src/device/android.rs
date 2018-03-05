@@ -137,6 +137,7 @@ impl Device for AndroidDevice {
 
     fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>> {
         let mut build_bundles = vec![];
+        let args:Vec<String> = args.iter().map(|&a| ::shell_escape::escape(a.into()).to_string()).collect();
         for runnable in &build.runnables {
             let (build_bundle, remote_bundle) = self.install_app(&project, &build, &runnable)?;
             let command = format!(
@@ -145,7 +146,7 @@ impl Device for AndroidDevice {
                 envs.join(" "),
                 path_to_str(&remote_bundle.lib_dir)?,
                 path_to_str(&remote_bundle.bundle_exe)?,
-                args.join(" ")); // TODO Might cause issues with quoted args
+                args.join(" "));
             debug!("Running {}", command);
 
             if !self.adb()?
