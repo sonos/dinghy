@@ -88,15 +88,16 @@ impl Dinghy {
     }
 
     pub fn discover_platforms(compiler: &Arc<Compiler>, conf: &Configuration) -> Result<Vec<(String, Arc<Box<Platform>>)>> {
+        let mut platforms = vec!();
         let host_conf = conf.platforms.get("host")
             .map(|it| (*it).clone())
             .unwrap_or(PlatformConfiguration::empty());
-        let mut platforms = vec!();
-
+        platforms.push(("host".to_string(), Arc::new(HostPlatform::new(compiler, host_conf.clone())?)));
         for (platform_name, platform_conf) in &conf.platforms {
             if platform_name == "host" {
-                platforms.push(("host".to_string(), Arc::new(HostPlatform::new(compiler, host_conf.clone())?)));
-            } else if let Some(rustc_triple) = platform_conf.rustc_triple.as_ref() {
+                continue;
+            }
+            if let Some(rustc_triple) = platform_conf.rustc_triple.as_ref() {
                 let pf = if rustc_triple.ends_with("-ios") {
                     Dinghy::discover_ios_platform(platform_name.to_owned(), rustc_triple, compiler, &platform_conf)?
                 } else {
