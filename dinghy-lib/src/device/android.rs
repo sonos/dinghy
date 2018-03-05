@@ -141,11 +141,12 @@ impl Device for AndroidDevice {
         for runnable in &build.runnables {
             let (build_bundle, remote_bundle) = self.install_app(&project, &build, &runnable)?;
             let command = format!(
-                "cd '{}'; {} DINGHY=1 RUST_BACKTRACE=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {} ; echo FORWARD_RESULT_TO_DINGHY_BECAUSE_ADB_IS_CRAPPY=$?",
+                "cd '{}'; {} DINGHY=1 RUST_BACKTRACE=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {} {} ; echo FORWARD_RESULT_TO_DINGHY_BECAUSE_ADB_IS_CRAPPY=$?",
                 path_to_str(&remote_bundle.bundle_dir)?,
                 envs.join(" "),
                 path_to_str(&remote_bundle.lib_dir)?,
                 path_to_str(&remote_bundle.bundle_exe)?,
+                if build.build_args.compile_mode == ::cargo::ops::CompileMode::Bench { "--bench" } else { "" },
                 args.join(" "));
             debug!("Running {}", command);
 
