@@ -91,17 +91,18 @@ impl Dinghy {
         let host_conf = conf.platforms.get("host")
             .map(|it| (*it).clone())
             .unwrap_or(PlatformConfiguration::empty());
-        let mut platforms = vec![("host".to_string(),
-                                  Arc::new(HostPlatform::new(compiler, host_conf)?))];
+        let mut platforms = vec!();
 
-        for (platform_name, platform_conf) in conf.platforms.iter().skip(1) {
-            if let Some(rustc_triple) = platform_conf.rustc_triple.as_ref() {
+        for (platform_name, platform_conf) in &conf.platforms {
+            if platform_name == "host" {
+                platforms.push(("host".to_string(), Arc::new(HostPlatform::new(compiler, host_conf.clone())?)));
+            } else if let Some(rustc_triple) = platform_conf.rustc_triple.as_ref() {
                 let pf = if rustc_triple.ends_with("-ios") {
-                    Dinghy::discover_ios_platform(platform_name.to_owned(), rustc_triple, compiler, platform_conf)?
+                    Dinghy::discover_ios_platform(platform_name.to_owned(), rustc_triple, compiler, &platform_conf)?
                 } else {
                     Some(RegularPlatform::new(
                         compiler,
-                        (*platform_conf).clone(),
+                        platform_conf.clone(),
                         platform_name.to_string(),
                         rustc_triple.clone(),
                         platform_conf.toolchain.clone().ok_or(format!("Toolchain missing for platform {}", platform_name))?)?)
