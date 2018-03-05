@@ -12,10 +12,6 @@ then
     pip2 install six
     export OPENSSL_INCLUDE_DIR=`brew --prefix openssl`/include
     export OPENSSL_LIB_DIR=`brew --prefix openssl`/lib
-
-    # Setup dinghy config
-    echo "[platforms.ios]" >> .dinghy.toml
-    echo "rustc_triple='x86_64-apple-ios'" >> .dinghy.toml
 fi
 
 cargo build --verbose
@@ -95,8 +91,8 @@ then
     ( \
         cd test-ws \
         && cargo clean \
-        && $CARGO_DINGHY --platform 'ios' test -p test-app pass \
-        && ! $CARGO_DINGHY --platform 'ios' test -p test-app fails \
+        && $CARGO_DINGHY --platform 'ios-x86_64' test -p test-app pass \
+        && ! $CARGO_DINGHY --platform 'ios-x86_64' test -p test-app fails \
     )
     echo "##"
     echo "## latest failure was expected ##"
