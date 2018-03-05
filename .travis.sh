@@ -66,8 +66,8 @@ then
     ( \
         cd test-ws/test-app \
         && cargo clean \
-        && $CARGO_DINGHY --platform 'ios' test pass \
-        && ! $CARGO_DINGHY --platform 'ios' test fails \
+        && $CARGO_DINGHY --platform 'ios-x86_64' test pass \
+        && ! $CARGO_DINGHY --platform 'ios-x86_64' test fails \
     )
     echo "##"
     echo "## latest failure was expected"
