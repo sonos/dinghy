@@ -168,6 +168,14 @@ fn read_config_file<P: AsRef<path::Path>>(file: P) -> Result<ConfigurationFileCo
 
 pub fn dinghy_config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
     let mut conf = Configuration::default();
+    #[cfg(target_os = "macos")] {
+        for arch in &["armv7", "armv7s", "aarch64", "i386", "x86_64" ] {
+            let id = format!("ios-{}", arch);
+            let rustc_triple = Some(format!("{}-apple-ios", arch));
+            conf.platforms.insert(id, PlatformConfiguration{ rustc_triple, ..PlatformConfiguration::default() });
+        }
+    }
+
     let mut files_to_try = vec![];
     let dir = dir.as_ref().to_path_buf();
     let mut d = dir.as_path();

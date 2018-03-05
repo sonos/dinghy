@@ -23,6 +23,9 @@ impl CargoDinghyCli {
                 .subcommand(SubCommand::with_name("all-devices")
                     .about("List all devices that can be used with Dinghy"))
 
+                .subcommand(SubCommand::with_name("all-platforms")
+                    .about("List all platforms known to dinghy"))
+
                 .subcommand(SubCommand::with_name("bench")
                     .about("Run the benchmarks")
                     .lib()

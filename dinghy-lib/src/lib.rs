@@ -76,24 +76,15 @@ impl Dinghy {
         if let Some(ssh) = SshDeviceManager::probe(conf.clone()) {
             managers.push(Box::new(ssh))
         }
-        if let Some(ios) = Dinghy::new_ios_manager() {
-            managers.push(ios)
+        #[cfg(target_os = "macos")] {
+            if let Some(m) = IosManager::new()? {
+                managers.push(Box::new(m) as _)
+            }
         }
-
         Ok(Dinghy {
             devices: Dinghy::discover_devices(&managers)?,
             platforms: Dinghy::discover_platforms(compiler, &conf)?,
         })
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    fn new_ios_manager() -> Option<Box<PlatformManager>> {
-        None
-    }
-
-    #[cfg(target_os = "macos")]
-    fn new_ios_manager() -> Option<Box<IosManager>> {
-        IosManager::new().unwrap_or(None).map(|it| Box::new(it) as Box<IosManager>)
     }
 
     pub fn discover_platforms(compiler: &Arc<Compiler>, conf: &Configuration) -> Result<Vec<(String, Arc<Box<Platform>>)>> {
@@ -103,49 +94,38 @@ impl Dinghy {
         let mut platforms = vec![("host".to_string(),
                                   Arc::new(HostPlatform::new(compiler, host_conf)?))];
 
-        platforms.extend(conf.platforms
-            .iter()
-            .filter(|&(platform_name, _)| platform_name != "host")
-            .filter(Dinghy::is_usable_platform)
-            .map(|(platform_name, platform_conf)| {
-                if let Some(rustc_triple) = platform_conf.rustc_triple.as_ref() {
-                    if rustc_triple.ends_with("-ios") {
-                        Dinghy::discover_ios_platform(platform_name.to_owned(), rustc_triple, compiler, platform_conf)
-                    } else {
-                        RegularPlatform::new(
-                            compiler,
-                            (*platform_conf).clone(),
-                            platform_name.to_string(),
-                            rustc_triple.clone(),
-                            platform_conf.toolchain.clone().ok_or(format!("Toolchain missing for platform {}", platform_name))?)
-                    }
+        for (platform_name, platform_conf) in conf.platforms.iter().skip(1) {
+            if let Some(rustc_triple) = platform_conf.rustc_triple.as_ref() {
+                let pf = if rustc_triple.ends_with("-ios") {
+                    Dinghy::discover_ios_platform(platform_name.to_owned(), rustc_triple, compiler, platform_conf)?
                 } else {
-                    bail!("Platform configuration for '{}' requires a rustc_triple.", platform_name)
+                    Some(RegularPlatform::new(
+                        compiler,
+                        (*platform_conf).clone(),
+                        platform_name.to_string(),
+                        rustc_triple.clone(),
+                        platform_conf.toolchain.clone().ok_or(format!("Toolchain missing for platform {}", platform_name))?)?)
+                };
+                if let Some(pf) = pf {
+                    platforms.push((platform_name.clone(), Arc::new(pf)))
                 }
-                    .map(|platform| (platform_name.clone(), Arc::new(platform)))
-            })
-            .collect::<Result<Vec<_>>>()?);
+            } else {
+                bail!("Platform configuration for '{}' requires a rustc_triple.", platform_name)
+            }
+        }
+
         Ok(platforms)
     }
 
     #[cfg(target_os = "macos")]
-    fn is_usable_platform(&(_platform_name, _platform_conf): &(&String, &PlatformConfiguration)) -> bool {
-        true
-    }
-
-    #[cfg(target_os = "macos")]
-    fn discover_ios_platform(id: String, rustc_triple: &str, compiler: &Arc<Compiler>, config: &PlatformConfiguration) -> Result<Box<Platform>> {
-        Ok(IosPlatform::new(id, rustc_triple.clone(), compiler, config)?)
+    fn discover_ios_platform(id: String, rustc_triple: &str, compiler: &Arc<Compiler>, config: &PlatformConfiguration) -> Result<Option<Box<Platform>>> {
+        Ok(Some(IosPlatform::new(id, rustc_triple.clone(), compiler, config)?))
     }
 
     #[cfg(not(target_os = "macos"))]
-    fn is_usable_platform(&(_platform_name, platform_conf): &(&String, &PlatformConfiguration)) -> bool {
-        platform_conf.rustc_triple.as_ref().map(|it| !it.ends_with("-ios")).unwrap_or(true)
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    fn discover_ios_platform(_id: String, _rustc_triple: &str, _compiler: &Arc<Compiler>, _config: &PlatformConfiguration) -> Result<Box<Platform>> {
-        unimplemented!()
+    fn discover_ios_platform(id: String, rustc_triple: &str, _compiler: &Arc<Compiler>, _config: &PlatformConfiguration) -> Result<Option<Box<Platform>>> {
+        warn!("Platform {} ({}) is an iOS one, and we are not on a Mac host.", id, rustc_triple);
+        Ok(None)
     }
 
     fn discover_devices(managers: &Vec<Box<PlatformManager>>) -> Result<Vec<Arc<Box<Device>>>> {

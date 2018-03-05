@@ -63,6 +63,7 @@ fn run_command(args: &ArgMatches) -> Result<()> {
 
     match args.subcommand() {
         ("all-devices", Some(_)) => show_all_devices(&dinghy),
+        ("all-platforms", Some(_)) => show_all_platforms(&dinghy),
         ("bench", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
         ("build", Some(_)) => build(platform, project, args),
         ("clean", Some(_)) => compiler.clean(None),
@@ -119,6 +120,13 @@ fn run_lldb(device: Option<Arc<Box<Device>>>) -> Result<()> {
 fn show_all_devices(dinghy: &Dinghy) -> Result<()> {
     println!("List of available devices for all platforms:");
     show_devices(&dinghy, None)
+}
+
+fn show_all_platforms(dinghy: &Dinghy) -> Result<()> {
+    for pf in dinghy.platforms() {
+        println!("* {} {}", pf.id(), pf.rustc_triple().map(|s| format!("({})", s)).unwrap_or("".to_string()));
+    }
+    Ok(())
 }
 
 fn show_all_devices_for_platform(dinghy: &Dinghy, platform: Arc<Box<Platform>>) -> Result<()> {
