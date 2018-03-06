@@ -75,6 +75,7 @@ name are supposed to pass, the one with fail should break.
 
 ```
 % git clone https://github.com/snipsco/dinghy
+% cd dinghy/test-ws
 [...]
 # these ones should pass
 % cargo dinghy -d android test pass
