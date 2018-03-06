@@ -188,10 +188,12 @@ pub fn dinghy_config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
     }
     files_to_try.push(d.join(".dinghy.toml"));
     if let Some(home) = ::std::env::home_dir() {
-        files_to_try.push(home.join("dinghy.toml"));
-        files_to_try.push(home.join(".dinghy.toml"));
-        files_to_try.push(home.join(".dhinghy").join("dinghy.toml"));
-        files_to_try.push(home.join(".dhinghy").join(".dinghy.toml"));
+        if !dir.starts_with(&home) {
+            files_to_try.push(home.join("dinghy.toml"));
+            files_to_try.push(home.join(".dinghy.toml"));
+            files_to_try.push(home.join(".dhinghy").join("dinghy.toml"));
+            files_to_try.push(home.join(".dhinghy").join(".dinghy.toml"));
+        }
     }
     for file in files_to_try {
         if path::Path::new(&file).exists() {

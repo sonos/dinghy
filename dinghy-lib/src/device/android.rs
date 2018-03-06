@@ -24,13 +24,13 @@ use Runnable;
 static ANDROID_WORK_DIR: &str = "/data/local/tmp/dinghy";
 
 pub struct AndroidDevice {
-    adb: String,
+    adb: PathBuf,
     id: String,
     supported_targets: Vec<&'static str>,
 }
 
 impl AndroidDevice {
-    fn from_id(adb: String, id: &str) -> Result<AndroidDevice> {
+    fn from_id(adb: PathBuf, id: &str) -> Result<AndroidDevice> {
         let getprop_output = Command::new(&adb)
             .args(&["-s", id, "shell", "getprop", "ro.product.cpu.abilist"])
             .output()?;
@@ -54,7 +54,6 @@ impl AndroidDevice {
             id: id.into(),
             supported_targets: supported_targets,
         };
-        debug!("device: {}", device);
         Ok(device)
     }
 
@@ -91,6 +90,10 @@ impl AndroidDevice {
 
         let mut command = self.adb()?;
         command.arg("push").arg("--sync").arg(from_path.as_ref()).arg(to_path.as_ref());
+        if !log_enabled!(::log::LogLevel::Debug) {
+            command.stdout(::std::process::Stdio::null());
+            command.stderr(::std::process::Stdio::null());
+        }
         debug!("Running {:?}", command);
         if !command.status()?.success() {
             bail!("Error syncing android directory ({:?})", command)
@@ -141,7 +144,7 @@ impl Device for AndroidDevice {
         for runnable in &build.runnables {
             let (build_bundle, remote_bundle) = self.install_app(&project, &build, &runnable)?;
             let command = format!(
-                "cd '{}'; {} DINGHY=1 RUST_BACKTRACE=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {} {} ; echo FORWARD_RESULT_TO_DINGHY_BECAUSE_ADB_IS_CRAPPY=$?",
+                "cd '{}'; {} DINGHY=1 RUST_BACKTRACE=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {} {} ; echo FORWARD_RESULT_TO_DINGHY_BECAUSE_ADB_DOES_NOT=$?",
                 path_to_str(&remote_bundle.bundle_dir)?,
                 envs.join(" "),
                 path_to_str(&remote_bundle.lib_dir)?,
@@ -163,7 +166,7 @@ impl Device for AndroidDevice {
                     bail!("Couldn't run {} using adb.", runnable.exe.display())
                 })
                 .map(|output| output.lines().last().unwrap_or("").to_string())
-                .map(|last_line| last_line.contains("FORWARD_RESULT_TO_DINGHY_BECAUSE_ADB_IS_CRAPPY=0"))? {
+                .map(|last_line| last_line.contains("FORWARD_RESULT_TO_DINGHY_BECAUSE_ADB_DOES_NOT=0"))? {
                 Err("Test failed 🐛")?
             }
 
@@ -185,7 +188,7 @@ impl Display for AndroidDevice {
     }
 }
 
-fn adb() -> Result<String> {
+fn adb() -> Result<PathBuf> {
     fn try_out(command: &str) -> bool {
         match Command::new(command)
             .arg("--version")
@@ -197,30 +200,30 @@ fn adb() -> Result<String> {
                 Err(_) => false,
             }
     }
-    if try_out("adb") {
-        return Ok("adb".into());
+    if let Ok(adb) = ::which::which("adb") {
+        return Ok(adb)
     }
     if let Ok(android_home) = env::var("ANDROID_HOME") {
         let adb = format!("{}/platform-tools/adb", android_home);
-        if try_out(&adb) { return Ok(adb); }
+        if try_out(&adb) { return Ok(adb.into()); }
     }
     if let Ok(android_sdk) = env::var("ANDROID_SDK") {
         let adb = format!("{}/platform-tools/adb", android_sdk);
-        if try_out(&adb) { return Ok(adb); }
+        if try_out(&adb) { return Ok(adb.into()); }
     }
     if let Ok(android_sdk_home) = env::var("ANDROID_SDK_HOME") {
         let adb = format!("{}/platform-tools/adb", android_sdk_home);
-        if try_out(&adb) { return Ok(adb); }
+        if try_out(&adb) { return Ok(adb.into()); }
     }
     if let Ok(home) = env::var("HOME") {
         let mac_place = format!("{}/Library/Android/sdk/platform-tools/adb", home);
-        if try_out(&mac_place) { return Ok(mac_place); }
+        if try_out(&mac_place) { return Ok(mac_place.into()); }
     }
     Err("Adb could be found")?
 }
 
 pub struct AndroidManager {
-    adb: String,
+    adb: PathBuf,
 }
 
 impl PlatformManager for AndroidManager {
@@ -243,7 +246,7 @@ impl AndroidManager {
     pub fn probe() -> Option<AndroidManager> {
         match adb() {
             Ok(adb) => {
-                info!("Using {}", adb);
+                debug!("ADB found: {:?}", adb);
                 Some(AndroidManager { adb })
             }
             Err(_) => {

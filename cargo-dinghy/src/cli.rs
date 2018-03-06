@@ -17,6 +17,7 @@ impl CargoDinghyCli {
                 .version(crate_version!())
                 .device()
                 .verbose()
+                .quiet()
                 .overlay()
                 .platform()
 
@@ -154,6 +155,7 @@ pub trait CargoDinghyCliExt {
     fn target(self) -> Self;
     fn test(self) -> Self;
     fn verbose(self) -> Self;
+    fn quiet(self) -> Self;
     fn bearded(self) -> Self;
 }
 
@@ -324,8 +326,17 @@ impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
             .short("v")
             .long("verbose")
             .multiple(true)
-            .help("Sets the level of verbosity"))
+            .help("Raise the level of verbosity"))
     }
+
+    fn quiet(self) -> Self {
+        self.arg(Arg::with_name("QUIET")
+            .short("q")
+            .long("quiet")
+            .multiple(true)
+            .help("Lower the level of verbosity"))
+    }
+
 
     fn bearded(self) -> Self {
         self.arg(Arg::with_name("BEARDED")

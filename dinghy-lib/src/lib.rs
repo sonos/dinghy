@@ -26,6 +26,7 @@ extern crate shell_escape;
 extern crate tempdir;
 extern crate toml;
 extern crate walkdir;
+extern crate which;
 
 pub mod compiler;
 pub mod config;
@@ -71,13 +72,16 @@ impl Dinghy {
         let mut managers: Vec<Box<PlatformManager>> = vec![Box::new(host)];
 
         if let Some(android) = AndroidManager::probe() {
+            debug!("register AndroidManager");
             managers.push(Box::new(android))
         }
         if let Some(ssh) = SshDeviceManager::probe(conf.clone()) {
+            debug!("register SshDeviceManager");
             managers.push(Box::new(ssh))
         }
         #[cfg(target_os = "macos")] {
             if let Some(m) = IosManager::new()? {
+                debug!("register IodDeviceManager");
                 managers.push(Box::new(m) as _)
             }
         }

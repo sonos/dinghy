@@ -37,10 +37,10 @@ fn main() {
     let matches = CargoDinghyCli::parse(filtered_args);
 
     if env::var("RUST_LOG").is_err() {
-        let dinghy_verbosity = match matches.occurrences_of("VERBOSE") {
-            0 => "warn",
-            1 => "info",
-            _ => "debug",
+        let dinghy_verbosity = match matches.occurrences_of("VERBOSE") - matches.occurrences_of("QUIET") {
+            0 => "info",
+            1 => "debug",
+            _ => "trace",
         };
         env::set_var("RUST_LOG", format!("cargo_dinghy={},dinghy={}", dinghy_verbosity, dinghy_verbosity));
     };
@@ -58,13 +58,17 @@ fn run_command(args: &ArgMatches) -> Result<()> {
     let compiler = Arc::new(Compiler::from_args(args.subcommand().1.unwrap_or(args)));
     let dinghy = Dinghy::probe(&conf, &compiler)?;
     let project = Project::new(&conf);
+    match args.subcommand() {
+        ("all-devices", Some(_)) => return show_all_devices(&dinghy),
+        ("all-platforms", Some(_)) => return show_all_platforms(&dinghy),
+        _ => {}
+    };
+
     let (platform, device) = select_platform_and_device_from_cli(&args, &dinghy)?;
     info!("Targeting platform '{}' and device '{}'",
           platform.id(), device.as_ref().map(|it| it.id()).unwrap_or("<none>"));
 
     match args.subcommand() {
-        ("all-devices", Some(_)) => show_all_devices(&dinghy),
-        ("all-platforms", Some(_)) => show_all_platforms(&dinghy),
         ("bench", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
         ("build", Some(sub_args)) => build(&platform, &project, args, sub_args).and(Ok(())),
         ("clean", Some(_)) => compiler.clean(None),
@@ -174,18 +178,20 @@ fn select_platform_and_device_from_cli(matches: &ArgMatches,
 
         Ok((platform, device))
     } else if let Some(device_filter) = matches.value_of("DEVICE") {
-        let filtered_devices = dinghy.devices()
+        let devices = dinghy.devices()
             .into_iter()
             .filter(move |it| format!("{}", it).to_lowercase().contains(&device_filter.to_lowercase()))
             .collect_vec();
-
-        // Would need some ordering here to make sure we select the most relevant platform... or else fail if we have several.
-        dinghy.platforms()
-            .into_iter()
-            .filter_map(|platform| filtered_devices.iter()
-                .find(|device| platform.is_compatible_with((***device).as_ref()))
-                .map(|device| (platform, Some(device.clone()))))
-            .next().ok_or("No device found".into())
+        if devices.len() == 0 {
+            Err(format!("No devices found for name hint `{}'", device_filter))?;
+        }
+        devices.into_iter().filter_map(|d| {
+            let pf = dinghy.platforms().iter().find(|pf| pf.is_compatible_with(&**d)).cloned();
+            debug!("Looking for platform for {}: found {:?}", d.id(), pf.as_ref().map(|p| p.id()));
+            pf.map(|it| (it,Some(d)))
+        })
+        .next()
+        .ok_or(format!("No device and platform combination found for device hint `{}'", device_filter).into())
     } else {
         Ok((dinghy.host_platform(), Some(dinghy.host_device())))
     }
