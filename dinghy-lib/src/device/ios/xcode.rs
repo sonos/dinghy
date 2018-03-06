@@ -60,7 +60,7 @@ pub fn add_plist_to_app(bundle:&BuildBundle, arch:&str, app_bundle_id:&str) -> R
 }
 
 pub fn sign_app(bundle: &BuildBundle, settings: &SignatureSettings) -> Result<()> {
-    info!(
+    debug!(
         "Will sign {:?} with team: {} using key: {} and profile: {}",
         bundle.bundle_dir,
         settings.identity.team,

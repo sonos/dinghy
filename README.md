@@ -45,10 +45,32 @@ libraries on more platforms. We want to get Rust everywhere right ?
 Dinghy also supports compilation for, and execution on remote devices accessible
 through ssh.
 
+## How 
+
+Once your dinghy setup is done, you will be able to run 
+tests and benches from a simple cargo command **in any cargo project** without
+altering them.
+
+Just add `dinghy -d some_device` between `cargo` and its subcommand:
+
+```
+cargo dinghy -d my_android test
+cargo dinghy -d my_raspberry bench
+```
+
 ## Getting started
 
-Depending on what is your target (iOS or Android) and your workstation, setting
-up Dinghy can be more or less easy. See the setup sections for that.
+Depending on what is your targets and your workstation, setting
+up Dinghy can be more or less easy. 
+
+* [Android](docs/android.md) is relatively easy, specifically if you already are
+a mobile developper
+* [iOS](docs/ios.md) setup has a lot of steps, but at least Apple provides everything
+you will need. Once again, if you are an iOS developper, most of the heavy lifting has
+been already done. And if you are not, be aware that you won't have anything to pay.
+* [other remore ssh-accessible devices](docs/ssh.md) easiest from dinghy point of view,
+but you willbe on your own to obtain the toolchain for your device architecture and
+operating system. If your device is a RaspberryPi running raspbian, we can help :)
 
 First, let's install dinghy...
 
@@ -159,7 +181,8 @@ linker = "/Users/kali/.dinghy/toolchain/android-x86_64-latest_linux/bin/x86_64-l
 
 ## iOS setup
 
-If you are on a mac, just start a simulator instance. If you're a mac/iOS developper, it's nice to try that before diving
+If you are on a mac, just start a simulator instance. If you're a mac/iOS developper, 
+it's nice to try that before diving
 into the more convoluted iOS device setup that follows.
 
 On iOS, things are made complicated by the fact that there is no way to run
@@ -216,54 +239,6 @@ and Trust the certificate. It's in the Preferences > General >
 
 At this point, we're ready to roll.
 
-### Debugging tips
-
-If you got lost somewhere, here are a few hints to help you make sense of 
-what is happening. This is more or less what Dinghy use when fishing for
-your signing identity.
-
-#### `security find-identity -p codesigning`
-
-Shows you the codesigning identities available where you are. You should see 
-one or more identities line, made of a long capitalize hex identifier, followed
-by a "name". The name is very structured: For iOS development , its starts
-with the string "iPhone Developer: ", followed by an email (for an Apple Id
-account) or the name of your team. Then comes the developer identifier in
-parenthesis.
-
-#### `security find-certificate -a -c "name" -p | openssl x509 -text`
-
-"name" is the identity name (the string between double quotes) from the command
-before.
-
-Shows you a certificate that makes the developer a part of a Team.
-The certificate is signed and issued by Apple (Issuer:), but the interesting
-part is the Subject line: CN= is the same developer name string, and OU= is
-the actual Team identifier.
-
-#### Look for provisioning certificates
-
-Last but not least, we need one more certificate that proves that you and
-your team has the right to deploy an App (identified by the bundle id we have
-chosen while creating the project) on one (or more) devices.
-
-These certificates are in `Library/MobileDevice/Provisioning\ Profiles`.
-
-To read them, you'll need to do 
-
-```
-security cms -D -i  ~/Library/MobileDevice/Provisioning\ Profiles\....mobileprovision
-```
-
-The more interesting keys here are `TeamIdentifier`, `ProvisionedDevices` which
-are relatively explicit, and the `Entitlements` dictionary. These entitlements
-specify what the certificate is valid for, that is, signing an app identified
-by a name.
-
-Dinghy will actually scan this directory to find one that it can use (this is
-where the app name being "Dinghy" plays a role).
-
-Phew.
 
 ## Ssh setup
 
