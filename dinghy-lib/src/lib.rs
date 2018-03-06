@@ -202,6 +202,8 @@ pub trait Platform {
     fn is_compatible_with(&self, device: &Device) -> bool;
 
     fn rustc_triple(&self) -> Option<&str>;
+
+    fn strip(&self, build: &Build) -> Result<()>;
 }
 
 pub trait PlatformManager {

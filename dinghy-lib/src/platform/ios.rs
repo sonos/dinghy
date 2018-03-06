@@ -71,6 +71,15 @@ impl Platform for IosPlatform {
     fn rustc_triple(&self) -> Option<&str> {
         Some(&self.toolchain.rustc_triple)
     }
+
+    fn strip(&self, build: &Build) -> Result<()> {
+        for runnable in &build.runnables {
+            let mut command = ::std::process::Command::new("xcrun");
+            command.arg("strip");
+            super::strip_runnable(runnable, command)?;
+        }
+        Ok(())
+    }
 }
 
 impl Display for IosPlatform {
