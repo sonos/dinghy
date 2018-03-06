@@ -2,7 +2,9 @@ use compiler::Compiler;
 use config::PlatformConfiguration;
 use dinghy_helper::build_env::set_all_env;
 use overlay::Overlayer;
+use platform;
 use project::Project;
+use std::process::Command;
 use std::sync::Arc;
 use Build;
 use BuildArgs;
@@ -47,5 +49,13 @@ impl Platform for HostPlatform {
 
     fn rustc_triple(&self) -> Option<&str> {
         None
+    }
+
+    fn strip(&self, build: &Build) -> Result<()> {
+        for runnable in &build.runnables {
+            info!("Stripping {}", runnable.exe.display());
+            platform::strip_runnable(runnable, Command::new("strip"))?;
+        }
+        Ok(())
     }
 }

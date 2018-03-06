@@ -1,15 +1,17 @@
-use compiler::Compiler;
-use config::PlatformConfiguration;
 use dinghy_helper::build_env::set_all_env;
 use overlay::Overlayer;
+use platform;
 use project::Project;
 use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
 use std::sync::Arc;
 use toolchain::ToolchainConfig;
 use Build;
 use BuildArgs;
+use compiler::Compiler;
+use config::PlatformConfiguration;
 use Device;
 use Platform;
 use Result;
@@ -114,6 +116,13 @@ impl Platform for RegularPlatform {
 
     fn rustc_triple(&self) -> Option<&str> {
         Some(&self.toolchain.rustc_triple)
+    }
+
+    fn strip(&self, build: &Build) -> Result<()> {
+        for runnable in &build.runnables {
+            platform::strip_runnable(runnable, Command::new(self.toolchain.executable("strip")))?;
+        }
+        Ok(())
     }
 }
 
