@@ -2,35 +2,6 @@
 
 [![Build Status](https://travis-ci.org/snipsco/dinghy.svg?branch=master)](https://travis-ci.org/snipsco/dinghy)
 
-**Table of Contents**  *generated with [DocToc](http://doctoc.herokuapp.com/)*
-
-- [Dinghy](#)
-	- [What ?](#)
-	- [Getting started](#)
-	- [Android setup](#)
-	- [iOS setup](#)
-		- [Creating a signing id](#)
-		- [Creating a certificate](#)
-		- [Trust the certificate on your phone](#)
-		- [Debugging tips](#)
-			- [security find-identity -p codesigning](#)
-			- [security find-certificate -a -c "name" -p | openssl x509 -text](#)
-			- [Look for provisioning certificates](#)
-	- [Ssh setup](#)
-	- [Sending sources files to the devices](#)
-	- [Sending more files to the devices](#)
-	- [Advanced configuration](#)
-		- [Package filtering](#)
-		- [Environment variables](#)
-		- [Overlays](#)
-			- [Overlay configuration](#)
-			- [Overlay directory](#)
-			- [Overlay pkg-config](#)
-	- [Build script helpers](#)
-	- [Enjoy](#)
-- [License](#)
-	- [Contribution](#)
-
 ## What ?
 
 Send `cargo test` or `cargo bench` to your phone. Painlessly (or at least with a bit less pain).
