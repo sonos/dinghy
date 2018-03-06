@@ -1,36 +1,7 @@
-[package]
-name = "dinghy"
-version = "0.2.17-pre"
-authors = ["Mathieu Poumeyrol <mathieu.poumeyrol@snips.ai>"]
-license = "MIT/Apache-2.0"
-description = "Painless tests on mobile devices"
-homepage = "https://medium.com/snips-ai/dinghy-painless-rust-tests-and-benches-on-ios-and-android-c9f94f81d305#.c2sx7two8"
-repository = "https://github.com/snipsco/dinghy"
-keywords = [
-    "tests", "mobile", "ios", "android", "cargo"
+[workspace]
+members = [
+    "cargo-dinghy",
+    "dinghy-helper",
+    "dinghy-lib",
+    "dinghy-test",
 ]
-build="build.rs"
-categories = [ "development-tools::cargo-plugins", "development-tools::testing" , "development-tools::profiling" ]
-
-[badges]
-travis-ci = { repository = "snipsco/dinghy" }
-
-[dependencies]
-error-chain = "0.11"
-log="0.3"
-env_logger="0.4"
-clap = "2.26"
-cargo = "0.22"
-plist = "0.2"
-regex = "0.2"
-json = "0.11"
-ignore = "0.2"
-serde = "1.0"
-serde_derive = "1.0"
-toml = "0.4"
-
-[target.'cfg(target_os="macos")'.dependencies]
-core-foundation = "0.4"
-core-foundation-sys = "0.4"
-libc="0.2"
-tempdir = "0.3"

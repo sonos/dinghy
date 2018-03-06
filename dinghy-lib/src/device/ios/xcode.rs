@@ -1,55 +1,74 @@
-use std::{env, fs, io, path, process};
-use std::io::Write;
-
 use errors::*;
+use std::{env, fs, io, process};
+use std::io::Write;
 use super::{SignatureSettings, SigningIdentity};
 
-pub fn wrap_as_app<P1, P2, P3>(target: &str,
-                           _name: &str,
-                           source: P1,
-                           executable: P2,
-                           app_bundle_id: &str,
-                           app_path: P3)
-                           -> Result<path::PathBuf>
-    where P1: AsRef<path::Path>,
-          P2: AsRef<path::Path>,
-          P3: AsRef<path::Path>,
-{
+use BuildBundle;
+
+pub fn add_plist_to_app(bundle:&BuildBundle, arch:&str, app_bundle_id:&str) -> Result<()> {
+    let mut plist = fs::File::create(bundle.bundle_dir.join("Info.plist"))?;
+    writeln!(plist, r#"<?xml version="1.0" encoding="UTF-8"?>"#)?;
+    writeln!(plist, r#"<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">"#)?;
+    writeln!(plist, r#"<plist version="1.0"><dict>"#)?;
+    writeln!(
+        plist,
+        "<key>CFBundleExecutable</key><string>Dinghy</string>",
+    )?;
+    writeln!(
+        plist,
+        "<key>CFBundleIdentifier</key><string>{}</string>",
+        app_bundle_id
+    )?;
+    writeln!(plist, "<key>UIRequiredDeviceCapabilities</key>")?;
+    writeln!(plist, "<array><string>{}</string></array>", arch)?;
+    writeln!(plist, r#"</dict></plist>"#)?;
+    /*
     let app_name = app_bundle_id.split(".").last().unwrap();
     let app_path = app_path.as_ref().join(format!("{}.app", app_name));
+    println!("WRAP AS APP: {:?} -> {:?}", executable.as_ref(), app_path);
     let _ = fs::remove_dir_all(&app_path);
     fs::create_dir_all(&app_path)?;
     fs::copy(&executable, app_path.join(app_name))?;
+
+
     let mut plist = fs::File::create(app_path.join("Info.plist"))?;
     writeln!(plist, r#"<?xml version="1.0" encoding="UTF-8"?>"#)?;
     writeln!(plist, r#"<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">"#)?;
     writeln!(plist, r#"<plist version="1.0"><dict>"#)?;
-    writeln!(plist,
-             "<key>CFBundleExecutable</key><string>{}</string>",
-             app_name)?;
-    writeln!(plist,
-             "<key>CFBundleIdentifier</key><string>{}</string>",
-             app_bundle_id)?;
+    writeln!(
+        plist,
+        "<key>CFBundleExecutable</key><string>{}</string>",
+        app_name
+    )?;
+    writeln!(
+        plist,
+        "<key>CFBundleIdentifier</key><string>{}</string>",
+        app_bundle_id
+    )?;
     writeln!(plist, "<key>UIRequiredDeviceCapabilities</key>")?;
-    writeln!(plist,
-             "<array><string>{}</string></array>",
-             target.split("-").next().unwrap())?;
+    writeln!(
+        plist,
+        "<array><string>{}</string></array>",
+        target.split("-").next().unwrap()
+    )?;
     writeln!(plist, r#"</dict></plist>"#)?;
 
-    ::rec_copy(&source, app_path.join("src"), false)?;
-    ::copy_test_data(source, &app_path)?;
-    Ok(app_path)
+    project.rec_copy(&source, &app_path, false)?;
+    project.copy_test_data(&app_path)?;
+    */
+    Ok(())
 }
 
-pub fn sign_app<P: AsRef<path::Path>>(app: P, settings: &SignatureSettings) -> Result<()> {
-    info!("Will sign {:?} with team: {} using key: {} and profile: {}",
-          app.as_ref(),
-          settings.identity.team,
-          settings.identity.name,
-          settings.file);
+pub fn sign_app(bundle: &BuildBundle, settings: &SignatureSettings) -> Result<()> {
+    info!(
+        "Will sign {:?} with team: {} using key: {} and profile: {}",
+        bundle.bundle_dir,
+        settings.identity.team,
+        settings.identity.name,
+        settings.file
+    );
 
-    let entitlements =
-        app.as_ref().parent().ok_or("not building in root")?.join("entitlements.xcent");
+    let entitlements = bundle.root_dir.join("entitlements.xcent");
     debug!("entitlements file: {}", entitlements.to_str().unwrap_or(""));
     let mut plist = fs::File::create(&entitlements)?;
     writeln!(plist, r#"<?xml version="1.0" encoding="UTF-8"?>"#)?;
@@ -58,11 +77,13 @@ pub fn sign_app<P: AsRef<path::Path>>(app: P, settings: &SignatureSettings) -> R
     writeln!(plist, "{}", settings.entitlements)?;
     writeln!(plist, r#"</dict></plist>"#)?;
 
-    process::Command::new("codesign").args(&["-s",
-                &*settings.identity.name,
-                "--entitlements",
-                entitlements.to_str().ok_or("not utf8 path")?,
-                app.as_ref().to_str().ok_or("not utf8 path")?])
+    process::Command::new("codesign")
+        .args(&[
+            "-s",
+            &*settings.identity.name,
+            "--entitlements"])
+        .arg(entitlements)
+        .arg(&bundle.bundle_dir)
         .status()?;
     Ok(())
 }
@@ -71,19 +92,22 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
     let identity_regex = ::regex::Regex::new(r#"^ *[0-9]+\) ([A-Z0-9]{40}) "(.+)"$"#)?;
     let subject_regex = ::regex::Regex::new(r#"OU=([^,]+)"#)?;
     let mut identities: Vec<SigningIdentity> = vec![];
-    let find_identities =
-        process::Command::new("security").args(&["find-identity", "-v", "-p", "codesigning"])
-            .output()?;
+    let find_identities = process::Command::new("security")
+        .args(&["find-identity", "-v", "-p", "codesigning"])
+        .output()?;
     for line in String::from_utf8(find_identities.stdout)?.split("\n") {
         if let Some(caps) = identity_regex.captures(&line) {
             let name: String = caps[2].into();
             if !name.starts_with("iPhone Developer: ") {
                 continue;
             }
-            let subject = process::Command::new("sh").arg("-c")
-                .arg(format!("security find-certificate -a -c \"{}\" -p | openssl x509 -text | \
-                              grep Subject:",
-                             name))
+            let subject = process::Command::new("sh")
+                .arg("-c")
+                .arg(format!(
+                    "security find-certificate -a -c \"{}\" -p | openssl x509 -text | \
+                     grep Subject:",
+                    name
+                ))
                 .output()?;
             let subject = String::from_utf8(subject.stdout)?;
             if let Some(ou) = subject_regex.captures(&subject) {
@@ -97,18 +121,23 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
     }
     debug!("signing identities: {:?}", identities);
     let mut settings = vec![];
-    for file in fs::read_dir(env::home_dir()
-        .unwrap()
-        .join("Library/MobileDevice/Provisioning Profiles"))? {
+    for file in fs::read_dir(
+        env::home_dir()
+            .unwrap()
+            .join("Library/MobileDevice/Provisioning Profiles"),
+    )? {
         let file = file?;
         debug!("considering profile {:?}", file.path());
-        let decoded = process::Command::new("security").arg("cms")
+        let decoded = process::Command::new("security")
+            .arg("cms")
             .arg("-D")
             .arg("-i")
             .arg(file.path())
             .output()?;
         let plist = ::plist::Plist::read(io::Cursor::new(&decoded.stdout))?;
-        let dict = plist.as_dictionary().ok_or("plist root should be a dictionary")?;
+        let dict = plist
+            .as_dictionary()
+            .ok_or("plist root should be a dictionary")?;
         let devices = if let Some(d) = dict.get("ProvisionedDevices") {
             d
         } else {
@@ -124,9 +153,12 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
             debug!("  no device match in profile");
             continue;
         }
-        let name = dict.get("Name").ok_or(format!("No name in profile {:?}", file.path()))?;
-        let name = name.as_string()
-            .ok_or(format!("Name should have been a string in {:?}", file.path()))?;
+        let name = dict.get("Name")
+            .ok_or(format!("No name in profile {:?}", file.path()))?;
+        let name = name.as_string().ok_or(format!(
+            "Name should have been a string in {:?}",
+            file.path()
+        ))?;
         if !name.ends_with("Dinghy") && !name.ends_with(" *") {
             debug!("  app in profile does not match ({})", name);
             continue;
@@ -145,8 +177,7 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
             continue;
         }
         let identity = identity.unwrap();
-        let entitlements = String::from_utf8(decoded.stdout)
-            ?
+        let entitlements = String::from_utf8(decoded.stdout)?
             .split("\n")
             .skip_while(|line| !line.contains("<key>Entitlements</key>"))
             .skip(2)
@@ -155,7 +186,10 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
             .join("\n");
         settings.push(SignatureSettings {
             entitlements: entitlements,
-            file: file.path().to_str().ok_or("filename should be utf8")?.into(),
+            file: file.path()
+                .to_str()
+                .ok_or("filename should be utf8")?
+                .into(),
             name: if name.ends_with(" *") {
                 "org.zoy.kali.Dinghy".into()
             } else {

@@ -1,0 +1,18 @@
+[package]
+name = "dinghy-helper"
+version = "0.3.0-pre"
+authors = ["Mathieu Poumeyrol <mathieu.poumeyrol@snips.ai>"]
+license = "MIT/Apache-2.0"
+description = "Painless tests on mobile devices"
+homepage = "https://medium.com/snips-ai/dinghy-painless-rust-tests-and-benches-on-ios-and-android-c9f94f81d305#.c2sx7two8"
+repository = "https://github.com/snipsco/dinghy"
+keywords = [
+    "tests", "mobile", "ios", "android", "cargo"
+]
+categories = [ "development-tools::cargo-plugins", "development-tools::testing" , "development-tools::profiling" ]
+
+[dependencies]
+bindgen = "0"
+error-chain = { version = "0.11.0", default-features = false }
+gcc = "0.3"
+log="0.3"
