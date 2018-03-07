@@ -4,23 +4,24 @@
 
 ## What ?
 
-Send `cargo test` or `cargo bench` to your phone. Painlessly (or at least with a bit less pain).
+Dinghy is a `cargo` extension to bring cargo workflow to cross-compilation situations.
 
-It is not a way to build portable apps, merely a way to run simple piece of
-code and grab their output. On iOS, it also allows to run lldb and debug
-interactively the executable.
+Dinghy is specifically useful with "small" processor-based devices, like
+Android and iOS phones, or small single board computers like the Raspberry Pi.
+Situations where native compilation is not possible, or not practical.
 
-The purpose here is to make it easier for teams to unit-test and bench their
-libraries on more platforms. We want to get Rust everywhere right ?
+Initially tests and benches were the primary objective of Dinghy, but now
+at Snips we use it to cross-compile our entire platform. This includes setting
+up the stage for `cc` and `pkg-config` crates in one single place.
 
-Dinghy also supports compilation for, and execution on remote devices accessible
-through ssh.
+If you are a Rust library author, **you can run your tests and benches on
+your smartphone in minutes.** And you should, at least once in a while.
 
 ## How 
 
-Once your dinghy setup is done, you will be able to run 
-tests and benches from a simple cargo command **in any cargo project** without
-altering them.
+Once dinghy knows about your toolchains and devices, you will be able to run 
+tests and benches from a simple cargo command **in any cargo project**, most of
+the time without altering them.
 
 Just add `dinghy -d some_device` between `cargo` and its subcommand:
 
@@ -28,6 +29,8 @@ Just add `dinghy -d some_device` between `cargo` and its subcommand:
 cargo dinghy -d my_android test
 cargo dinghy -d my_raspberry bench
 ```
+
+By default, without `-d`, Dinghy will make a native build, just like `cargo` would do.
 
 ## Getting started
 

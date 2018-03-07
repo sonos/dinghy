@@ -1,6 +1,5 @@
 ## Getting started - iOS phone
 
-Note that simulator support is broken by the current version of XCode.
 
 ### Dinghy setup
 
@@ -85,6 +84,11 @@ name are supposed to pass, the one with fail should break.
 % cargo dinghy -d android test fail
 [...]
 ```
+
+### Simulator
+
+The simulator support is broken by the current version of XCode. It is know to
+work with XCode 8 though.
 
 ### Debugging tips
 
