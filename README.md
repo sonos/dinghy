@@ -22,7 +22,7 @@ your smartphone in minutes.** And you should, at least once in a while.
 Let's try how BurntSushi's byteorder handles f32 on a few arm devices, two
 smartphones, and a Raspberry Pi.
 
-[![asciicast](https://asciinema.org/a/eiLak9lO6MzQY6iTkphx9GiVk.png)](https://asciinema.org/a/eiLak9lO6MzQY6iTkphx9GiVk)
+[![Demo](docs/demo.gif)](demo)
 
 Phew. It works.
 
