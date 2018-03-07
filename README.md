@@ -17,6 +17,15 @@ up the stage for `cc` and `pkg-config` crates in one single place.
 If you are a Rust library author, **you can run your tests and benches on
 your smartphone in minutes.** And you should, at least once in a while.
 
+## Demo
+
+Let's try how BurntSushi's byteorder handles f32 on a few arm devices, two
+smartphones, and a Raspberry Pi.
+
+[![asciicast](https://asciinema.org/a/eiLak9lO6MzQY6iTkphx9GiVk.png)](https://asciinema.org/a/eiLak9lO6MzQY6iTkphx9GiVk)
+
+Phew. It works.
+
 ## How 
 
 Once dinghy knows about your toolchains and devices, you will be able to run 
