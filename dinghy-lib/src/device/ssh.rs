@@ -32,7 +32,7 @@ impl SshDevice {
             .arg("mkdir").arg("-p").arg(&remote_bundle.bundle_dir)
             .status();
 
-        info!("Rsyncing {}", self.name());
+        info!("Install {} to {}", runnable.id, self.id);
         self.sync(&build_bundle.bundle_dir, &remote_bundle.bundle_dir)?;
         self.sync(&build_bundle.lib_dir, &remote_bundle.lib_dir)?;
         Ok((build_bundle, remote_bundle))
@@ -122,7 +122,7 @@ impl Device for SshDevice {
                 if build.build_args.compile_mode == ::cargo::ops::CompileMode::Bench { "--bench" } else { "" },
                 args.join(" ")
                 );
-            debug!("Running {}", command);
+            info!("Running {} on {} ({:?})", runnable.id, self.id, build.build_args.compile_mode);
 
             let status = self.ssh_command()?
                 .arg(&command)
