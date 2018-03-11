@@ -122,7 +122,7 @@ impl Device for SshDevice {
                 if build.build_args.compile_mode == ::cargo::ops::CompileMode::Bench { "--bench" } else { "" },
                 args.join(" ")
                 );
-            info!("Running {} on {} ({:?})", runnable.id, self.id, build.build_args.compile_mode);
+            info!("Run {} on {} ({:?})", runnable.id, self.id, build.build_args.compile_mode);
 
             let status = self.ssh_command()?
                 .arg(&command)
