@@ -6,7 +6,11 @@
 //! shared wisdom and conventions across build.rs scripts, cargo, dinghy,
 //! cc-rs, pkg-config-rs, bindgen, and others. It also helps providing
 //! cross-compilation arguments to autotools `./configure` scripts.
+//!
+//! As an optional feature, it offers `with-bindgen`, which helps dealing with
+//! some idiosyncrasies of `bindgen` code generation.
 
+#[cfg(features="with-bindgen")]
 extern crate bindgen;
 #[macro_use]
 extern crate error_chain;
@@ -22,7 +26,6 @@ use build::is_cross_compiling;
 use build_env::sysroot_path;
 use build_env::target_env;
 use std::env;
-use std::env::current_dir;
 use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
@@ -112,7 +115,11 @@ impl CommandExt for Command {
     }
 }
 
-
+/// Omnibus helper for bindgen crosscompilation patches.
+///
+/// Crate a bindgen builder for the target toolchain, with Apple patch and
+/// gcc_system patch.
+#[cfg(features="with-bindgen")]
 pub fn new_bindgen_with_cross_compilation_support() -> Result<bindgen::Builder> {
     Ok(bindgen::Builder::default()
         .clang_arg("--verbose")
@@ -121,7 +128,10 @@ pub fn new_bindgen_with_cross_compilation_support() -> Result<bindgen::Builder> 
         .apple_patch()?)
 }
 
+#[cfg(features="with-bindgen")]
 pub trait BindGenBuilderExt {
+    /// Change target arch name `aarch64` to `arm64` for better CLang
+    /// compatibility.
     fn apple_patch(self) -> Result<bindgen::Builder>;
 
     fn detect_toolchain(self) -> Result<bindgen::Builder>;
@@ -130,9 +140,13 @@ pub trait BindGenBuilderExt {
 
     fn header_in_current_dir(self, header_file_name: &str) -> Result<bindgen::Builder>;
 
+    /// Ugly hack to include gcc system headers from the target computer inside
+    /// the search path of the CLang compiler that will be used to build
+    /// bindings.
     fn include_gcc_system_headers(self) -> Result<bindgen::Builder>;
 }
 
+#[cfg(features="with-bindgen")]
 impl BindGenBuilderExt for bindgen::Builder {
     fn apple_patch(self) -> Result<bindgen::Builder> {
         if is_cross_compiling()? {

@@ -66,7 +66,7 @@ on the platform you want to test.
 * Dinghy offers an [overlay](docs/overlay.md) system to "add" stuff to your toolchain 
 sysroot. This allows you to add "stuff" to your build dependencies, like static libraries or headers
 without altering the sysroot toolchain.
-* The [`dinghy-helper` crate](docs/helper.md) offers some `build.rs` features that are useful in
+* The [`dinghy-build` crate](docs/dinghy-build.md) offers some `build.rs` features that are useful in
 the context of cross-compilation.
 
 # License
