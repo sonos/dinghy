@@ -1,5 +1,8 @@
 use clap::ArgMatches;
 use errors::Result;
+use filetime::set_file_times;
+use filetime::FileTime;
+use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -7,6 +10,20 @@ pub fn arg_as_string_vec(matches: &ArgMatches, option: &str) -> Vec<String> {
     matches.values_of(option)
         .map(|vs| vs.map(|s| s.to_string()).collect())
         .unwrap_or(vec![])
+}
+
+pub fn copy_and_sync_file<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<()> {
+    let from = &from.as_ref();
+    let to = &to.as_ref();
+    fs::copy(&from, &to)?;
+
+    // Keep filetime to avoid useless sync on some devices (e.g. Android).
+    let from_metadata = from.metadata()?;
+    let atime = FileTime::from_last_access_time(&from_metadata);
+    let mtime = FileTime::from_last_modification_time(&from_metadata);
+    set_file_times(&to, atime, mtime)?;
+
+    Ok(())
 }
 
 pub fn path_to_str<'a>(path: &'a Path) -> Result<&'a str> {

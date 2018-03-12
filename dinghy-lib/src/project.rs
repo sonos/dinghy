@@ -1,7 +1,5 @@
 use config::dinghy_config;
 use config::Configuration;
-use filetime::set_file_times;
-use filetime::FileTime;
 use ignore::WalkBuilder;
 use std::fs;
 use std::fs::File;
@@ -10,6 +8,7 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use utils::copy_and_sync_file;
 use Platform;
 use Result;
 use Runnable;
@@ -141,7 +140,7 @@ impl Project {
                         fs::remove_dir_all(&target)?;
                     }
                     debug!("Copying {} to {}", entry.path().display(), target.display());
-                    copy_file(entry.path(), &target)?;
+                    copy_and_sync_file(entry.path(), &target)?;
                 } else {
                     debug!("{} is already up-to-date", target.display());
                 }
@@ -149,18 +148,4 @@ impl Project {
         }
         Ok(())
     }
-}
-
-pub fn copy_file<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<()> {
-    let from = &from.as_ref();
-    let to = &to.as_ref();
-    fs::copy(&from, &to)?;
-
-    // Keep filetime to avoid useless sync on some devices (e.g. Android).
-    let from_metadata = from.metadata()?;
-    let atime = FileTime::from_last_access_time(&from_metadata);
-    let mtime = FileTime::from_last_modification_time(&from_metadata);
-    set_file_times(&to, atime, mtime)?;
-
-    Ok(())
 }
