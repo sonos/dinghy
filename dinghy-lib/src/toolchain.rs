@@ -24,9 +24,9 @@ pub struct Toolchain {
 }
 
 impl Toolchain {
-    pub fn setup_ar(&self, ar_command: &str) -> Result<()> {
-        set_env("TARGET_AR", ar_command);
-        set_env(format!("AR_{}", self.rustc_triple), ar_command);
+    pub fn setup_tool(&self, var: &str, exe: &str) -> Result<()> {
+        set_env(format!("TARGET_{}", var), exe);
+        set_env(format!("{}_{}", var, self.rustc_triple), exe);
         Ok(())
     }
 
@@ -81,8 +81,8 @@ impl ToolchainConfig {
         set_env("TARGET_SYSROOT", &self.sysroot);
     }
 
-    pub fn setup_ar(&self, ar_command: &str) -> Result<()> {
-        self.as_toolchain().setup_ar(ar_command)
+    pub fn setup_tool(&self, var: &str, command: &str) -> Result<()> {
+        self.as_toolchain().setup_tool(var, command)
     }
 
     pub fn setup_cc(&self, id: &str, compiler_command: &str) -> Result<()> {
