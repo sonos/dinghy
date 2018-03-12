@@ -25,5 +25,6 @@ do
 done
 
 (cd cargo-dinghy ; cargo update)
+(cd test-ws ; cargo update)
 
 git commit . -m "post-release $VERSION"
