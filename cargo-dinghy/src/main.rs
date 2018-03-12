@@ -44,7 +44,7 @@ fn main() {
         };
         env::set_var("RUST_LOG", format!("cargo_dinghy={},dinghy={}", dinghy_verbosity, dinghy_verbosity));
     };
-    pretty_env_logger::init().unwrap();
+    pretty_env_logger::init();
 
     if let Err(e) = run_command(&matches) {
         error!("{}", e.display_chain());
