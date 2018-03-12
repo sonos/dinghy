@@ -10,7 +10,7 @@
 //! As an optional feature, it offers `with-bindgen`, which helps dealing with
 //! some idiosyncrasies of `bindgen` code generation.
 
-#[cfg(features="with-bindgen")]
+#[cfg(feature="with-bindgen")]
 extern crate bindgen;
 #[macro_use]
 extern crate error_chain;
@@ -119,7 +119,7 @@ impl CommandExt for Command {
 ///
 /// Crate a bindgen builder for the target toolchain, with Apple patch and
 /// gcc_system patch.
-#[cfg(features="with-bindgen")]
+#[cfg(feature="with-bindgen")]
 pub fn new_bindgen_with_cross_compilation_support() -> Result<bindgen::Builder> {
     Ok(bindgen::Builder::default()
         .clang_arg("--verbose")
@@ -128,7 +128,7 @@ pub fn new_bindgen_with_cross_compilation_support() -> Result<bindgen::Builder> 
         .apple_patch()?)
 }
 
-#[cfg(features="with-bindgen")]
+#[cfg(feature="with-bindgen")]
 pub trait BindGenBuilderExt {
     /// Change target arch name `aarch64` to `arm64` for better CLang
     /// compatibility.
@@ -146,7 +146,7 @@ pub trait BindGenBuilderExt {
     fn include_gcc_system_headers(self) -> Result<bindgen::Builder>;
 }
 
-#[cfg(features="with-bindgen")]
+#[cfg(feature="with-bindgen")]
 impl BindGenBuilderExt for bindgen::Builder {
     fn apple_patch(self) -> Result<bindgen::Builder> {
         if is_cross_compiling()? {
@@ -184,7 +184,7 @@ impl BindGenBuilderExt for bindgen::Builder {
     }
 
     fn header_in_current_dir(self, header_file_name: &str) -> Result<bindgen::Builder> {
-        let header_path = current_dir().map(PathBuf::from)?.join(header_file_name);
+        let header_path = env::current_dir().map(PathBuf::from)?.join(header_file_name);
         Ok(self.header(header_path.to_str()
             .ok_or(format!("Not a valid UTF-8 path ({})", header_path.display()))?))
     }
