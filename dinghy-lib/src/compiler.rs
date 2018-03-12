@@ -13,7 +13,7 @@ use cargo::ops as CargoOps;
 use cargo::ops::TestOptions;
 use cargo::util::config::Config as CompileConfig;
 use clap::ArgMatches;
-use dinghy_helper::build_env::target_env_from_triple;
+use dinghy_build::build_env::target_env_from_triple;
 use itertools::Itertools;
 use std::collections::HashSet;
 use std::env;

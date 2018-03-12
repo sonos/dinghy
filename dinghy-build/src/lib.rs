@@ -1,3 +1,12 @@
+//! Helpers for build.rs scripts.
+//!
+//! This library is meant to be used in build.rs scripts context.
+//!
+//! It contains a set of standalone functions that encodes some of the
+//! shared wisdom and conventions across build.rs scripts, cargo, dinghy,
+//! cc-rs, pkg-config-rs, bindgen, and others. It also helps providing
+//! cross-compilation arguments to autotools `./configure` scripts.
+
 extern crate bindgen;
 #[macro_use]
 extern crate error_chain;
@@ -29,13 +38,25 @@ error_chain! {
     }
 }
 
+/// Decorator for the std::process::Command adding a some chainable helpers.
+/// 
+/// Mostly useful for calling `./configure` scripts.
 pub trait CommandExt {
+    /// Add this argument to the commands, but only on macos.
     fn arg_for_macos<S: AsRef<OsStr>>(&mut self, arg: S) -> Result<&mut Command>;
 
+    /// Add a `--prefix` to point to a toolchain sysroot or the /, depending on
+    /// dinghy environment.
     fn configure_prefix<P: AsRef<Path>>(&mut self, path: P) -> Result<&mut Command>;
 
+    /// Adds pkgconfig environment variables to point to an eventual cross compiling sysroot.
+    ///
+    /// Usefull for compatibilty with pkg-config-rs up to 0.3.9 or to deal with
+    /// `./configure` scripts.
     fn with_pkgconfig(&mut self) -> Result<&mut Command>;
 
+    /// Propagate TARGET, TARGET_CC, TARGET_AR and TARGET_SYSROOT to a
+    /// `./configure` script.
     fn with_toolchain(&mut self) -> Result<&mut Command>;
 }
 

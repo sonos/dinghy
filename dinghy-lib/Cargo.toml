@@ -13,7 +13,7 @@ build="build.rs"
 categories = [ "development-tools::cargo-plugins", "development-tools::testing" , "development-tools::profiling" ]
 
 [dependencies]
-dinghy-helper = { path = "../dinghy-helper" }
+dinghy-build = { path = "../dinghy-build" }
 error-chain = "0.11"
 filetime = "0.1"
 log="0.3"

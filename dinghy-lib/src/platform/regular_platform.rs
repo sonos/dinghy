@@ -1,4 +1,4 @@
-use dinghy_helper::build_env::set_all_env;
+use dinghy_build::build_env::set_all_env;
 use overlay::Overlayer;
 use platform;
 use project::Project;

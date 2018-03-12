@@ -1,8 +1,8 @@
 use config::PlatformConfiguration;
-use dinghy_helper::build_env::append_path_to_target_env;
-use dinghy_helper::build_env::envify;
-use dinghy_helper::build_env::set_env_ifndef;
-use dinghy_helper::utils::path_between;
+use dinghy_build::build_env::append_path_to_target_env;
+use dinghy_build::build_env::envify;
+use dinghy_build::build_env::set_env_ifndef;
+use dinghy_build::utils::path_between;
 use errors::*;
 use itertools::Itertools;
 use project::Project;
