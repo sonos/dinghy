@@ -153,7 +153,9 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs
 
         if bearded { setup_dinghy_wrapper(&workspace, rustc_triple)?; }
         let compilation = CargoOps::compile(&workspace, &compile_options)?;
-        Ok(to_build(compilation, &config, build_args)?)
+        let build = to_build(compilation, &config, build_args)?;
+        copy_dependencies_to_target(&build)?;
+        Ok(build)
     })
 }
 
@@ -314,6 +316,18 @@ fn setup_dinghy_wrapper(workspace: &Workspace, rustc_triple: Option<&str>) -> Re
     }
     fs::set_permissions(&measure_sh_path, PermissionsExt::from_mode(0o755))?;
     env::set_var("RUSTC_WRAPPER", measure_sh_path);
+    Ok(())
+}
+
+fn copy_dependencies_to_target(build: &Build) -> Result<()> {
+    for src_lib_path in &build.dynamic_libraries {
+        let target_lib_path = build.target_path.join(src_lib_path.file_name()
+            .ok_or(format!("Invalid file name {:?}", src_lib_path.file_name()))?);
+
+        debug!("Copying dynamic lib {} to {}", src_lib_path.display(), target_lib_path.display());
+        fs::copy(&src_lib_path, &target_lib_path)
+            .chain_err(|| format!("Couldn't copy {} to {}", src_lib_path.display(), &target_lib_path.display()))?;
+    }
     Ok(())
 }
 
