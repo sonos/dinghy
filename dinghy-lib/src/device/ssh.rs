@@ -56,7 +56,7 @@ impl SshDevice {
         if let Some(port) = self.conf.port {
             command.arg(&*format!("ssh -p {}", port));
         };
-        if !log_enabled!(::log::LogLevel::Debug) {
+        if !log_enabled!(::log::Level::Debug) {
             command.stdout(::std::process::Stdio::null());
             command.stderr(::std::process::Stdio::null());
         }

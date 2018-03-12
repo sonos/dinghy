@@ -90,7 +90,7 @@ impl AndroidDevice {
 
         let mut command = self.adb()?;
         command.arg("push").arg("--sync").arg(from_path.as_ref()).arg(to_path.as_ref());
-        if !log_enabled!(::log::LogLevel::Debug) {
+        if !log_enabled!(::log::Level::Debug) {
             command.stdout(::std::process::Stdio::null());
             command.stderr(::std::process::Stdio::null());
         }
