@@ -16,9 +16,9 @@ set -ex
 if [ "$CRATE" = "all" ]
 then
     for c in $CRATES
-    then
+    do
         $0 $c $VERSION
-    fi
+    done
     exit 0
 fi
 
