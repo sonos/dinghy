@@ -11,6 +11,17 @@ then
     exit 1
 fi
 
+set -ex
+
+if [ "$CRATE" = "all" ]
+then
+    for c in $CRATES
+    then
+        $0 $c $VERSION
+    fi
+    exit 0
+fi
+
 # set_version cargo-dinghy/Cargo.toml 0.3.0
 set_version() {
     FILE=$1
@@ -18,8 +29,6 @@ set_version() {
     sed -i.back "s/^version *= *\".*\"/version = \"$2\"/" $FILE
     sed -i.back "s/^\(dinghy-[^ =]*\).*/\\1 = \"$2\"/" $FILE
 }
-
-set -ex
 
 set_version $CRATE/Cargo.toml $VERSION
 (cd $CRATE ; cargo publish --dry-run --allow-dirty)
