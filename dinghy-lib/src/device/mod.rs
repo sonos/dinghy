@@ -1,7 +1,7 @@
 use errors::*;
-use project::copy_file;
 use project::Project;
 use std::fs;
+use utils::copy_and_sync_file;
 use Build;
 use BuildBundle;
 use Runnable;
@@ -42,7 +42,7 @@ fn make_remote_app_with_name(project: &Project, build: &Build, runnable: &Runnab
         .chain_err(|| format!("Couldn't create {}", &bundle_target_path.display()))?;
 
     debug!("Copying exe {:?} to bundle {:?}", &runnable.exe, bundle_path);
-    copy_file(&runnable.exe, &bundle_exe_path)
+    copy_and_sync_file(&runnable.exe, &bundle_exe_path)
         .chain_err(|| format!("Couldn't copy {} to {}", &runnable.exe.display(), &bundle_exe_path.display()))?;
 
     debug!("Copying dynamic libs to bundle");
@@ -50,7 +50,7 @@ fn make_remote_app_with_name(project: &Project, build: &Build, runnable: &Runnab
         let target_lib_path = bundle_libs_path.join(src_lib_path.file_name()
             .ok_or(format!("Invalid file name {:?}", src_lib_path.file_name()))?);
         debug!("Copying dynamic lib {} to {}", src_lib_path.display(), target_lib_path.display());
-        copy_file(&src_lib_path, &target_lib_path)
+        copy_and_sync_file(&src_lib_path, &target_lib_path)
             .chain_err(|| format!("Couldn't copy {} to {}", src_lib_path.display(), &target_lib_path.display()))?;
     }
 
