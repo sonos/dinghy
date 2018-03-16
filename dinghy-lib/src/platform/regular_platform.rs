@@ -85,8 +85,23 @@ impl Platform for RegularPlatform {
 
         Overlayer::overlay(&self.configuration, self, project, &self.toolchain.sysroot)?;
 
-        self.toolchain.setup_ar(&self.toolchain.executable("ar"))?;
         self.toolchain.setup_cc(&self.id, &self.toolchain.executable("gcc"))?;
+
+        if Path::new(&self.toolchain.executable("ar")).exists() {
+            self.toolchain.setup_tool("AR", &self.toolchain.executable("ar"))?;
+        }
+        if Path::new(&self.toolchain.executable("as")).exists() {
+            self.toolchain.setup_tool("AS", &self.toolchain.executable("as"))?;
+        }
+        if Path::new(&self.toolchain.executable("c++")).exists() {
+            self.toolchain.setup_tool("CXX", &self.toolchain.executable("c++"))?;
+        }
+        if Path::new(&self.toolchain.executable("cpp")).exists() {
+            self.toolchain.setup_tool("CPP", &self.toolchain.executable("cpp"))?;
+        }
+        if Path::new(&self.toolchain.executable("gfortran")).exists() {
+            self.toolchain.setup_tool("FC", &self.toolchain.executable("gfortran"))?;
+        }
 
         let mut linker_cmd = self.toolchain.executable("gcc");
         linker_cmd.push_str(" ");
