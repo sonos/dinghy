@@ -41,6 +41,12 @@ impl Toolchain {
         set_env(format!("CARGO_TARGET_{}_LINKER", envify(self.rustc_triple.as_str())).as_str(), shim);
         Ok(())
     }
+
+    pub fn setup_pkg_config(&self) -> Result<()> {
+        set_env("PKG_CONFIG_ALLOW_CROSS", "1");
+        set_target_env("PKG_CONFIG_LIBPATH", Some(&self.rustc_triple), "");
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -61,8 +67,7 @@ impl ToolchainConfig {
     }
 
     pub fn setup_pkg_config(&self) -> Result<()> {
-        set_env("PKG_CONFIG_ALLOW_CROSS", "1");
-        set_target_env("PKG_CONFIG_LIBPATH", Some(&self.rustc_triple), "");
+        self.as_toolchain().setup_pkg_config();
 
         append_path_to_target_env("PKG_CONFIG_LIBDIR",
                                   Some(&self.rustc_triple),
