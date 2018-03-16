@@ -421,7 +421,8 @@ fn find_dynamic_libraries(compilation: &Compilation,
             .and_then(|file_name| file_name.to_str())
             .map(|file_name| linked_library_names.iter()
                 .find(|lib_name| file_name == format!("lib{}.so", lib_name)
-                    || file_name == format!("lib{}.dylib", lib_name))
+                    || file_name == format!("lib{}.dylib", lib_name)
+                    || file_name == format!("lib{}.a", lib_name))
                 .is_some())
             .unwrap_or(false)
     };
