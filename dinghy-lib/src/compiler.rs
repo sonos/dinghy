@@ -420,7 +420,9 @@ fn find_dynamic_libraries(compilation: &Compilation,
         path.file_name()
             .and_then(|file_name| file_name.to_str())
             .map(|file_name| linked_library_names.iter()
-                .find(|lib_name| file_name == format!("lib{}.so", lib_name))
+                .find(|lib_name| file_name == format!("lib{}.so", lib_name)
+                    || file_name == format!("lib{}.dylib", lib_name)
+                    || file_name == format!("lib{}.a", lib_name))
                 .is_some())
             .unwrap_or(false)
     };
@@ -482,9 +484,10 @@ fn is_system_path<P1: AsRef<Path>, P2: AsRef<Path>>(sysroot: P1, path: P2) -> Re
         Path::new("/usr/lib32"),
         Path::new("/usr/lib64"),
     ];
-    let is_system_path = ignored_path.iter().any(|it| path.as_ref().starts_with(it))
-        || path.as_ref().canonicalize()?.starts_with(sysroot.as_ref());
-    Ok(is_system_path)
+    let is_system_path = ignored_path.iter().any(|it| path.as_ref().starts_with(it));
+    let is_sysroot_path = sysroot.as_ref().iter().count() > 0
+        && path.as_ref().canonicalize()?.starts_with(sysroot.as_ref());
+    Ok(is_system_path || is_sysroot_path)
 }
 
 pub fn linker_lib_dirs(compilation: &Compilation, config: &CompileConfig) -> Result<Vec<PathBuf>> {
