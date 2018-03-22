@@ -26,6 +26,7 @@ use std::env::current_dir;
 use std::sync::Arc;
 use std::thread;
 use std::time;
+use ErrorKind;
 
 mod cli;
 
@@ -49,7 +50,10 @@ fn main() {
     if let Err(e) = run_command(&matches) {
         error!("{}", e.display_chain());
         println!("{}", e.display_chain());
-        std::process::exit(1);
+        match e.kind() {
+            &ErrorKind::PackagesCannotBeCompiledForPlatform(_) => std::process::exit(3),
+            _ => std::process::exit(1),
+        };
     }
 }
 

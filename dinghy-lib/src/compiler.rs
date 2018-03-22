@@ -32,6 +32,7 @@ use utils::is_library;
 use walkdir::WalkDir;
 use Build;
 use BuildArgs;
+use ErrorKind;
 use Result;
 use ResultExt;
 use Runnable;
@@ -134,7 +135,7 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs
                 .collect::<Vec<_>>();
 
             if filtered_packages.is_empty() {
-                bail!("{:?} cannot be compiled for the selected platform (see project's [package.metadata.dinghy] in Cargo.toml)", packages)
+                return Err(ErrorKind::PackagesCannotBeCompiledForPlatform(packages.clone()).into())
             } else {
                 (filtered_packages, vec![]) // Exclude not allowed with -p, hence empty vec.
             }
