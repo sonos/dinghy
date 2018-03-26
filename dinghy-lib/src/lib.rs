@@ -81,7 +81,7 @@ impl Dinghy {
         }
         #[cfg(target_os = "macos")] {
             if let Some(m) = IosManager::new()? {
-                debug!("register IodDeviceManager");
+                debug!("register IosDeviceManager");
                 managers.push(Box::new(m) as _)
             }
         }

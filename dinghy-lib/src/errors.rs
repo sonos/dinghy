@@ -10,4 +10,11 @@ error_chain! {
         Ignore(::ignore::Error);
         Toml(::toml::de::Error);
     }
+
+    errors {
+        PackagesCannotBeCompiledForPlatform(packages: Vec<String>) {
+            description("Cannot compile selected packages for the selected platform")
+            display("{:?} cannot be compiled for the selected platform (see project's [package.metadata.dinghy] in Cargo.toml)", packages)
+        }
+    }
 }

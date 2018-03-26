@@ -32,6 +32,7 @@ use utils::is_library;
 use walkdir::WalkDir;
 use Build;
 use BuildArgs;
+use ErrorKind;
 use Result;
 use ResultExt;
 use Runnable;
@@ -117,11 +118,30 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs
                                        &config)?;
 
         let project_metadata_list = workskpace_metadata(&workspace)?;
-        let excludes = if (all || workspace.is_virtual()) && packages.is_empty() {
-            exclude_by_target_triple(rustc_triple,
-                                     project_metadata_list.as_slice(),
-                                     excludes.as_slice())
-        } else { excludes.clone() };
+        let filtered_projects = exclude_by_target_triple(rustc_triple,
+                                                         project_metadata_list.as_slice(),
+                                                         excludes.as_slice());
+
+        // Note: exclude works only with all, hence this annoyingly convoluted condition...
+        let (packages, excludes) = if (all || workspace.is_virtual()) && packages.is_empty() {
+            (packages.clone(), filtered_projects)
+        } else if workspace.is_virtual() && !packages.is_empty() {
+            // Manual filtering in case we use -p as it doesn't work with exclude.
+            // That avoids compiling the wrong project for the wrong platform.
+            // This behaviour differs slightly from cargo itself
+            let filtered_packages = packages.iter()
+                .filter(|package| !filtered_projects.contains(package))
+                .map(|it| it.to_string())
+                .collect::<Vec<_>>();
+
+            if filtered_packages.is_empty() {
+                return Err(ErrorKind::PackagesCannotBeCompiledForPlatform(packages.clone()).into())
+            } else {
+                (filtered_packages, vec![]) // Exclude not allowed with -p, hence empty vec.
+            }
+        } else {
+            (packages.clone(), excludes.clone())
+        };
 
         let compile_options = CompileOptions {
             config: &config,
@@ -464,15 +484,15 @@ fn find_all_linked_library_names(compilation: &Compilation, build_args: &BuildAr
     let linked_library_names =
         Itertools::flatten(
             WalkDir::new(&compilation.root_output)
-            .into_iter()
-            .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
-            .filter(is_output_file)
-            .map(|output_file| CargoOps::BuildOutput::parse_file(&output_file, "idontcare"))
-            .flat_map(|build_output| build_output.map(|it| it.library_links)))
-        .map(|lib_name| lib_name.clone())
-        .map(parse_lib_name)
-        .chain(build_args.forced_overlays.clone())
-        .collect();
+                .into_iter()
+                .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
+                .filter(is_output_file)
+                .map(|output_file| CargoOps::BuildOutput::parse_file(&output_file, "idontcare"))
+                .flat_map(|build_output| build_output.map(|it| it.library_links)))
+            .map(|lib_name| lib_name.clone())
+            .map(parse_lib_name)
+            .chain(build_args.forced_overlays.clone())
+            .collect();
     debug!("Found libraries {:?}", &linked_library_names);
     Ok(linked_library_names)
 }

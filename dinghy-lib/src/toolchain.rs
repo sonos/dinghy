@@ -67,7 +67,7 @@ impl ToolchainConfig {
     }
 
     pub fn setup_pkg_config(&self) -> Result<()> {
-        self.as_toolchain().setup_pkg_config();
+        self.as_toolchain().setup_pkg_config()?;
 
         append_path_to_target_env("PKG_CONFIG_LIBDIR",
                                   Some(&self.rustc_triple),
