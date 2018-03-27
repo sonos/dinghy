@@ -1,20 +1,26 @@
 extern crate cargo;
 
-pub use cargo::ops::CompileMode;
-use cargo::util::important_paths::find_root_manifest_for_wd;
+use Build;
+use BuildArgs;
 use cargo::core::Workspace;
+use cargo::ops as CargoOps;
 use cargo::ops::CleanOptions;
 use cargo::ops::Compilation;
 use cargo::ops::CompileFilter;
+pub use cargo::ops::CompileMode;
 use cargo::ops::CompileOptions;
 use cargo::ops::MessageFormat;
 use cargo::ops::Packages as CompilePackages;
-use cargo::ops as CargoOps;
 use cargo::ops::TestOptions;
 use cargo::util::config::Config as CompileConfig;
+use cargo::util::important_paths::find_root_manifest_for_wd;
 use clap::ArgMatches;
 use dinghy_build::build_env::target_env_from_triple;
+use ErrorKind;
 use itertools::Itertools;
+use Result;
+use ResultExt;
+use Runnable;
 use std::collections::HashSet;
 use std::env;
 use std::env::current_dir;
@@ -30,12 +36,6 @@ use toml;
 use utils::arg_as_string_vec;
 use utils::is_library;
 use walkdir::WalkDir;
-use Build;
-use BuildArgs;
-use ErrorKind;
-use Result;
-use ResultExt;
-use Runnable;
 
 pub struct Compiler {
     build_command: Box<Fn(Option<&str>, &BuildArgs) -> Result<Build>>,
@@ -135,7 +135,7 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs
                 .collect::<Vec<_>>();
 
             if filtered_packages.is_empty() {
-                return Err(ErrorKind::PackagesCannotBeCompiledForPlatform(packages.clone()).into())
+                return Err(ErrorKind::PackagesCannotBeCompiledForPlatform(packages.clone()).into());
             } else {
                 (filtered_packages, vec![]) // Exclude not allowed with -p, hence empty vec.
             }
@@ -173,7 +173,7 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs
 
         if bearded { setup_dinghy_wrapper(&workspace, rustc_triple)?; }
         let compilation = CargoOps::compile(&workspace, &compile_options)?;
-        let build = to_build(compilation, &config, build_args)?;
+        let build = to_build(compilation, &config, build_args, rustc_triple)?;
         copy_dependencies_to_target(&build)?;
         Ok(build)
     })
@@ -353,14 +353,16 @@ fn copy_dependencies_to_target(build: &Build) -> Result<()> {
 
 fn to_build(compilation: Compilation,
             config: &CompileConfig,
-            build_args: &BuildArgs) -> Result<Build> {
+            build_args: &BuildArgs,
+            rustc_triple: Option<&str>) -> Result<Build> {
     match build_args.compile_mode {
         CompileMode::Build => {
             Ok(Build {
                 build_args: build_args.clone(),
                 dynamic_libraries: find_dynamic_libraries(&compilation,
                                                           config,
-                                                          build_args)?,
+                                                          build_args,
+                                                          rustc_triple)?,
                 runnables: compilation.binaries
                     .iter()
                     .map(|exe_path| {
@@ -384,7 +386,8 @@ fn to_build(compilation: Compilation,
                 build_args: build_args.clone(),
                 dynamic_libraries: find_dynamic_libraries(&compilation,
                                                           config,
-                                                          build_args)?,
+                                                          build_args,
+                                                          rustc_triple)?,
                 runnables: compilation.tests
                     .iter()
                     .map(|&(ref pkg, _, _, ref exe_path)| {
@@ -423,18 +426,20 @@ fn exclude_by_target_triple(rustc_triple: Option<&str>, project_metadata_list: &
 // the same dependency are available). Need improvement.
 fn find_dynamic_libraries(compilation: &Compilation,
                           config: &CompileConfig,
-                          build_args: &BuildArgs) -> Result<Vec<PathBuf>> {
-    let linker = match linker(compilation, config) {
-        Ok(linker) => linker,
-        Err(_) => return Ok(vec![]), // On host so we don't care
+                          build_args: &BuildArgs,
+                          rustc_triple: Option<&str>) -> Result<Vec<PathBuf>> {
+    let sysroot = match linker(compilation, config) {
+        Ok(linker) => PathBuf::from(String::from_utf8(
+            Command::new(&linker).arg("-print-sysroot")
+                .output()
+                .chain_err(|| format!("Error while checking libraries using linker {}", linker.display()))?
+                .stdout)?.trim()),
+        Err(err) => match rustc_triple {
+            None => PathBuf::from(""), // Host platform case
+            Some(_) => return Err(err),
+        },
     };
     let linked_library_names = find_all_linked_library_names(compilation, build_args)?;
-    let rustc_triple = compilation.target.as_str();
-    let sysroot = PathBuf::from(String::from_utf8(
-        Command::new(&linker).arg("-print-sysroot")
-            .output()
-            .chain_err(|| format!("Error while checking libraries using linker {}", linker.display()))?
-            .stdout)?.trim());
 
     let is_library_linked_to_project = move |path: &PathBuf| -> bool {
         path.file_name()
@@ -450,7 +455,7 @@ fn find_dynamic_libraries(compilation: &Compilation,
     let is_banned = move |path: &PathBuf| -> bool {
         path.file_name()
             .and_then(|file_name| file_name.to_str())
-            .map(|file_name| file_name != "libstdc++.so" || !rustc_triple.contains("android"))
+            .map(|file_name| file_name != "libstdc++.so" || !rustc_triple.map(|it| it.contains("android")).unwrap_or(false))
             .unwrap_or(false)
     };
 
@@ -511,10 +516,11 @@ fn is_system_path<P1: AsRef<Path>, P2: AsRef<Path>>(sysroot: P1, path: P2) -> Re
 }
 
 pub fn linker_lib_dirs(compilation: &Compilation, config: &CompileConfig) -> Result<Vec<PathBuf>> {
-    let linker = linker(compilation, config)?;
-    if !linker.exists() {
-        return Ok(vec![]);
-    }
+    let linker = linker(compilation, config);
+    if linker.is_err() { return Ok(vec![]); }
+
+    let linker = linker?;
+    if !linker.exists() { return Ok(vec![]); }
 
     let output = String::from_utf8(Command::new(&linker)
         .arg("-print-search-dirs")
@@ -534,8 +540,12 @@ pub fn linker_lib_dirs(compilation: &Compilation, config: &CompileConfig) -> Res
     Ok(paths)
 }
 
-pub fn overlay_lib_dirs(rustc_triple: &str) -> Result<Vec<PathBuf>> {
-    Ok(target_env_from_triple("PKG_CONFIG_LIBDIR", rustc_triple, false).unwrap_or("".to_string())
+pub fn overlay_lib_dirs(rustc_triple: Option<&str>) -> Result<Vec<PathBuf>> {
+    let pkg_config_libdir = rustc_triple
+        .map(|it| target_env_from_triple("PKG_CONFIG_LIBDIR", it, false).unwrap_or("".to_string()))
+        .unwrap_or(env::var("PKG_CONFIG_LIBDIR").unwrap_or("".to_string()));
+
+    Ok(pkg_config_libdir
         .split(":")
         .map(|it| PathBuf::from(it))
         .collect())
