@@ -34,6 +34,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use toml;
 use utils::arg_as_string_vec;
+use utils::copy_and_sync_file;
 use utils::is_library;
 use walkdir::WalkDir;
 
@@ -345,7 +346,7 @@ fn copy_dependencies_to_target(build: &Build) -> Result<()> {
             .ok_or(format!("Invalid file name {:?}", src_lib_path.file_name()))?);
 
         debug!("Copying dynamic lib {} to {}", src_lib_path.display(), target_lib_path.display());
-        fs::copy(&src_lib_path, &target_lib_path)
+        copy_and_sync_file(&src_lib_path, &target_lib_path)
             .chain_err(|| format!("Couldn't copy {} to {}", src_lib_path.display(), &target_lib_path.display()))?;
     }
     Ok(())

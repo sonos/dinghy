@@ -1,7 +1,7 @@
 use clap::ArgMatches;
 use errors::Result;
-use filetime::set_file_times;
 use filetime::FileTime;
+use filetime::set_file_times;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
@@ -15,6 +15,16 @@ pub fn arg_as_string_vec(matches: &ArgMatches, option: &str) -> Vec<String> {
 pub fn copy_and_sync_file<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<()> {
     let from = &from.as_ref();
     let to = &to.as_ref();
+
+    // Make target file writeable if it is read-only.
+    if (to.exists()) {
+        let mut permissions = fs::metadata(&to)?.permissions();
+        if (permissions.readonly()) {
+            permissions.set_readonly(false);
+            fs::set_permissions(&to, permissions);
+        }
+    }
+
     fs::copy(&from, &to)?;
 
     // Keep filetime to avoid useless sync on some devices (e.g. Android).
