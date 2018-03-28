@@ -1,5 +1,6 @@
 use clap::App;
 use clap::Arg;
+use clap::ArgGroup;
 use clap::ArgMatches;
 use clap::SubCommand;
 use dinghy_lib::BuildArgs;
@@ -59,7 +60,7 @@ impl CargoDinghyCli {
                     .example()
                     .test()
                     .bench()
-                    .release()
+                    .debug_or_release()
                     .features()
                     .all_features()
                     .no_default_features()
@@ -84,7 +85,7 @@ impl CargoDinghyCli {
                     .example()
                     .package()
                     .job()
-                    .release()
+                    .debug_or_release()
                     .features()
                     .all_features()
                     .no_default_features()
@@ -109,7 +110,7 @@ impl CargoDinghyCli {
                     .features()
                     .all_features()
                     .no_default_features()
-                    .release()
+                    .debug_or_release()
                     .target()
                     .verbose()
                     .common_remote()
@@ -150,7 +151,7 @@ pub trait CargoDinghyCliExt {
     fn overlay(self) -> Self;
     fn package(self) -> Self;
     fn platform(self) -> Self;
-    fn release(self) -> Self;
+    fn debug_or_release(self) -> Self;
     fn strip(self) -> Self;
     fn target(self) -> Self;
     fn test(self) -> Self;
@@ -301,10 +302,17 @@ impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
             .help("Use a specific platform (build only)"))
     }
 
-    fn release(self) -> Self {
-        self.arg(Arg::with_name("RELEASE")
-            .long("release")
-            .help("Build artifacts in release mode, with optimizations"))
+    fn debug_or_release(self) -> Self {
+        self
+            .arg(Arg::with_name("RELEASE")
+                .long("release")
+                .help("Build artifacts in release mode, with optimizations"))
+            .arg(Arg::with_name("DEBUG")
+                .long("debug")
+                .help("Build artifacts in debug mode, without optimizations"))
+            .group(ArgGroup::with_name("BUILD_TYPE")
+                .args(&["DEBUG", "RELEASE"])
+                .multiple(false))
     }
 
     fn target(self) -> Self {
