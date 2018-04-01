@@ -64,6 +64,7 @@ impl AndroidDevice {
     }
 
     fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<(BuildBundle, BuildBundle)> {
+        info!("Install {} to {}", runnable.id, self.id);
         if !self.adb()?.arg("shell").arg("mkdir").arg("-p").arg(ANDROID_WORK_DIR).status()?.success() {
             Err(format!("Failure to create dinghy work dir '{}' on target android device", ANDROID_WORK_DIR))?;
         }
@@ -151,7 +152,7 @@ impl Device for AndroidDevice {
                 path_to_str(&remote_bundle.bundle_exe)?,
                 if build.build_args.compile_mode == ::cargo::ops::CompileMode::Bench { "--bench" } else { "" },
                 args.join(" "));
-            debug!("Running {}", command);
+            info!("Run {} on {} ({:?})", runnable.id, self.id, build.build_args.compile_mode);
 
             if !self.adb()?
                 .arg("shell")
