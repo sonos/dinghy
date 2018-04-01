@@ -17,6 +17,7 @@ use std::env;
 use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::path::PathBuf;
+use std::ascii::AsciiExt;
 use super::Result;
 use super::ResultExt;
 
