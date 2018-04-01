@@ -17,11 +17,11 @@ pub fn copy_and_sync_file<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Res
     let to = &to.as_ref();
 
     // Make target file writeable if it is read-only.
-    if (to.exists()) {
+    if to.exists() {
         let mut permissions = fs::metadata(&to)?.permissions();
-        if (permissions.readonly()) {
+        if permissions.readonly() {
             permissions.set_readonly(false);
-            fs::set_permissions(&to, permissions);
+            fs::set_permissions(&to, permissions)?;
         }
     }
 
