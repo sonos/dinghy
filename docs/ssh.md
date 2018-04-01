@@ -10,10 +10,10 @@ in your garage.
 Assuming [rustup](http://rustup.rs) is already installed...
 
 ```
-cargo install dinghy
+cargo install cargo-dinghy
 
 # If it's already installed, add '--force'
-cargo install dinghy --force
+cargo install cargo-dinghy --force
 ```
 
 ### Finding a toolchain
