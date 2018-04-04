@@ -1,4 +1,4 @@
-extern crate cargo;
+extern crate cargo_metadata;
 extern crate clap;
 #[cfg(target_os = "macos")]
 extern crate core_foundation;
@@ -21,6 +21,7 @@ extern crate regex;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
+extern crate serde_json;
 extern crate shell_escape;
 #[cfg(target_os = "macos")]
 extern crate tempdir;
@@ -39,7 +40,6 @@ pub mod utils;
 mod toolchain;
 
 use compiler::Compiler;
-use compiler::CompileMode;
 use config::Configuration;
 use config::PlatformConfiguration;
 use device::android::AndroidManager;
@@ -61,6 +61,9 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use errors::*;
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum CompileMode { Bench, Test, Build }
 
 pub struct Dinghy {
     devices: Vec<Arc<Box<Device>>>,
@@ -236,6 +239,7 @@ pub struct Build {
 
 #[derive(Clone, Debug)]
 pub struct BuildArgs {
+    pub cargo_args:Vec<::std::ffi::OsString>,
     pub compile_mode: CompileMode,
     pub verbose: bool,
     pub forced_overlays: Vec<String>,

@@ -3,25 +3,38 @@ use clap::Arg;
 use clap::ArgGroup;
 use clap::ArgMatches;
 use clap::SubCommand;
-use dinghy_lib::BuildArgs;
-use dinghy_lib::compiler::CompileMode;
-use std::ffi::OsString;
+use dinghy_lib::{ BuildArgs, CompileMode };
+use std::ffi::OsStr;
 
 pub struct CargoDinghyCli {}
 
 impl CargoDinghyCli {
-    pub fn parse<'a, I, T>(args: I) -> ArgMatches<'a>
-        where I: IntoIterator<Item=T>,
-              T: Into<OsString> + Clone {
-        {
-            App::new("dinghy")
+    pub fn parse_dinghy_args<'a, I>(args: I) -> (ArgMatches<'a>, Vec<&'a OsStr>)
+        where I: IntoIterator<Item=&'a OsStr> {
+            let mut parser = App::new("dinghy")
                 .version(crate_version!())
                 .device()
                 .verbose()
                 .quiet()
                 .overlay()
-                .platform()
+                .platform();
+            let args:Vec<_> = args.into_iter().collect();
+            let mut dinghy_args = &args[..];
+            loop {
+                match parser.get_matches_from_safe_borrow(dinghy_args) {
+                    Err(_) if dinghy_args.len() == 0 => { parser.get_matches_from_safe_borrow(&args[..]).unwrap(); },
+                    Err(_) => dinghy_args = &dinghy_args[0..(dinghy_args.len()-1)],
+                    Ok(matches) => {
+                        return (matches, args[dinghy_args.len()..].to_vec())
+                    }
+                }
+            }
+    }
 
+
+    pub fn parse_subcommands<'a, I>(args: I) -> ArgMatches<'a>
+        where I: IntoIterator<Item=&'a OsStr> {
+            App::new("dinghy")
                 .subcommand(SubCommand::with_name("all-devices")
                     .about("List all devices that can be used with Dinghy"))
 
@@ -119,20 +132,22 @@ impl CargoDinghyCli {
                     .additional_args()
                     .strip()
                     .bearded())
-        }.get_matches_from(args)
+        .get_matches_from(args)
     }
 
-    pub fn build_args_from(matches: &ArgMatches) -> BuildArgs {
+    pub fn build_args_from(matches: &::Matches) -> BuildArgs {
         BuildArgs {
-            compile_mode: match matches.subcommand() {
+            cargo_args: matches.raw_cargo.iter().map(|&a| a.to_owned()).collect(),
+            compile_mode: match matches.cargo.subcommand() {
                 ("bench", Some(_)) => CompileMode::Bench,
                 ("test", Some(_)) => CompileMode::Test,
                 _ => CompileMode::Build,
             },
-            forced_overlays: arg_as_string_vec(matches, "OVERLAY"),
-            verbose: matches.occurrences_of("VERBOSE") > 0,
+            forced_overlays: arg_as_string_vec(&matches.dinghy, "OVERLAY"),
+            verbose: matches.dinghy.occurrences_of("VERBOSE") > 0,
         }
     }
+
 }
 
 pub trait CargoDinghyCliExt {
@@ -367,3 +382,4 @@ fn arg_as_string_vec(matches: &ArgMatches, option: &str) -> Vec<String> {
         .map(|vs| vs.map(|s| s.to_string()).collect())
         .unwrap_or(vec![])
 }
+

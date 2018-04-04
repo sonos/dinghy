@@ -1,4 +1,3 @@
-use cargo::util::important_paths::find_root_manifest_for_wd;
 use dinghy_build::build_env::append_path_to_target_env;
 use dinghy_build::build_env::append_path_to_env;
 use dinghy_build::build_env::envify;
@@ -6,7 +5,7 @@ use dinghy_build::build_env::set_env;
 use dinghy_build::build_env::set_target_env;
 use errors::*;
 use itertools::Itertools;
-use std::{env, fs, path};
+use std::{fs, path};
 use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -99,8 +98,8 @@ impl ToolchainConfig {
     }
 
     pub fn shim_executables(&self, id: &str) -> Result<()> {
-        let wd_path = ::cargo::util::important_paths::find_root_manifest_for_wd(&env::current_dir()?)?;
-        let root = wd_path.parent().ok_or("building at / ?")?;
+        let workspace = ::cargo_metadata::metadata(None)?;
+        let root:PathBuf = workspace.workspace_root.into();
         let shims_path = root.join("target").join(self.rustc_triple.as_str()).join(id);
 
         for exe in self.bin.read_dir()? {
@@ -112,7 +111,7 @@ impl ToolchainConfig {
             let rustified_exe = &exe_file_name.to_string_lossy().replace(self.toolchain_triple.as_str(),
                                                                          self.rustc_triple.as_str());
             trace!("Shim {} -> {}", exe_path, rustified_exe);
-            create_shim(root,
+            create_shim(&root,
                         self.rustc_triple.as_str(),
                         id,
                         rustified_exe,
@@ -153,6 +152,6 @@ fn create_shim<P: AsRef<path::Path>>(
 }
 
 fn project_root() -> Result<PathBuf> {
-    let wd_path = find_root_manifest_for_wd(&env::current_dir()?)?;
-    Ok(wd_path.parent().ok_or("building at / ?")?.to_path_buf())
+    let workspace = ::cargo_metadata::metadata(None)?;
+    Ok(workspace.workspace_root.into())
 }

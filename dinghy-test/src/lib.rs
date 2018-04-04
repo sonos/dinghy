@@ -36,6 +36,7 @@ pub fn try_test_file_path(test_data_id: &str) -> Option<PathBuf> {
             .map(|it| it.join("dinghy"))
             .map(|it| it.join(current_exe.file_name().unwrap()))
             .map(|it| it.join("test_data"));
+
         let test_data_path = match test_data_path {
             None => return None,
             Some(test_data_cfg_path) => test_data_cfg_path,

@@ -1,0 +1,10 @@
+[package]
+name = "test-nows"
+version = "0.1.0"
+authors = ["Mathieu Poumeyrol <kali@zoy.org>"]
+
+[workspace]
+members = []
+
+[dev-dependencies]
+dinghy-test = { path = "../dinghy-test" }

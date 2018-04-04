@@ -3,7 +3,6 @@ use config::Configuration;
 use ignore::WalkBuilder;
 use std::fs;
 use std::fs::File;
-use std::env::current_dir;
 use std::io::prelude::*;
 use std::path::Path;
 use std::path::PathBuf;
@@ -26,10 +25,8 @@ impl Project {
     }
 
     pub fn project_dir(&self) -> Result<PathBuf> {
-        let wd_path = ::cargo::util::important_paths::find_root_manifest_for_wd(&current_dir()?)?;
-        Ok(wd_path.parent()
-            .ok_or(format!("Couldn't read project directory {}.", wd_path.display()))?
-            .to_path_buf())
+        let workspace = ::cargo_metadata::metadata(None)?;
+        Ok(workspace.workspace_root.into())
     }
 
     pub fn overlay_work_dir(&self, platform: &Platform) -> Result<PathBuf> {

@@ -1,0 +1,11 @@
+[[package]]
+name = "dinghy-test"
+version = "0.3.0-pre"
+
+[[package]]
+name = "test-nows"
+version = "0.1.0"
+dependencies = [
+ "dinghy-test 0.3.0-pre",
+]
+
