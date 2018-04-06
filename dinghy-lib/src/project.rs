@@ -99,12 +99,22 @@ impl Project {
         &self,
         src: P1,
         dst: P2,
+        copy_ignored_test_data: bool) -> Result<()> {
+        let empty:&[&str] = &[];
+        self.rec_copy_excl(src, dst, copy_ignored_test_data, empty)
+    }
+
+    pub fn rec_copy_excl<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path> + ::std::fmt::Debug>(
+        &self,
+        src: P1,
+        dst: P2,
         copy_ignored_test_data: bool,
+        more_exclude: &[P3]
     ) -> Result<()> {
         let src = src.as_ref();
         let dst = dst.as_ref();
         let ignore_file = src.join(".dinghyignore");
-        debug!("Copying recursively from {} to {}", src.display(), dst.display());
+        debug!("Copying recursively from {} to {} excluding {:?}", src.display(), dst.display(), more_exclude);
 
         let mut walker = WalkBuilder::new(src);
         walker.git_ignore(!copy_ignored_test_data);
@@ -112,6 +122,12 @@ impl Project {
         for entry in walker.build() {
             let entry = entry?;
             let metadata = entry.metadata()?;
+
+            if more_exclude.iter().any(|ex| entry.path().starts_with(ex)) {
+                debug!("Exclude {:?}", entry.path());
+                continue;
+            }
+
             let path = entry.path().strip_prefix(src)?;
 
             // Check if root path is a file or a directory
@@ -127,7 +143,7 @@ impl Project {
                 if target.exists() && !target.is_dir() {
                     fs::remove_dir_all(&target)?;
                 }
-                debug!("Creating directory {}", target.display());
+                trace!("Creating directory {}", target.display());
                 &fs::create_dir_all(&target)?;
             } else {
                 if target.exists() && !target.is_file() {
@@ -139,10 +155,10 @@ impl Project {
                     if target.exists() && target.metadata()?.permissions().readonly() {
                         fs::remove_dir_all(&target)?;
                     }
-                    debug!("Copying {} to {}", entry.path().display(), target.display());
+                    trace!("Copying {} to {}", entry.path().display(), target.display());
                     copy_and_sync_file(entry.path(), &target)?;
                 } else {
-                    debug!("{} is already up-to-date", target.display());
+                    trace!("{} is already up-to-date", target.display());
                 }
             }
         }
