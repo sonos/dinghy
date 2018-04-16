@@ -52,6 +52,7 @@ use platform::host::HostPlatform;
 use platform::ios::IosPlatform;
 use platform::regular_platform::RegularPlatform;
 use project::Project;
+use std::env::home_dir;
 use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
@@ -110,7 +111,10 @@ impl Dinghy {
                         platform_conf.clone(),
                         platform_name.to_string(),
                         rustc_triple.clone(),
-                        platform_conf.toolchain.clone().ok_or(format!("Toolchain missing for platform {}", platform_name))?)?)
+                        platform_conf.toolchain.clone()
+                            .map(|it| PathBuf::from(it))
+                            .or(home_dir().map(|it| it.join(".dinghy").join("toolchain").join(platform_name)))
+                            .ok_or(format!("Toolchain missing for platform {}", platform_name))?)?)
                 };
                 if let Some(pf) = pf {
                     platforms.push((platform_name.clone(), Arc::new(pf)))
