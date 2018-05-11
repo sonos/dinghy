@@ -115,7 +115,7 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs
                          false,
                          false,
                          &[])?;
-        let workspace = Workspace::new(&find_root_manifest_for_wd(None, &current_dir()?)?,
+        let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?,
                                        &config)?;
 
         let project_metadata_list = workskpace_metadata(&workspace)?;
@@ -147,22 +147,21 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs
         let compile_options = CompileOptions {
             config: &config,
             jobs,
-            target: rustc_triple,
-            features: &*features,
+            target: rustc_triple.map(str::to_string),
+            features: features.clone(),
             all_features,
             no_default_features,
             spec: CompilePackages::from_flags(
-                workspace.is_virtual(),
                 all,
-                &excludes,
-                &packages,
+                excludes,
+                packages,
             )?,
             filter: CompileFilter::new(
                 lib_only,
-                &bins, false,
-                &tests, false,
-                &examples, false,
-                &benches, false,
+                bins.clone(), false,
+                tests.clone(), false,
+                examples.clone(), false,
+                benches.clone(), false,
                 false, // all_targets
             ),
             release,
@@ -193,14 +192,14 @@ fn create_clean_command(matches: &ArgMatches) -> Box<Fn(Option<&str>) -> Result<
                          false,
                          false,
                          &[])?;
-        let workspace = Workspace::new(&find_root_manifest_for_wd(None, &current_dir()?)?,
+        let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?,
                                        &config)?;
 
         let options = CleanOptions {
             config: &config,
             release,
-            spec: packages.as_slice(),
-            target: rustc_triple,
+            spec: packages.clone(),
+            target: rustc_triple.map(str::to_string),
         };
 
         CargoOps::clean(&workspace, &options)?;
@@ -241,7 +240,7 @@ fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs, 
                          false,
                          false,
                          &[])?;
-        let workspace = Workspace::new(&find_root_manifest_for_wd(None, &current_dir()?)?,
+        let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?,
                                        &config)?;
 
         let project_metadata_list = workskpace_metadata(&workspace)?;
@@ -254,22 +253,21 @@ fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs, 
         let compile_options = CompileOptions {
             config: &config,
             jobs,
-            target: rustc_triple,
-            features: &*features,
+            target: rustc_triple.map(str::to_string),
+            features: features.clone(),
             all_features,
             no_default_features,
             spec: CompilePackages::from_flags(
-                workspace.is_virtual(),
                 all,
-                &excludes,
-                &packages,
+                excludes,
+                packages.clone(),
             )?,
             filter: CompileFilter::new(
                 lib_only,
-                &bins, false,
-                &tests, false,
-                &examples, false,
-                &benches, false,
+                bins.clone(), false,
+                tests.clone(), false,
+                examples.clone(), false,
+                benches.clone(), false,
                 false, // all_targets
             ),
             release,
@@ -493,7 +491,7 @@ fn find_all_linked_library_names(compilation: &Compilation, build_args: &BuildAr
                 .into_iter()
                 .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
                 .filter(is_output_file)
-                .map(|output_file| CargoOps::BuildOutput::parse_file(&output_file, "idontcare"))
+                .map(|output_file| CargoOps::BuildOutput::parse_file(&output_file, "idontcare", &compilation.root_output, &compilation.root_output))
                 .flat_map(|build_output| build_output.map(|it| it.library_links)))
             .map(|lib_name| lib_name.clone())
             .map(parse_lib_name)
