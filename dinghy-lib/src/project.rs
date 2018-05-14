@@ -26,7 +26,7 @@ impl Project {
     }
 
     pub fn project_dir(&self) -> Result<PathBuf> {
-        let wd_path = ::cargo::util::important_paths::find_root_manifest_for_wd(None, &current_dir()?)?;
+        let wd_path = ::cargo::util::important_paths::find_root_manifest_for_wd(&current_dir()?)?;
         Ok(wd_path.parent()
             .ok_or(format!("Couldn't read project directory {}.", wd_path.display()))?
             .to_path_buf())

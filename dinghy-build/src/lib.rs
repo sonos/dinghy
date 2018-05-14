@@ -14,7 +14,7 @@
 extern crate bindgen;
 #[macro_use]
 extern crate error_chain;
-extern crate gcc;
+extern crate cc;
 #[macro_use]
 extern crate log;
 
@@ -193,7 +193,7 @@ impl BindGenBuilderExt for bindgen::Builder {
         if is_cross_compiling()? {
             // Add a path to the private headers for the target compiler. Borderline,
             // as we are likely using a gcc header with clang frontend.
-            let path = gcc::Build::new()
+            let path = cc::Build::new()
                 .get_compiler()
                 .to_command()
                 .arg("--print-file-name=include")
