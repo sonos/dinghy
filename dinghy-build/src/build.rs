@@ -14,6 +14,13 @@ pub fn include_path<P: AsRef<Path>>(lib_dir_path: P) -> Result<()> {
     Ok(())
 }
 
+/// Adds a `cargo:rustc-link-search=` and `cargo:rustc-link-lib=static=` line.
+pub fn link_static<P: AsRef<Path>>(lib_name: &str, lib_dir_path: P) -> Result<()> {
+    println!("cargo:rustc-link-search={}", lib_dir_path.as_ref().display());
+    println!("cargo:rustc-link-lib=static={}", lib_name);
+    Ok(())
+}
+
 /// Adds a `cargo:rustc-link-search=` and `cargo:rustc-link-lib=dylib=` line.
 pub fn link_dylib<P: AsRef<Path>>(lib_name: &str, lib_dir_path: P) -> Result<()> {
     println!("cargo:rustc-link-search={}", lib_dir_path.as_ref().display());
