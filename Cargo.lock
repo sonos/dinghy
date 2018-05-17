@@ -325,7 +325,7 @@ dependencies = [
 
 [[package]]
 name = "dinghy-test"
-version = "0.3.3-pre"
+version = "0.3.3"
 
 [[package]]
 name = "dtoa"
