@@ -191,8 +191,8 @@ pub fn dinghy_config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
         if !dir.starts_with(&home) {
             files_to_try.push(home.join("dinghy.toml"));
             files_to_try.push(home.join(".dinghy.toml"));
-            files_to_try.push(home.join(".dhinghy").join("dinghy.toml"));
-            files_to_try.push(home.join(".dhinghy").join(".dinghy.toml"));
+            files_to_try.push(home.join(".dinghy").join("dinghy.toml"));
+            files_to_try.push(home.join(".dinghy").join(".dinghy.toml"));
         }
     }
     for file in files_to_try {
