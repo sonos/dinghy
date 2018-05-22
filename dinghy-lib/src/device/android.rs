@@ -4,7 +4,7 @@ use platform::regular_platform::RegularPlatform;
 use project::Project;
 use std::env;
 use std::fmt;
-use std::fmt::Display;
+use std::fmt::{ Debug, Display };
 use std::fmt::Formatter;
 use std::io::stderr;
 use std::io::stdout;
@@ -182,6 +182,12 @@ impl Device for AndroidDevice {
 }
 
 impl Display for AndroidDevice {
+    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
+        write!(fmt, "Android/{}", self.id)
+    }
+}
+
+impl Debug for AndroidDevice {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         Ok(fmt.write_str(format!("Android {{ \"id\": \"{}\", \"supported_targets\": {:?} }}",
                                  self.id,

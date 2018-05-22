@@ -4,7 +4,7 @@ use dinghy_build::build_env::set_env;
 use errors::*;
 use overlay::Overlayer;
 use project::Project;
-use std::fmt::Display;
+use std::fmt::{ Debug, Display, Formatter };
 use std::process;
 use std::sync::Arc;
 use toolchain::Toolchain;
@@ -13,13 +13,18 @@ use BuildArgs;
 use Device;
 use Platform;
 
-
 pub struct IosPlatform {
     id: String,
     pub sim: bool,
     pub toolchain: Toolchain,
     pub configuration: PlatformConfiguration,
     compiler: Arc<Compiler>,
+}
+
+impl Debug for IosPlatform {
+    fn fmt(&self, fmt: &mut Formatter) -> ::std::fmt::Result {
+        write!(fmt, "{}", self.id)
+    }
 }
 
 impl IosPlatform {

@@ -4,7 +4,7 @@ use itertools::Itertools;
 use platform::host::HostPlatform;
 use project::Project;
 use std::fmt;
-use std::fmt::Display;
+use std::fmt::{ Debug, Display };
 use std::fmt::Formatter;
 use std::sync::Arc;
 use Build;
@@ -99,9 +99,15 @@ impl Device for HostDevice {
     }
 }
 
-impl Display for HostDevice {
+impl Debug for HostDevice {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         Ok(fmt.write_str(format!("Host {{ }}").as_str())?)
+    }
+}
+
+impl Display for HostDevice {
+    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
+        fmt.write_str("Host")
     }
 }
 

@@ -127,6 +127,7 @@ impl Project {
                 debug!("Exclude {:?}", entry.path());
                 continue;
             }
+            trace!("Processing entry {:?} is_dir:{:?}", entry.path(), metadata.is_dir());
 
             let path = entry.path().strip_prefix(src)?;
 
@@ -140,13 +141,14 @@ impl Project {
             };
 
             if metadata.is_dir() {
-                if target.exists() && !target.is_dir() {
-                    fs::remove_dir_all(&target)?;
+                if target.exists() && target.is_file() {
+                    fs::remove_file(&target)?;
                 }
                 trace!("Creating directory {}", target.display());
                 &fs::create_dir_all(&target)?;
             } else {
                 if target.exists() && !target.is_file() {
+                    trace!("Remove 2 {:?}", target);
                     fs::remove_dir_all(&target)?;
                 }
                 if !target.exists()

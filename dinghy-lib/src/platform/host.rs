@@ -4,6 +4,7 @@ use dinghy_build::build_env::set_all_env;
 use overlay::Overlayer;
 use platform;
 use project::Project;
+use std::fmt::{ Debug, Formatter };
 use std::process::Command;
 use std::sync::Arc;
 use Build;
@@ -26,6 +27,12 @@ impl HostPlatform {
             configuration,
             id: "host".to_string(),
         }))
+    }
+}
+
+impl Debug for HostPlatform {
+    fn fmt(&self, fmt: &mut Formatter) -> ::std::fmt::Result {
+        write!(fmt, "{}", self.id)
     }
 }
 

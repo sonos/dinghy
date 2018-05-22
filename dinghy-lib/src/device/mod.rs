@@ -25,7 +25,7 @@ fn make_remote_app_with_name(project: &Project, build: &Build, runnable: &Runnab
         None => root_dir.join(&runnable.id),
     };
     let bundle_libs_path = root_dir.join("overlay");
-    let bundle_target_path = bundle_path.clone();
+    let bundle_target_path = bundle_path.join("target");
     let bundle_exe_path = bundle_target_path.join(&runnable.id);
 
     debug!("Removing previous bundle {:?}", bundle_path);
@@ -41,7 +41,7 @@ fn make_remote_app_with_name(project: &Project, build: &Build, runnable: &Runnab
     fs::create_dir_all(&bundle_target_path)
         .chain_err(|| format!("Couldn't create {}", &bundle_target_path.display()))?;
 
-    debug!("Copying exe {:?} to bundle {:?}", &runnable.exe, bundle_path);
+    debug!("Copying exe {:?} to bundle {:?}", &runnable.exe, bundle_exe_path);
     copy_and_sync_file(&runnable.exe, &bundle_exe_path)
         .chain_err(|| format!("Couldn't copy {} to {}", &runnable.exe.display(), &bundle_exe_path.display()))?;
 

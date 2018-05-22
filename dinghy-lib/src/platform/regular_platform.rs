@@ -2,7 +2,7 @@ use dinghy_build::build_env::set_all_env;
 use overlay::Overlayer;
 use platform;
 use project::Project;
-use std::fmt::Display;
+use std::fmt::{ Debug, Display, Formatter };
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -21,6 +21,12 @@ pub struct RegularPlatform {
     pub configuration: PlatformConfiguration,
     pub id: String,
     pub toolchain: ToolchainConfig,
+}
+
+impl Debug for RegularPlatform {
+    fn fmt(&self, fmt: &mut Formatter) -> ::std::fmt::Result {
+        write!(fmt, "{}", self.id)
+    }
 }
 
 impl RegularPlatform {

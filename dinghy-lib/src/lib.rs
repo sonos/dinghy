@@ -173,7 +173,7 @@ impl Dinghy {
     }
 }
 
-pub trait Device: Display + DeviceCompatibility {
+pub trait Device: std::fmt::Debug + Display + DeviceCompatibility {
     fn clean_app(&self, build_bundle: &BuildBundle) -> Result<()>;
 
     fn debug_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<BuildBundle>;
@@ -202,7 +202,7 @@ pub trait DeviceCompatibility {
     }
 }
 
-pub trait Platform {
+pub trait Platform: std::fmt::Debug {
     fn build(&self, project: &Project, build_args: &BuildArgs) -> Result<Build>;
 
     fn id(&self) -> String;
@@ -212,6 +212,12 @@ pub trait Platform {
     fn rustc_triple(&self) -> Option<&str>;
 
     fn strip(&self, build: &Build) -> Result<()>;
+}
+
+impl Display for Platform {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(fmt, "{}", self.id())
+    }
 }
 
 pub trait PlatformManager {

@@ -4,7 +4,7 @@ use device::make_remote_app;
 use platform::regular_platform::RegularPlatform;
 use project::Project;
 use std::fmt;
-use std::fmt::Display;
+use std::fmt::{ Debug, Display };
 use std::fmt::Formatter;
 use std::path::Path;
 use std::path::PathBuf;
@@ -25,8 +25,11 @@ pub struct SshDevice {
 
 impl SshDevice {
     fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<(BuildBundle, BuildBundle)> {
+        debug!("make_remote_app {}", runnable.id);
         let build_bundle = make_remote_app(project, build, runnable)?;
+        trace!("make_remote_app {} done", runnable.id);
         let remote_bundle = self.to_remote_bundle(&build_bundle)?;
+        trace!("Create remote dir: {:?}", remote_bundle.bundle_dir);
 
         let _ = self.ssh_command()?
             .arg("mkdir").arg("-p").arg(&remote_bundle.bundle_dir)
@@ -112,7 +115,9 @@ impl Device for SshDevice {
         let mut build_bundles = vec![];
         let args:Vec<String> = args.iter().map(|&a| ::shell_escape::escape(a.into()).to_string()).collect();
         for runnable in &build.runnables {
+            info!("Install {:?}", runnable.id);
             let (build_bundle, remote_bundle) = self.install_app(&project, &build, &runnable)?;
+            debug!("Installed {:?}", runnable.id);
             let command = format!(
                 "cd '{}' ; {} RUST_BACKTRACE=1 DINGHY=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {} {}",
                 path_to_str(&remote_bundle.bundle_dir)?,
@@ -122,6 +127,7 @@ impl Device for SshDevice {
                 if build.build_args.compile_mode == ::cargo::ops::CompileMode::Bench { "--bench" } else { "" },
                 args.join(" ")
                 );
+            trace!("Ssh command: {}", command);
             info!("Run {} on {} ({:?})", runnable.id, self.id, build.build_args.compile_mode);
 
             let status = self.ssh_command()?
@@ -141,13 +147,19 @@ impl Device for SshDevice {
     }
 }
 
-impl Display for SshDevice {
+impl Debug for SshDevice {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         Ok(fmt.write_str(format!("Ssh {{ \"id\": \"{}\", \"hostname\": \"{}\", \"username\": \"{}\", \"port\": \"{}\" }}",
                                  self.id,
                                  self.conf.hostname,
                                  self.conf.username,
                                  self.conf.port.as_ref().map_or("none".to_string(), |it| it.to_string())).as_str())?)
+    }
+}
+
+impl Display for SshDevice {
+    fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
+        write!(fmt, "{}", self.conf.hostname)
     }
 }
 
