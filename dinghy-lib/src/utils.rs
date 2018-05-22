@@ -25,6 +25,7 @@ pub fn copy_and_sync_file<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Res
         }
     }
 
+    trace!("copy {:?} to {:?}", from, to);
     fs::copy(&from, &to)?;
 
     // Keep filetime to avoid useless sync on some devices (e.g. Android).

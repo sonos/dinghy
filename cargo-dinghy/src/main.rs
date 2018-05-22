@@ -104,7 +104,10 @@ fn prepare_and_run(
     args: &ArgMatches,
     sub_args: &ArgMatches,
 ) -> Result<()> {
+    debug!("Build for {}", platform);
     let build = build(&platform.clone(), &project, args, sub_args)?;
+
+    debug!("Run on {:?}", device);
     let device = device.ok_or("No device found")?;
     let args = arg_as_string_vec(sub_args, "ARGS");
     let envs = arg_as_string_vec(sub_args, "ENVS");
@@ -112,8 +115,10 @@ fn prepare_and_run(
     let args = args.iter().map(|s| &s[..]).collect::<Vec<_>>();
     let envs = envs.iter().map(|s| &s[..]).collect::<Vec<_>>();
     let build_bundles = if sub_args.is_present("DEBUGGER") {
+        debug!("Debug app");
         vec![device.debug_app(&project, &build, &*args, &*envs)?]
     } else {
+        debug!("Run app");
         device.run_app(&project, &build, &*args, &*envs)?
     };
 
@@ -184,7 +189,7 @@ fn select_platform_and_device_from_cli(matches: &ArgMatches,
     } else if let Some(device_filter) = matches.value_of("DEVICE") {
         let devices = dinghy.devices()
             .into_iter()
-            .filter(move |it| format!("{}", it).to_lowercase().contains(&device_filter.to_lowercase()))
+            .filter(move |it| format!("{:?}", it).to_lowercase().contains(&device_filter.to_lowercase()))
             .collect_vec();
         if devices.len() == 0 {
             Err(format!("No devices found for name hint `{}'", device_filter))?;
