@@ -48,11 +48,20 @@ fn main() {
     pretty_env_logger::init();
 
     if let Err(e) = run_command(&matches) {
-        error!("{}", e.display_chain());
-        println!("{}", e.display_chain());
         match e.kind() {
-            &ErrorKind::PackagesCannotBeCompiledForPlatform(_) => std::process::exit(3),
-            _ => std::process::exit(1),
+            &ErrorKind::PackagesCannotBeCompiledForPlatform(_) => {
+                error!("{}", e.display_chain());
+                std::process::exit(3)
+            }
+            &ErrorKind::Cargo(ref cargo) => {
+                error!("Cargo error: {}", cargo.to_string().split("\n").next().unwrap_or(""));
+                println!("{}", cargo);
+                std::process::exit(1);
+            },
+            _ => {
+                error!("{}", e.display_chain());
+                std::process::exit(1);
+            }
         };
     }
 }
