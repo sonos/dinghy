@@ -146,7 +146,7 @@ impl Project {
                 }
                 trace!("Creating directory {}", target.display());
                 &fs::create_dir_all(&target)?;
-            } else {
+            } else if metadata.is_file() {
                 if target.exists() && !target.is_file() {
                     trace!("Remove 2 {:?}", target);
                     fs::remove_dir_all(&target)?;
@@ -162,6 +162,8 @@ impl Project {
                 } else {
                     trace!("{} is already up-to-date", target.display());
                 }
+            } else {
+                debug!("ignored {:?} ({:?})", path, metadata);
             }
         }
         Ok(())
