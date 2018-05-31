@@ -116,6 +116,10 @@ fn prepare_and_run(
     debug!("Build for {}", platform);
     let build = build(&platform.clone(), &project, args, sub_args)?;
 
+    if sub_args.is_present("NO_RUN") {
+        return Ok(())
+    }
+
     debug!("Run on {:?}", device);
     let device = device.ok_or("No device found")?;
     let args = arg_as_string_vec(sub_args, "ARGS");
