@@ -41,6 +41,7 @@ impl CargoDinghyCli {
                     .job()
                     .features()
                     .no_default_features()
+                    .no_run()
                     .all_features()
                     .common_remote()
                     .target()
@@ -110,6 +111,7 @@ impl CargoDinghyCli {
                     .features()
                     .all_features()
                     .no_default_features()
+                    .no_run()
                     .debug_or_release()
                     .target()
                     .verbose()
@@ -148,6 +150,7 @@ pub trait CargoDinghyCliExt {
     fn job(self) -> Self;
     fn lib(self) -> Self;
     fn no_default_features(self) -> Self;
+    fn no_run(self) -> Self;
     fn overlay(self) -> Self;
     fn package(self) -> Self;
     fn platform(self) -> Self;
@@ -266,6 +269,12 @@ impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
         self.arg(Arg::with_name("NO_DEFAULT_FEATURES")
             .long("no-default-features")
             .help("Do not build the `default` feature"))
+    }
+
+    fn no_run(self) -> Self {
+        self.arg(Arg::with_name("NO_RUN")
+            .long("no-run")
+            .help("Compile, but don't run tests or benches"))
     }
 
     fn strip(self) -> Self {
