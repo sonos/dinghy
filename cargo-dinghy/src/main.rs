@@ -1,4 +1,3 @@
-extern crate cargo;
 #[macro_use]
 extern crate clap;
 extern crate dinghy_lib;
@@ -9,8 +8,7 @@ extern crate log;
 extern crate pretty_env_logger;
 
 use clap::ArgMatches;
-use cli::CargoDinghyCli;
-use dinghy_lib::Build;
+use dinghy_lib::{ Build, RunEnv };
 use dinghy_lib::compiler::Compiler;
 use dinghy_lib::config::dinghy_config;
 use dinghy_lib::Device;
@@ -29,12 +27,11 @@ use std::thread;
 use std::time;
 use ErrorKind;
 
-mod cli;
-
+/*
 #[derive(Debug)]
 pub struct Matches<'a> {
     pub dinghy: ArgMatches<'a>,
-    pub raw_cargo: Vec<&'a OsStr>,
+    pub raw_subcommand: Vec<&'a OsStr>,
     pub cargo: ArgMatches<'a>,
 }
 
@@ -45,30 +42,27 @@ impl<'a> Matches<'a> {
             .enumerate()
             .filter(|&(ix, ref s)| !(ix == 1 && *s == "dinghy"))
             .map(|pair| pair.1);
-        let (dinghy, raw_cargo) = CargoDinghyCli::parse_dinghy_args(filtered_args);
-        if raw_cargo.len() == 0 {
+        let (dinghy, raw_subcommand) = CargoDinghyCli::parse_dinghy_args(filtered_args);
+        if raw_subcommand.len() == 0 {
             panic!("expected subcommand, none found")
         }
-        let mut cargo_args:Vec<&OsStr> = vec!(raw_cargo[0]);
-        cargo_args.extend(raw_cargo.iter());
+        let mut cargo_args:Vec<&OsStr> = vec!(raw_subcommand[0]);
+        cargo_args.extend(raw_subcommand.iter());
         let cargo = CargoDinghyCli::parse_subcommands(cargo_args.into_iter());
         Matches {
             dinghy,
-            raw_cargo,
+            raw_subcommand,
             cargo,
         }
     }
 }
+*/
 
-fn main() {
-    let owned_args:Vec<OsString> = env::args_os().collect();
-    let args:Vec<&OsStr> = owned_args.iter().map(|s| s.as_os_str()).collect();
-    let matches = Matches::parse(args);
-
-    println!("{:?}", matches);
-
+fn init_logger(matches: &ArgMatches) {
     if env::var("RUST_LOG").is_err() {
-        let dinghy_verbosity = match matches.dinghy.occurrences_of("VERBOSE") - matches.dinghy.occurrences_of("QUIET") {
+        let dinghy_verbosity = match matches.occurrences_of("VERBOSE") as isize - matches.occurrences_of("QUIET") as isize {
+            -2 => "error",
+            -1 => "warn",
             0 => "info",
             1 => "debug",
             _ => "trace",
@@ -76,8 +70,21 @@ fn main() {
         env::set_var("RUST_LOG", format!("cargo_dinghy={},dinghy={}", dinghy_verbosity, dinghy_verbosity));
     };
     pretty_env_logger::init();
+}
 
-    if let Err(e) = run_command(&matches) {
+fn main() {
+    let owned_args:Vec<OsString> = env::args_os().collect();
+    let mut args:Vec<&OsStr> = owned_args.iter().map(|s| s.as_os_str()).collect();
+    if args[0] == "dinghy" {
+        args.remove(0);
+    }
+    let result = if args[0] == "runner" {
+        runner(dinghy, &args)
+    } else {
+        // cargo(args)
+    };
+
+    if let Err(e) = result {
         match e.kind() {
             &ErrorKind::PackagesCannotBeCompiledForPlatform(_) => {
                 error!("{}", e.display_chain());
@@ -91,13 +98,66 @@ fn main() {
             },
             */
             _ => {
-                error!("{}", e.display_chain());
+                error!("{:?}", e.display_chain());
                 std::process::exit(1);
             }
         };
     }
 }
 
+fn declare_common_args(app: &mut clap::App) {
+    use clap::Arg;
+    app.arg(Arg::with_name("DEVICE")
+        .short("d")
+        .long("device")
+        .takes_value(true)
+        .help("device hint"));
+    app.arg(Arg::with_name("PLATFORM")
+        .long("platform")
+        .takes_value(true)
+        .help("Use a specific platform (build only)"));
+    app.arg(Arg::with_name("VERBOSE")
+        .short("v")
+        .long("verbose")
+        .multiple(true)
+        .help("Raise the level of verbosity"));
+}
+
+fn runner(args:&[&OsStr]) -> Result<()> {
+    let mut app = clap::App::new("dinghy runner");
+    let matches = app.get_matches_from(args);
+
+    let conf = Arc::new(dinghy_config(current_dir().unwrap())?);
+    //let compiler = Arc::new(Compiler::from_args(matches.cargo.subcommand().1.unwrap()));
+    let dinghy = Dinghy::probe(&conf /*, &compiler*/)?;
+    let (platform, device) = select_platform_and_device_from_cli(&matches, &dinghy)?;
+
+    let device = device.as_ref().ok_or("No device found")?;
+    let args = arg_as_string_vec(&matches, "ARGS");
+    let envs = arg_as_string_vec(&matches, "ENVS");
+
+    let exe = args[0];
+
+    let args = args.iter().skip(1).map(|s| &s[..]).collect::<Vec<_>>();
+    let envs = envs.iter().map(|s| &s[..]).collect::<Vec<_>>();
+//    let _build_bundles = if sub_args.is_present("DEBUGGER") {
+        debug!("Debug app");
+//        device.debug_app(&project, runnable, run_env, &*args, &*envs)?
+//    } else {
+        debug!("Run app");
+//        device.run_app(&project, runnable, run_env, &*args, &*envs)?
+//    };
+
+    // FIXME
+    /*
+    if sub_args.is_present("CLEANUP") {
+            device.clean_app(&build_bundle)?;
+    }
+    */
+    Ok(())
+}
+
+/*
 fn run_command(matches: &Matches) -> Result<()> {
     let conf = Arc::new(dinghy_config(current_dir().unwrap())?);
     let compiler = Arc::new(Compiler::from_args(matches.cargo.subcommand().1.unwrap()));
@@ -114,59 +174,13 @@ fn run_command(matches: &Matches) -> Result<()> {
           platform.id(), device.as_ref().map(|it| it.id()).unwrap_or("<none>"));
 
     match matches.cargo.subcommand() {
-        ("bench", Some(sub_matches)) => prepare_and_run(device, project, platform, matches, sub_matches),
-        ("build", Some(_)) => build(&platform, &project, matches).and(Ok(())),
-        ("clean", Some(_)) => compiler.clean(None),
         ("devices", Some(_)) => show_all_devices_for_platform(&dinghy, platform),
         ("lldbproxy", Some(_)) => run_lldb(device),
-        ("run", Some(sub_matches)) => prepare_and_run(device, project, platform, &matches, sub_matches),
-        ("test", Some(sub_matches)) => prepare_and_run(device, project, platform, &matches, sub_matches),
+        ("runner", Some(sub_matches)) => runner(&device, &project, &sub_matches),
         (sub, _) => Err(format!("Unknown dinghy command '{}'", sub))?,
     }
 }
-
-fn build(platform: &Arc<Box<Platform>>,
-         project: &Project,
-         matches: &Matches) -> Result<Build> {
-    let build_args = CargoDinghyCli::build_args_from(&matches);
-    let build = platform.build(&project, &build_args)?;
-
-    if matches.cargo.is_present("STRIP") {
-        platform.strip(&build)?;
-    }
-    Ok(build)
-}
-
-fn prepare_and_run(
-    device: Option<Arc<Box<Device>>>,
-    project: Project,
-    platform: Arc<Box<Platform>>,
-    matches: &Matches,
-    sub_args: &ArgMatches,
-) -> Result<()> {
-    let build = build(&platform.clone(), &project, matches)?;
-
-    let device = device.ok_or("No device found")?;
-    let args = arg_as_string_vec(sub_args, "ARGS");
-    let envs = arg_as_string_vec(sub_args, "ENVS"); // FIXME broken ?
-
-    let args = args.iter().map(|s| &s[..]).collect::<Vec<_>>();
-    let envs = envs.iter().map(|s| &s[..]).collect::<Vec<_>>();
-    let build_bundles = if sub_args.is_present("DEBUGGER") {
-        debug!("Debug app");
-        vec![device.debug_app(&project, &build, &*args, &*envs)?]
-    } else {
-        debug!("Run app");
-        device.run_app(&project, &build, &*args, &*envs)?
-    };
-
-    if sub_args.is_present("CLEANUP") {
-        for build_bundle in build_bundles {
-            device.clean_app(&build_bundle)?;
-        }
-    }
-    Ok(())
-}
+*/
 
 fn run_lldb(device: Option<Arc<Box<Device>>>) -> Result<()> {
     let device = device.ok_or("No device found")?;

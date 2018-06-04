@@ -8,9 +8,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use utils::copy_and_sync_file;
-use Platform;
+use { Platform, Runnable };
 use Result;
-use Runnable;
 
 #[derive(Debug)]
 pub struct Project {
@@ -45,7 +44,7 @@ impl Project {
 
     pub fn for_runnable(&self, runnable: &Runnable) -> Result<Self> {
         Ok(Project {
-            conf: Arc::new(dinghy_config(&runnable.source)?),
+            conf: Arc::new(dinghy_config(&runnable.src)?),
         })
     }
 

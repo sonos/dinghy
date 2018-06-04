@@ -1,5 +1,4 @@
-use Result;
-use Runnable;
+use { Result, Runnable };
 use std::fs;
 use std::process::Command;
 use utils::file_name_as_str;

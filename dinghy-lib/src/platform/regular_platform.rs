@@ -17,7 +17,7 @@ use Platform;
 use Result;
 
 pub struct RegularPlatform {
-    compiler: Arc<Compiler>,
+//    compiler: Arc<Compiler>,
     pub configuration: PlatformConfiguration,
     pub id: String,
     pub toolchain: ToolchainConfig,
@@ -30,7 +30,7 @@ impl Debug for RegularPlatform {
 }
 
 impl RegularPlatform {
-    pub fn new<P: AsRef<Path>>(compiler: &Arc<Compiler>,
+    pub fn new<P: AsRef<Path>>(/*compiler: &Arc<Compiler>, */
                                configuration: PlatformConfiguration,
                                id: String,
                                rustc_triple: String,
@@ -59,7 +59,7 @@ impl RegularPlatform {
         let sysroot = find_sysroot(&toolchain_path)?;
 
         Ok(Box::new(RegularPlatform {
-            compiler: compiler.clone(),
+//            compiler: compiler.clone(),
             configuration,
             id,
             toolchain: ToolchainConfig {
@@ -124,7 +124,9 @@ impl Platform for RegularPlatform {
         self.toolchain.setup_sysroot();
         self.toolchain.shim_executables(&self.id)?;
 
-        self.compiler.build(self.rustc_triple(), &build_args)
+//        self.compiler.build(self.rustc_triple(), &build_args)
+        // FIXME
+        Ok(())
     }
 
     fn id(&self) -> String {

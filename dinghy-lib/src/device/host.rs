@@ -13,34 +13,36 @@ use Device;
 use PlatformManager;
 use DeviceCompatibility;
 use Result;
+use RunEnv;
+use Runnable;
 
 pub struct HostManager {
-    compiler: Arc<Compiler>
+//    compiler: Arc<Compiler>
 }
 
 impl HostManager {
-    pub fn probe(compiler: &Arc<Compiler>) -> Option<HostManager> {
+    pub fn probe(/*compiler: &Arc<Compiler>*/) -> Option<HostManager> {
         Some(HostManager {
-            compiler: compiler.clone(),
+//            compiler: compiler.clone(),
         })
     }
 }
 
 impl PlatformManager for HostManager {
     fn devices(&self) -> Result<Vec<Box<Device>>> {
-        Ok(vec![Box::new(HostDevice::new(&self.compiler))])
+        Ok(vec![Box::new(HostDevice::new(/*&self.compiler*/))])
     }
 }
 
 
 pub struct HostDevice {
-    compiler: Arc<Compiler>
+//    compiler: Arc<Compiler>
 }
 
 impl HostDevice {
-    pub fn new(compiler: &Arc<Compiler>) -> Self {
+    pub fn new(/*compiler: &Arc<Compiler>*/) -> Self {
         HostDevice {
-            compiler: compiler.clone()
+//            compiler: compiler.clone()
         }
     }
 
@@ -73,7 +75,7 @@ impl Device for HostDevice {
         Ok(())
     }
 
-    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str]) -> Result<BuildBundle> {
+    fn debug_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv, args: &[&str], envs: &[&str]) -> Result<()> {
         unimplemented!()
     }
 
@@ -85,13 +87,21 @@ impl Device for HostDevice {
         "host device"
     }
 
-    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>> {
+    fn run_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv, args: &[&str], envs: &[&str]) -> Result<()> {
+        info!("Run {} ({:?})", runnable.id, run_env.compile_mode);
+
+        let mut cmd = ::std::process::Command::new(&runnable.exe);
+        cmd.env("DINGHY", "1");
         for (env_key, env_value) in envs.iter().tuples() {
-            set_env(env_key, env_value);
+            cmd.env(env_key, env_value);
         }
-        let build_bundles = self.install_all_apps(project, build)?;
-        self.compiler.run(None, &build.build_args, args)?;
-        Ok(build_bundles)
+        cmd.args(args);
+        let status = cmd.status()?;
+        if !status.success() {
+            Err("Test failed 🐛")?
+        }
+
+        Ok(())
     }
 
     fn start_remote_lldb(&self) -> Result<String> {

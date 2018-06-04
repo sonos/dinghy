@@ -11,11 +11,11 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
 use utils::path_to_str;
-use Build;
 use Device;
 use DeviceCompatibility;
 use PlatformManager;
 use BuildBundle;
+use RunEnv;
 use Runnable;
 
 pub struct SshDevice {
@@ -24,9 +24,9 @@ pub struct SshDevice {
 }
 
 impl SshDevice {
-    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<(BuildBundle, BuildBundle)> {
+    fn install_app(&self, project: &Project, runnable: &Runnable, run_env:&RunEnv) -> Result<(BuildBundle, BuildBundle)> {
         debug!("make_remote_app {}", runnable.id);
-        let build_bundle = make_remote_app(project, build, runnable)?;
+        let build_bundle = make_remote_app(project, run_env, runnable)?;
         trace!("make_remote_app {} done", runnable.id);
         let remote_bundle = self.to_remote_bundle(&build_bundle)?;
         trace!("Create remote dir: {:?}", remote_bundle.bundle_dir);
@@ -99,7 +99,7 @@ impl Device for SshDevice {
         Ok(())
     }
 
-    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str]) -> Result<BuildBundle> {
+    fn debug_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv, args: &[&str], envs: &[&str]) -> Result<()> {
         unimplemented!()
     }
 
@@ -111,35 +111,31 @@ impl Device for SshDevice {
         &self.id
     }
 
-    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>> {
-        let mut build_bundles = vec![];
+    fn run_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv, args: &[&str], envs: &[&str]) -> Result<()> {
         let args:Vec<String> = args.iter().map(|&a| ::shell_escape::escape(a.into()).to_string()).collect();
-        for runnable in &build.runnables {
-            info!("Install {:?}", runnable.id);
-            let (build_bundle, remote_bundle) = self.install_app(&project, &build, &runnable)?;
-            debug!("Installed {:?}", runnable.id);
-            let command = format!(
-                "cd '{}' ; {} RUST_BACKTRACE=1 DINGHY=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {} {}",
-                path_to_str(&remote_bundle.bundle_dir)?,
-                envs.join(" "),
-                path_to_str(&remote_bundle.lib_dir)?,
-                path_to_str(&remote_bundle.bundle_exe)?,
-                if build.build_args.compile_mode == ::CompileMode::Bench { "--bench" } else { "" },
-                args.join(" ")
-                );
-            trace!("Ssh command: {}", command);
-            info!("Run {} on {} ({:?})", runnable.id, self.id, build.build_args.compile_mode);
+        info!("Install {:?}", runnable.id);
+        let (build_bundle, remote_bundle) = self.install_app(&project, runnable, run_env)?;
+        debug!("Installed {:?}", runnable.id);
+        let command = format!(
+            "cd '{}' ; {} RUST_BACKTRACE=1 DINGHY=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {} {}",
+            path_to_str(&remote_bundle.bundle_dir)?,
+            envs.join(" "),
+            path_to_str(&remote_bundle.lib_dir)?,
+            path_to_str(&remote_bundle.bundle_exe)?,
+            if run_env.compile_mode == ::CompileMode::Bench { "--bench" } else { "" },
+            args.join(" ")
+            );
+        trace!("Ssh command: {}", command);
+        info!("Run {} on {} ({:?})", runnable.id, self.id, run_env.compile_mode);
 
-            let status = self.ssh_command()?
-                .arg(&command)
-                .status()?;
-            if !status.success() {
-                Err("Test failed 🐛")?
-            }
-
-            build_bundles.push(build_bundle);
+        let status = self.ssh_command()?
+            .arg(&command)
+            .status()?;
+        if !status.success() {
+            Err("Test failed 🐛")?
         }
-        Ok(build_bundles)
+
+        Ok(())
     }
 
     fn start_remote_lldb(&self) -> Result<String> {

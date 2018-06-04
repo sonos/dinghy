@@ -71,8 +71,8 @@ pub struct Dinghy {
 }
 
 impl Dinghy {
-    pub fn probe(conf: &Arc<Configuration>, compiler: &Arc<Compiler>) -> Result<Dinghy> {
-        let host = HostManager::probe(compiler).ok_or("Host platform couldn't be determined.")?;
+    pub fn probe(conf: &Arc<Configuration>/*, compiler: &Arc<Compiler>*/) -> Result<Dinghy> {
+        let host = HostManager::probe(/*compiler*/).ok_or("Host platform couldn't be determined.")?;
         let mut managers: Vec<Box<PlatformManager>> = vec![Box::new(host)];
 
         if let Some(android) = AndroidManager::probe() {
@@ -91,11 +91,11 @@ impl Dinghy {
         }
         Ok(Dinghy {
             devices: Dinghy::discover_devices(&managers)?,
-            platforms: Dinghy::discover_platforms(compiler, &conf)?,
+            platforms: Dinghy::discover_platforms(/*compiler,*/ &conf)?,
         })
     }
 
-    pub fn discover_platforms(compiler: &Arc<Compiler>, conf: &Configuration) -> Result<Vec<(String, Arc<Box<Platform>>)>> {
+    pub fn discover_platforms(/*compiler: &Arc<Compiler>,*/ conf: &Configuration) -> Result<Vec<(String, Arc<Box<Platform>>)>> {
         let mut platforms = vec!();
         let host_conf = conf.platforms.get("host")
             .map(|it| (*it).clone())
@@ -107,10 +107,10 @@ impl Dinghy {
             }
             if let Some(rustc_triple) = platform_conf.rustc_triple.as_ref() {
                 let pf = if rustc_triple.ends_with("-ios") {
-                    Dinghy::discover_ios_platform(platform_name.to_owned(), rustc_triple, compiler, &platform_conf)?
+                    Dinghy::discover_ios_platform(platform_name.to_owned(), rustc_triple, /*compiler,*/ &platform_conf)?
                 } else {
                     Some(RegularPlatform::new(
-                        compiler,
+//                        compiler,
                         platform_conf.clone(),
                         platform_name.to_string(),
                         rustc_triple.clone(),
@@ -131,8 +131,8 @@ impl Dinghy {
     }
 
     #[cfg(target_os = "macos")]
-    fn discover_ios_platform(id: String, rustc_triple: &str, compiler: &Arc<Compiler>, config: &PlatformConfiguration) -> Result<Option<Box<Platform>>> {
-        Ok(Some(IosPlatform::new(id, rustc_triple.clone(), compiler, config)?))
+    fn discover_ios_platform(id: String, rustc_triple: &str /*, compiler: &Arc<Compiler>,*/ config: &PlatformConfiguration) -> Result<Option<Box<Platform>>> {
+        Ok(Some(IosPlatform::new(id, rustc_triple.clone(), /*compiler,*/ config)?))
     }
 
     #[cfg(not(target_os = "macos"))]
@@ -179,13 +179,12 @@ impl Dinghy {
 pub trait Device: std::fmt::Debug + Display + DeviceCompatibility {
     fn clean_app(&self, build_bundle: &BuildBundle) -> Result<()>;
 
-    fn debug_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<BuildBundle>;
-
     fn id(&self) -> &str;
 
     fn name(&self) -> &str;
 
-    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>>;
+    fn debug_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv, args: &[&str], envs: &[&str]) -> Result<()>;
+    fn run_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv, args: &[&str], envs: &[&str]) -> Result<()>;
 
     fn start_remote_lldb(&self) -> Result<String>;
 }
@@ -227,15 +226,21 @@ pub trait PlatformManager {
     fn devices(&self) -> Result<Vec<Box<Device>>>;
 }
 
-
 #[derive(Clone, Debug)]
 pub struct Build {
+    pub target_path: PathBuf,
     pub build_args: BuildArgs,
     pub dynamic_libraries: Vec<PathBuf>,
     pub runnables: Vec<Runnable>,
-    pub target_path: PathBuf,
+    pub rustc_triple: Option<String>,
 }
 
+#[derive(Clone, Debug)]
+pub struct RunEnv {
+    pub compile_mode: CompileMode,
+    pub rustc_triple: Option<String>,
+    pub dynamic_libraries: Vec<PathBuf>,
+}
 
 #[derive(Clone, Debug)]
 pub struct BuildArgs {
@@ -269,10 +274,9 @@ impl BuildBundle {
     }
 }
 
-
 #[derive(Clone, Debug, Default)]
 pub struct Runnable {
     pub id: String,
     pub exe: PathBuf,
-    pub source: PathBuf,
+    pub src: PathBuf,
 }

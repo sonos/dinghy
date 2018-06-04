@@ -60,7 +60,7 @@ impl Platform for HostPlatform {
 
     fn strip(&self, build: &Build) -> Result<()> {
         for runnable in &build.runnables {
-            info!("Stripping {}", runnable.exe.display());
+            info!("Stripping {:?}", runnable.exe);
             platform::strip_runnable(runnable, Command::new("strip"))?;
         }
         Ok(())

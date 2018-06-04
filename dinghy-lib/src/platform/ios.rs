@@ -18,7 +18,7 @@ pub struct IosPlatform {
     pub sim: bool,
     pub toolchain: Toolchain,
     pub configuration: PlatformConfiguration,
-    compiler: Arc<Compiler>,
+//    compiler: Arc<Compiler>,
 }
 
 impl Debug for IosPlatform {
@@ -28,14 +28,14 @@ impl Debug for IosPlatform {
 }
 
 impl IosPlatform {
-    pub fn new(id: String, rustc_triple: &str, compiler: &Arc<Compiler>, configuration: &PlatformConfiguration) -> Result<Box<Platform>> {
+    pub fn new(id: String, rustc_triple: &str, /* compiler: &Arc<Compiler>, */ configuration: &PlatformConfiguration) -> Result<Box<Platform>> {
         Ok(Box::new(IosPlatform {
             id,
             sim: rustc_triple.contains("86"),
             toolchain: Toolchain {
                 rustc_triple: rustc_triple.to_string()
             },
-            compiler: Arc::clone(compiler),
+//            compiler: Arc::clone(compiler),
             configuration: configuration.clone(),
         }))
     }

@@ -5,7 +5,6 @@ use clap::ArgMatches;
 use dinghy_build::build_env::target_env_from_triple;
 use Result;
 use ResultExt;
-use Runnable;
 use std::collections::HashSet;
 use std::env;
 use std::ffi::OsString;
@@ -19,6 +18,7 @@ use std::process::Command;
 use utils::copy_and_sync_file;
 use utils::is_library;
 use walkdir::WalkDir;
+use Runnable;
 
 pub struct Compiler {
     build_command: Box<Fn(Option<&str>, &BuildArgs) -> Result<Build>>,
@@ -254,7 +254,7 @@ fn to_build(compilation: String,
             runnables.push(Runnable {
                 id: exe_path.file_name().ok_or("test executable can not be a dir")?.to_string_lossy().to_string(),
                 exe: exe_path.to_owned(),
-                source: source.to_path_buf(),
+                src: source.to_path_buf(),
             });
         }
         artefacts.push(artefact);
@@ -266,6 +266,7 @@ fn to_build(compilation: String,
                                                           build_args,
                                                           rustc_triple)?,
                 target_path: "target/debug".into(), // FIXME
+                rustc_triple: rustc_triple.map(|a| a.to_string()),
                 runnables
     })
     /*
@@ -280,7 +281,7 @@ fn to_build(compilation: String,
                 runnables: compilation.binaries
                     .iter()
                     .map(|exe_path| {
-                        Ok(Runnable {
+                        Ok(Path {
                             exe: exe_path.clone(),
                             id: exe_path.file_name()
                                 .ok_or(format!("Invalid executable file '{}'", &exe_path.display()))?
@@ -305,7 +306,7 @@ fn to_build(compilation: String,
                 runnables: compilation.tests
                     .iter()
                     .map(|&(ref pkg, _, _, ref exe_path)| {
-                        Ok(Runnable {
+                        Ok(Path {
                             exe: exe_path.clone(),
                             id: exe_path.file_name()
                                 .ok_or(format!("Invalid executable file '{}'", &exe_path.display()))?

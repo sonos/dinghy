@@ -13,11 +13,11 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use utils::path_to_str;
-use Build;
 use BuildBundle;
 use Device;
 use DeviceCompatibility;
 use PlatformManager;
+use RunEnv;
 use Runnable;
 
 
@@ -63,13 +63,13 @@ impl AndroidDevice {
         Ok(command)
     }
 
-    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<(BuildBundle, BuildBundle)> {
+    fn install_app(&self, project: &Project, runnable: &Runnable, run_env:&RunEnv) -> Result<(BuildBundle, BuildBundle)> {
         info!("Install {} to {}", runnable.id, self.id);
         if !self.adb()?.arg("shell").arg("mkdir").arg("-p").arg(ANDROID_WORK_DIR).status()?.success() {
             Err(format!("Failure to create dinghy work dir '{}' on target android device", ANDROID_WORK_DIR))?;
         }
 
-        let build_bundle = make_remote_app(project, build, runnable)?;
+        let build_bundle = make_remote_app(project, run_env, runnable)?;
         let remote_bundle = AndroidDevice::to_remote_bundle(&build_bundle)?;
 
         self.sync(&build_bundle.bundle_dir, &remote_bundle.bundle_dir.parent()
@@ -127,7 +127,7 @@ impl Device for AndroidDevice {
         Ok(())
     }
 
-    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str]) -> Result<BuildBundle> {
+    fn debug_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv, args: &[&str], envs: &[&str]) -> Result<()> {
         unimplemented!()
     }
 
@@ -139,41 +139,36 @@ impl Device for AndroidDevice {
         "android device"
     }
 
-    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>> {
-        let mut build_bundles = vec![];
+    fn run_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv, args: &[&str], envs: &[&str]) -> Result<()> {
         let args:Vec<String> = args.iter().map(|&a| ::shell_escape::escape(a.into()).to_string()).collect();
-        for runnable in &build.runnables {
-            let (build_bundle, remote_bundle) = self.install_app(&project, &build, &runnable)?;
-            let command = format!(
-                "cd '{}'; {} DINGHY=1 RUST_BACKTRACE=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {} {} ; echo FORWARD_RESULT_TO_DINGHY_BECAUSE_ADB_DOES_NOT=$?",
-                path_to_str(&remote_bundle.bundle_dir)?,
-                envs.join(" "),
-                path_to_str(&remote_bundle.lib_dir)?,
-                path_to_str(&remote_bundle.bundle_exe)?,
-                if build.build_args.compile_mode == ::CompileMode::Bench { "--bench" } else { "" },
-                args.join(" "));
-            info!("Run {} on {} ({:?})", runnable.id, self.id, build.build_args.compile_mode);
+        let (build_bundle, remote_bundle) = self.install_app(&project, runnable, run_env)?;
+        let command = format!(
+            "cd '{}'; {} DINGHY=1 RUST_BACKTRACE=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {} {} ; echo FORWARD_RESULT_TO_DINGHY_BECAUSE_ADB_DOES_NOT=$?",
+            path_to_str(&remote_bundle.bundle_dir)?,
+            envs.join(" "),
+            path_to_str(&remote_bundle.lib_dir)?,
+            path_to_str(&remote_bundle.bundle_exe)?,
+            if run_env.compile_mode == ::CompileMode::Bench { "--bench" } else { "" },
+            args.join(" "));
+        info!("Run {} on {} ({:?})", runnable.id, self.id, run_env.compile_mode);
 
-            if !self.adb()?
-                .arg("shell")
-                .arg(&command)
-                .output()
-                .chain_err(|| format!("Couldn't run {} using adb.", runnable.exe.display()))
-                .and_then(|output| if output.status.success() {
-                    let _ = stdout().write(output.stdout.as_slice());
-                    let _ = stderr().write(output.stderr.as_slice());
-                    String::from_utf8(output.stdout).chain_err(|| format!("Couldn't run {} using adb.", runnable.exe.display()))
-                } else {
-                    bail!("Couldn't run {} using adb.", runnable.exe.display())
-                })
-                .map(|output| output.lines().last().unwrap_or("").to_string())
-                .map(|last_line| last_line.contains("FORWARD_RESULT_TO_DINGHY_BECAUSE_ADB_DOES_NOT=0"))? {
-                Err("Test failed 🐛")?
-            }
-
-            build_bundles.push(build_bundle);
+        if !self.adb()?
+            .arg("shell")
+            .arg(&command)
+            .output()
+            .chain_err(|| format!("Couldn't run {} using adb.", runnable.exe.display()))
+            .and_then(|output| if output.status.success() {
+                let _ = stdout().write(output.stdout.as_slice());
+                let _ = stderr().write(output.stderr.as_slice());
+                String::from_utf8(output.stdout).chain_err(|| format!("Couldn't run {} using adb.", runnable.exe.display()))
+            } else {
+                bail!("Couldn't run {} using adb.", runnable.exe.display())
+            })
+            .map(|output| output.lines().last().unwrap_or("").to_string())
+            .map(|last_line| last_line.contains("FORWARD_RESULT_TO_DINGHY_BECAUSE_ADB_DOES_NOT=0"))? {
+            Err("Test failed 🐛")?
         }
-        Ok(build_bundles)
+        Ok(())
     }
 
     fn start_remote_lldb(&self) -> Result<String> {
