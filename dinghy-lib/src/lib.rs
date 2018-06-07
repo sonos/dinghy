@@ -16,8 +16,10 @@ extern crate json;
 extern crate libc;
 #[macro_use]
 extern crate log;
+extern crate nix;
 extern crate plist;
 extern crate regex;
+extern crate rexpect;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
@@ -29,7 +31,7 @@ extern crate toml;
 extern crate walkdir;
 extern crate which;
 
-pub mod compiler;
+pub mod cargo;
 pub mod config;
 pub mod device;
 pub mod errors;
@@ -39,7 +41,6 @@ pub mod project;
 pub mod utils;
 mod toolchain;
 
-use compiler::Compiler;
 use config::Configuration;
 use config::PlatformConfiguration;
 use device::android::AndroidManager;
@@ -53,6 +54,7 @@ use platform::ios::IosPlatform;
 use platform::regular_platform::RegularPlatform;
 use project::Project;
 use std::env::home_dir;
+use std::ffi::OsString;
 use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;
@@ -71,8 +73,8 @@ pub struct Dinghy {
 }
 
 impl Dinghy {
-    pub fn probe(conf: &Arc<Configuration>/*, compiler: &Arc<Compiler>*/) -> Result<Dinghy> {
-        let host = HostManager::probe(/*compiler*/).ok_or("Host platform couldn't be determined.")?;
+    pub fn probe(conf: &Arc<Configuration>) -> Result<Dinghy> {
+        let host = HostManager::probe().ok_or("Host platform couldn't be determined.")?;
         let mut managers: Vec<Box<PlatformManager>> = vec![Box::new(host)];
 
         if let Some(android) = AndroidManager::probe() {
@@ -91,26 +93,25 @@ impl Dinghy {
         }
         Ok(Dinghy {
             devices: Dinghy::discover_devices(&managers)?,
-            platforms: Dinghy::discover_platforms(/*compiler,*/ &conf)?,
+            platforms: Dinghy::discover_platforms(&conf)?,
         })
     }
 
-    pub fn discover_platforms(/*compiler: &Arc<Compiler>,*/ conf: &Configuration) -> Result<Vec<(String, Arc<Box<Platform>>)>> {
+    pub fn discover_platforms(conf: &Configuration) -> Result<Vec<(String, Arc<Box<Platform>>)>> {
         let mut platforms = vec!();
         let host_conf = conf.platforms.get("host")
             .map(|it| (*it).clone())
             .unwrap_or(PlatformConfiguration::empty());
-        platforms.push(("host".to_string(), Arc::new(HostPlatform::new(compiler, host_conf.clone())?)));
+        platforms.push(("host".to_string(), Arc::new(HostPlatform::new(host_conf.clone())?)));
         for (platform_name, platform_conf) in &conf.platforms {
             if platform_name == "host" {
                 continue;
             }
             if let Some(rustc_triple) = platform_conf.rustc_triple.as_ref() {
                 let pf = if rustc_triple.ends_with("-ios") {
-                    Dinghy::discover_ios_platform(platform_name.to_owned(), rustc_triple, /*compiler,*/ &platform_conf)?
+                    Dinghy::discover_ios_platform(platform_name.to_owned(), rustc_triple, &platform_conf)?
                 } else {
                     Some(RegularPlatform::new(
-//                        compiler,
                         platform_conf.clone(),
                         platform_name.to_string(),
                         rustc_triple.clone(),
@@ -131,8 +132,8 @@ impl Dinghy {
     }
 
     #[cfg(target_os = "macos")]
-    fn discover_ios_platform(id: String, rustc_triple: &str /*, compiler: &Arc<Compiler>,*/ config: &PlatformConfiguration) -> Result<Option<Box<Platform>>> {
-        Ok(Some(IosPlatform::new(id, rustc_triple.clone(), /*compiler,*/ config)?))
+    fn discover_ios_platform(id: String, rustc_triple: &str, config: &PlatformConfiguration) -> Result<Option<Box<Platform>>> {
+        Ok(Some(IosPlatform::new(id, rustc_triple.clone(), config)?))
     }
 
     #[cfg(not(target_os = "macos"))]
@@ -206,6 +207,7 @@ pub trait DeviceCompatibility {
 
 pub trait Platform: std::fmt::Debug {
     fn build(&self, project: &Project, build_args: &BuildArgs) -> Result<Build>;
+    //fn build(&self, project: &Project, build_args: &[OsString]) -> Result<Build>;
 
     fn id(&self) -> String;
 
@@ -244,8 +246,8 @@ pub struct RunEnv {
 
 #[derive(Clone, Debug)]
 pub struct BuildArgs {
-    pub cargo_args:Vec<::std::ffi::OsString>,
-    pub compile_mode: CompileMode,
+    pub cargo_args:Vec<String>,
+//    pub compile_mode: CompileMode,
     pub verbose: bool,
     pub forced_overlays: Vec<String>,
 }

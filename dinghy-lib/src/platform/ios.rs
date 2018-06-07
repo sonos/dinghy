@@ -1,4 +1,3 @@
-use compiler::Compiler;
 use config::PlatformConfiguration;
 use dinghy_build::build_env::set_env;
 use errors::*;
@@ -63,7 +62,9 @@ impl Platform for IosPlatform {
                                     &format!("cc -isysroot {}", sysroot))?;
         self.toolchain.setup_pkg_config()?;
 
-        self.compiler.build(self.rustc_triple(), build_args)
+        //self.compiler.build(self.rustc_triple(), build_args)
+        // FIXME
+        ::cargo::call(build_args, None)
     }
 
     fn id(&self) -> String {

@@ -217,58 +217,6 @@ fn copy_dependencies_to_target(build: &Build) -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct CargoCompilerArtefact {
-    filenames: Vec<PathBuf>,
-    reason: String,
-    profile: CargoCompilerArtefactProfile,
-    target: CargoCompilerArtefactTarget,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct CargoCompilerArtefactTarget {
-    kind: Vec<String>,
-    src_path: PathBuf,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct CargoCompilerArtefactProfile {
-    test: bool
-}
-
-fn to_build(compilation: String,
-            _root_output: &Path,
-            build_args: &BuildArgs,
-            rustc_triple: Option<&str>) -> Result<Build> {
-    let mut runnables = vec!();
-    let mut artefacts = vec!();
-    for line in compilation.lines() {
-        debug!("{}", line);
-        let artefact = ::serde_json::from_str::<CargoCompilerArtefact>(line)?;
-        if artefact.profile.test {
-            let exe_path = Path::new(&artefact.filenames[0]);
-            let mut source:&Path = artefact.target.src_path.as_path();
-            while !source.join("Cargo.toml").exists() {
-                source = source.parent().ok_or("no Cargo.toml found in package")?
-            }
-            runnables.push(Runnable {
-                id: exe_path.file_name().ok_or("test executable can not be a dir")?.to_string_lossy().to_string(),
-                exe: exe_path.to_owned(),
-                src: source.to_path_buf(),
-            });
-        }
-        artefacts.push(artefact);
-    }
-    Ok(Build {
-                build_args: build_args.clone(),
-                dynamic_libraries: find_dynamic_libraries(artefacts,
-                                                          &compilation,
-                                                          build_args,
-                                                          rustc_triple)?,
-                target_path: "target/debug".into(), // FIXME
-                rustc_triple: rustc_triple.map(|a| a.to_string()),
-                runnables
-    })
     /*
     match build_args.compile_mode {
         CompileMode::Build => {
@@ -338,110 +286,6 @@ fn exclude_by_target_triple(rustc_triple: Option<&str>, project_metadata_list: &
 }
 */
 
-// Try to find all linked libraries in (absolutely all for now) cargo output files
-// and then look for the corresponding one in all library paths.
-// Note: This looks highly imperfect and prone to failure (like if multiple version of
-// the same dependency are available). Need improvement.
-fn find_dynamic_libraries(artefacts: Vec<CargoCompilerArtefact>,
-                          root_output: &str,
-                          build_args: &BuildArgs,
-                          rustc_triple: Option<&str>) -> Result<Vec<PathBuf>> {
-    let sysroot = match linker(rustc_triple) {
-        Ok(linker) => PathBuf::from(String::from_utf8(
-            Command::new(&linker).arg("-print-sysroot")
-                .output()
-                .chain_err(|| format!("Error while checking libraries using linker {}", linker.display()))?
-                .stdout)?.trim()),
-        Err(err) => match rustc_triple {
-            None => PathBuf::from(""), // Host platform case
-            Some(_) => return Err(err),
-        },
-    };
-    let linked_library_names = find_all_linked_library_names(root_output, build_args)?;
-
-    let is_library_linked_to_project = move |path: &PathBuf| -> bool {
-        path.file_name()
-            .and_then(|file_name| file_name.to_str())
-            .map(|file_name| linked_library_names.iter()
-                .find(|lib_name| file_name == format!("lib{}.so", lib_name)
-                    || file_name == format!("lib{}.dylib", lib_name)
-                    || file_name == format!("lib{}.a", lib_name))
-                .is_some())
-            .unwrap_or(false)
-    };
-
-    let is_banned = move |path: &PathBuf| -> bool {
-        path.file_name()
-            .and_then(|file_name| file_name.to_str())
-            .map(|file_name| file_name != "libstdc++.so" || !rustc_triple.map(|it| it.contains("android")).unwrap_or(false))
-            .unwrap_or(false)
-    };
-
-// FIXME
-    Ok(
-        artefacts.iter().flat_map(|art| art.filenames.iter())
-    // compilation.native_dirs.iter() // Should better use output files instead of deprecated native_dirs
-        .map(PathBuf::from)
-        .map(strip_annoying_prefix)
-//        .chain(linker_lib_dirs(&compilation, config)?.into_iter())
-        .chain(overlay_lib_dirs(rustc_triple)?.into_iter())
-        .inspect(|path| debug!("Checking library path {}", path.display()))
-        .filter(move |path| !is_system_path(sysroot.as_path(), path).unwrap_or(true))
-        .inspect(|path| debug!("{} is not a system library path", path.display()))
-        .flat_map(|path| WalkDir::new(path).into_iter())
-        .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
-        .filter(|path| is_library(path) && is_library_linked_to_project(path))
-        .filter(|path| is_banned(path))
-        .inspect(|path| debug!("Found library {}", path.display()))
-        .collect())
-}
-
-fn find_all_linked_library_names(_root_output: &str, _build_args: &BuildArgs) -> Result<HashSet<String>> {
-    /*
-    fn is_output_file(file_path: &PathBuf) -> bool {
-        file_path.is_file() && file_path.file_name()
-            .and_then(|it| it.to_str())
-            .map(|it| it == "output")
-            .unwrap_or(false)
-    }
-
-    fn parse_lib_name(lib_name: String) -> String {
-        lib_name.split("=").last().map(|it| it.to_string()).unwrap_or(lib_name)
-    }
-    */
-
-    // FIXME linked libs
-    Ok(HashSet::new())
-    /*
-    let linked_library_names =
-        Itertools::flatten(
-            WalkDir::new(root_output)
-                .into_iter()
-                .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
-                .filter(is_output_file)
-                .map(|output_file| CargoOps::BuildOutput::parse_file(&output_file, "idontcare", &compilation.root_output, &compilation.root_output))
-                .flat_map(|build_output| build_output.map(|it| it.library_links)))
-            .map(|lib_name| lib_name.clone())
-            .map(parse_lib_name)
-            .chain(build_args.forced_overlays.clone())
-            .collect();
-    debug!("Found libraries {:?}", &linked_library_names);
-    Ok(linked_library_names)
-    */
-}
-
-fn is_system_path<P1: AsRef<Path>, P2: AsRef<Path>>(sysroot: P1, path: P2) -> Result<bool> {
-    let ignored_path = vec![
-        Path::new("/lib"),
-        Path::new("/usr/lib"),
-        Path::new("/usr/lib32"),
-        Path::new("/usr/lib64"),
-    ];
-    let is_system_path = ignored_path.iter().any(|it| path.as_ref().starts_with(it));
-    let is_sysroot_path = sysroot.as_ref().iter().count() > 0
-        && path.as_ref().canonicalize()?.starts_with(sysroot.as_ref());
-    Ok(is_system_path || is_sysroot_path)
-}
 
 pub fn linker_lib_dirs(triple: Option<&str>) -> Result<Vec<PathBuf>> {
     let linker = linker(triple);
@@ -466,17 +310,6 @@ pub fn linker_lib_dirs(triple: Option<&str>) -> Result<Vec<PathBuf>> {
         }
     }
     Ok(paths)
-}
-
-pub fn overlay_lib_dirs(rustc_triple: Option<&str>) -> Result<Vec<PathBuf>> {
-    let pkg_config_libdir = rustc_triple
-        .map(|it| target_env_from_triple("PKG_CONFIG_LIBDIR", it, false).unwrap_or("".to_string()))
-        .unwrap_or(env::var("PKG_CONFIG_LIBDIR").unwrap_or("".to_string()));
-
-    Ok(pkg_config_libdir
-        .split(":")
-        .map(|it| PathBuf::from(it))
-        .collect())
 }
 
 fn linker(_triple: Option<&str>) -> Result<PathBuf> {
@@ -540,24 +373,6 @@ fn project_metadata<P: AsRef<Path>>(path: P) -> Result<Option<ProjectMetadata>> 
     }
 }
 */
-
-// 💩💩💩 See cargo_rustc/mod.rs/filter_dynamic_search_path() 💩💩💩
-fn strip_annoying_prefix(path: PathBuf) -> PathBuf {
-    match path.to_str() {
-        Some(s) => {
-            let mut parts = s.splitn(2, '=');
-            match (parts.next(), parts.next()) {
-                (Some("native"), Some(path)) |
-                (Some("crate"), Some(path)) |
-                (Some("dependency"), Some(path)) |
-                (Some("framework"), Some(path)) |
-                (Some("all"), Some(path)) => path.into(),
-                _ => path.clone(),
-            }
-        }
-        None => path.clone(),
-    }
-}
 
 /*
 fn workskpace_metadata(workspace: &Workspace) -> Result<Vec<ProjectMetadata>> {

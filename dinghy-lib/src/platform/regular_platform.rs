@@ -10,7 +10,6 @@ use std::sync::Arc;
 use toolchain::ToolchainConfig;
 use Build;
 use BuildArgs;
-use compiler::Compiler;
 use config::PlatformConfiguration;
 use Device;
 use Platform;
@@ -124,9 +123,7 @@ impl Platform for RegularPlatform {
         self.toolchain.setup_sysroot();
         self.toolchain.shim_executables(&self.id)?;
 
-//        self.compiler.build(self.rustc_triple(), &build_args)
-        // FIXME
-        Ok(())
+        ::cargo::call(build_args, self.rustc_triple())
     }
 
     fn id(&self) -> String {

@@ -1,4 +1,3 @@
-use compiler::Compiler;
 use dinghy_build::build_env::set_env;
 use itertools::Itertools;
 use platform::host::HostPlatform;

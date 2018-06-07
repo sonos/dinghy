@@ -1,4 +1,3 @@
-use compiler::Compiler;
 use config::PlatformConfiguration;
 use dinghy_build::build_env::set_all_env;
 use overlay::Overlayer;
@@ -15,15 +14,13 @@ use Result;
 
 #[derive(Clone)]
 pub struct HostPlatform {
-    compiler: Arc<Compiler>,
     pub configuration: PlatformConfiguration,
     pub id: String,
 }
 
 impl HostPlatform {
-    pub fn new(compiler: &Arc<Compiler>, configuration: PlatformConfiguration) -> Result<Box<Platform>> {
+    pub fn new(configuration: PlatformConfiguration) -> Result<Box<Platform>> {
         Ok(Box::new(HostPlatform {
-            compiler: compiler.clone(),
             configuration,
             id: "host".to_string(),
         }))
@@ -43,7 +40,7 @@ impl Platform for HostPlatform {
 
         Overlayer::overlay(&self.configuration, self, project, "/")?;
 
-        self.compiler.build(None, build_args)
+        ::cargo::call(build_args, None) //FIXME
     }
 
     fn id(&self) -> String {
