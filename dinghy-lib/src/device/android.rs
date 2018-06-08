@@ -23,6 +23,7 @@ use Runnable;
 
 static ANDROID_WORK_DIR: &str = "/data/local/tmp/dinghy";
 
+#[derive(Clone)]
 pub struct AndroidDevice {
     adb: PathBuf,
     id: String,

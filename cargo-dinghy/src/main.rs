@@ -74,10 +74,10 @@ fn init_logger(matches: &ArgMatches) {
 fn main() {
     let owned_args:Vec<OsString> = env::args_os().collect();
     let mut args:Vec<&OsStr> = owned_args.iter().map(|s| s.as_os_str()).collect();
-    if args[0] == "dinghy" {
-        args.remove(0);
+    if args[1] == "dinghy" {
+        args.remove(1);
     }
-    let result = if args[0] == "runner" {
+    let result = if args[1] == "runner" {
         runner(&args)
     } else {
         cargo(&args)
@@ -147,7 +147,8 @@ fn cargo(args:&[&OsStr]) -> Result<()> {
     let build_args = BuildArgs {
         cargo_args: matches.values_of("ARGS").unwrap().map(|a| a.to_string()).collect::<Vec<_>>(),
         verbose: matches.is_present("VERBOSE"),
-        forced_overlays: vec!()
+        forced_overlays: vec!(),
+        device
     };
     platform.build(&project, &build_args)?;
     Ok(())
@@ -171,6 +172,9 @@ fn runner(args:&[&OsStr]) -> Result<()> {
 
     let args = args.iter().skip(1).map(|s| &s[..]).collect::<Vec<_>>();
     let envs = envs.iter().map(|s| &s[..]).collect::<Vec<_>>();
+
+    println!("in runner ! device {:#?} args:{:#?} envs:{:#?}", device, args, envs);
+
 //    let _build_bundles = if sub_args.is_present("DEBUGGER") {
         debug!("Debug app");
 //        device.debug_app(&project, runnable, run_env, &*args, &*envs)?

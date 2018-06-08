@@ -65,7 +65,7 @@ impl Platform for IosPlatform {
                                     &format!("cc -isysroot {}", sysroot), &mut env)?;
         self.toolchain.setup_pkg_config(&mut env)?;
 
-        ::cargo::call(build_args, self.rustc_triple(), &env)
+        ::cargo::call(build_args, self.rustc_triple(), env)
     }
 
     fn id(&self) -> String {

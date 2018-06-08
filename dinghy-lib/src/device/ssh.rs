@@ -18,6 +18,7 @@ use BuildBundle;
 use RunEnv;
 use Runnable;
 
+#[derive(Clone)]
 pub struct SshDevice {
     id: String,
     conf: SshDeviceConfiguration,

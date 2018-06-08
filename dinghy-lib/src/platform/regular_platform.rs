@@ -126,7 +126,7 @@ impl Platform for RegularPlatform {
         self.toolchain.setup_sysroot();
         self.toolchain.shim_executables(&self.id)?;
 
-        ::cargo::call(build_args, self.rustc_triple(), &env)
+        ::cargo::call(build_args, self.rustc_triple(), env)
     }
 
     fn id(&self) -> String {

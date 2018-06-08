@@ -12,6 +12,10 @@ error_chain! {
         SerdeJson(::serde_json::Error);
     }
 
+    links {
+        Rexpect(::rexpect::errors::Error, ::rexpect::errors::ErrorKind);
+    }
+
     errors {
         PackagesCannotBeCompiledForPlatform(packages: Vec<String>) {
             description("Cannot compile selected packages for the selected platform")

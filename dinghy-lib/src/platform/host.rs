@@ -42,7 +42,7 @@ impl Platform for HostPlatform {
 
         Overlayer::overlay(&self.configuration, self, project, "/")?;
 
-        ::cargo::call(build_args, None, &env) //FIXME
+        ::cargo::call(build_args, None, env) //FIXME
     }
 
     fn id(&self) -> String {

@@ -10,12 +10,7 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::path::PathBuf;
 use walkdir::WalkDir;
-use utils::create_shim;
-
-#[cfg(not(target_os = "windows"))]
-static GLOB_ARGS: &str = r#""$@""#;
-#[cfg(target_os = "windows")]
-static GLOB_ARGS: &str = r#"%*"#;
+use utils::{ GLOB_ARGS, create_shim, project_root };
 
 #[derive(Clone, Debug)]
 pub struct Toolchain {
@@ -128,7 +123,3 @@ impl ToolchainConfig {
     }
 }
 
-fn project_root() -> Result<PathBuf> {
-    let workspace = ::cargo_metadata::metadata(None)?;
-    Ok(workspace.workspace_root.into())
-}

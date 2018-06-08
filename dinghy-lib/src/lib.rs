@@ -1,3 +1,5 @@
+#![recursion_limit="128"]
+
 extern crate cargo_metadata;
 extern crate clap;
 #[cfg(target_os = "macos")]
@@ -207,7 +209,6 @@ pub trait DeviceCompatibility {
 
 pub trait Platform: std::fmt::Debug {
     fn build(&self, project: &Project, build_args: &BuildArgs) -> Result<Build>;
-    //fn build(&self, project: &Project, build_args: &[OsString]) -> Result<Build>;
 
     fn id(&self) -> String;
 
@@ -250,6 +251,8 @@ pub struct BuildArgs {
 //    pub compile_mode: CompileMode,
     pub verbose: bool,
     pub forced_overlays: Vec<String>,
+    #[serde(skip)] // FIXME
+    pub device: Option<Arc<Box<Device>>>,
 }
 
 #[derive(Clone, Debug, Default)]

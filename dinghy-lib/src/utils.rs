@@ -7,6 +7,12 @@ use std::path::{ Path, PathBuf };
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
+#[cfg(not(target_os = "windows"))]
+pub static GLOB_ARGS: &str = r#""$@""#;
+#[cfg(target_os = "windows")]
+pub static GLOB_ARGS: &str = r#"%*"#;
+
+
 pub fn arg_as_string_vec(matches: &ArgMatches, option: &str) -> Vec<String> {
     matches.values_of(option)
         .map(|vs| vs.map(|s| s.to_string()).collect())
@@ -129,3 +135,7 @@ pub fn create_shim<P: AsRef<Path>>(
     Ok(shim)
 }
 
+pub fn project_root() -> Result<PathBuf> {
+    let workspace = ::cargo_metadata::metadata(None)?;
+    Ok(workspace.workspace_root.into())
+}

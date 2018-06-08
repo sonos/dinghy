@@ -33,8 +33,9 @@ impl PlatformManager for HostManager {
     }
 }
 
-
+#[derive(Clone)]
 pub struct HostDevice {
+    // FIXME (just cleanup)
 //    compiler: Arc<Compiler>
 }
 
