@@ -2,6 +2,7 @@ use dinghy_build::build_env::set_all_env;
 use overlay::Overlayer;
 use platform;
 use project::Project;
+use std::collections::HashMap;
 use std::fmt::{ Debug, Display, Formatter };
 use std::path::Path;
 use std::path::PathBuf;
@@ -80,32 +81,34 @@ impl Display for RegularPlatform {
 
 impl Platform for RegularPlatform {
     fn build(&self, project: &Project, build_args: &BuildArgs) -> Result<Build> {
+        let mut env = HashMap::new();
         // Cleanup environment
-        set_all_env(&[
-            ("LIBRARY_PATH", ""),
-            ("LD_LIBRARY_PATH", ""),
-        ]);
+        env.insert("LIBRARY_PATH".into(), None);
+        env.insert("LD_LIBRARY_PATH".into(), None);
+
         // Set custom env variables specific to the platform
-        set_all_env(&self.configuration.env());
+        for (k, v) in self.configuration.env() {
+            env.insert(k, Some(v));
+        }
 
         Overlayer::overlay(&self.configuration, self, project, &self.toolchain.sysroot)?;
 
-        self.toolchain.setup_cc(&self.id, &self.toolchain.executable("gcc"))?;
+        self.toolchain.setup_cc(&self.id, &self.toolchain.executable("gcc"), &mut env)?;
 
         if Path::new(&self.toolchain.executable("ar")).exists() {
-            self.toolchain.setup_tool("AR", &self.toolchain.executable("ar"))?;
+            self.toolchain.setup_tool("AR", &self.toolchain.executable("ar"), &mut env)?;
         }
         if Path::new(&self.toolchain.executable("as")).exists() {
-            self.toolchain.setup_tool("AS", &self.toolchain.executable("as"))?;
+            self.toolchain.setup_tool("AS", &self.toolchain.executable("as"), &mut env)?;
         }
         if Path::new(&self.toolchain.executable("c++")).exists() {
-            self.toolchain.setup_tool("CXX", &self.toolchain.executable("c++"))?;
+            self.toolchain.setup_tool("CXX", &self.toolchain.executable("c++"), &mut env)?;
         }
         if Path::new(&self.toolchain.executable("cpp")).exists() {
-            self.toolchain.setup_tool("CPP", &self.toolchain.executable("cpp"))?;
+            self.toolchain.setup_tool("CPP", &self.toolchain.executable("cpp"), &mut env)?;
         }
         if Path::new(&self.toolchain.executable("gfortran")).exists() {
-            self.toolchain.setup_tool("FC", &self.toolchain.executable("gfortran"))?;
+            self.toolchain.setup_tool("FC", &self.toolchain.executable("gfortran"), &mut env)?;
         }
 
         let mut linker_cmd = self.toolchain.executable("gcc");
@@ -117,13 +120,13 @@ impl Platform for RegularPlatform {
             linker_cmd.push_str(&forced_overlay);
             // TODO Add -L
         }
-        self.toolchain.setup_linker(&self.id, &linker_cmd)?;
+        self.toolchain.setup_linker(&self.id, &linker_cmd, &mut env)?;
 
-        self.toolchain.setup_pkg_config()?;
+        self.toolchain.setup_pkg_config(&mut env)?;
         self.toolchain.setup_sysroot();
         self.toolchain.shim_executables(&self.id)?;
 
-        ::cargo::call(build_args, self.rustc_triple())
+        ::cargo::call(build_args, self.rustc_triple(), &env)
     }
 
     fn id(&self) -> String {

@@ -228,7 +228,7 @@ pub trait PlatformManager {
     fn devices(&self) -> Result<Vec<Box<Device>>>;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Build {
     pub target_path: PathBuf,
     pub build_args: BuildArgs,
@@ -244,7 +244,7 @@ pub struct RunEnv {
     pub dynamic_libraries: Vec<PathBuf>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BuildArgs {
     pub cargo_args:Vec<String>,
 //    pub compile_mode: CompileMode,
@@ -276,7 +276,7 @@ impl BuildBundle {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Runnable {
     pub id: String,
     pub exe: PathBuf,

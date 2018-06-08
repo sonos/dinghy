@@ -3,6 +3,7 @@ use dinghy_build::build_env::set_env;
 use errors::*;
 use overlay::Overlayer;
 use project::Project;
+use std::collections::HashMap;
 use std::fmt::{ Debug, Display, Formatter };
 use std::process;
 use std::sync::Arc;
@@ -54,17 +55,17 @@ impl IosPlatform {
 
 impl Platform for IosPlatform {
     fn build(&self, project: &Project, build_args: &BuildArgs) -> Result<Build> {
+        let mut env = HashMap::new();
         let sysroot = self.sysroot_path()?;
-        Overlayer::overlay(&self.configuration, self, project, &self.sysroot_path()?)?;
-        self.toolchain.setup_cc(self.id().as_str(), "gcc")?;
-        set_env("TARGET_SYSROOT", &sysroot);
-        self.toolchain.setup_linker(&self.id(),
-                                    &format!("cc -isysroot {}", sysroot))?;
-        self.toolchain.setup_pkg_config()?;
-
-        //self.compiler.build(self.rustc_triple(), build_args)
         // FIXME
-        ::cargo::call(build_args, None)
+        Overlayer::overlay(&self.configuration, self, project, &self.sysroot_path()?)?;
+        self.toolchain.setup_cc(self.id().as_str(), "gcc", &mut env)?;
+        env.insert("TARGET_SYSROOT".into(), Some(sysroot.to_string()));
+        self.toolchain.setup_linker(&self.id(),
+                                    &format!("cc -isysroot {}", sysroot), &mut env)?;
+        self.toolchain.setup_pkg_config(&mut env)?;
+
+        ::cargo::call(build_args, self.rustc_triple(), &env)
     }
 
     fn id(&self) -> String {

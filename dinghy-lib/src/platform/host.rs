@@ -3,6 +3,7 @@ use dinghy_build::build_env::set_all_env;
 use overlay::Overlayer;
 use platform;
 use project::Project;
+use std::collections::HashMap;
 use std::fmt::{ Debug, Formatter };
 use std::process::Command;
 use std::sync::Arc;
@@ -35,12 +36,13 @@ impl Debug for HostPlatform {
 
 impl Platform for HostPlatform {
     fn build(&self, project: &Project, build_args: &BuildArgs) -> Result<Build> {
+        let env = HashMap::new();
         // Set custom env variables specific to the platform
         set_all_env(&self.configuration.env());
 
         Overlayer::overlay(&self.configuration, self, project, "/")?;
 
-        ::cargo::call(build_args, None) //FIXME
+        ::cargo::call(build_args, None, &env) //FIXME
     }
 
     fn id(&self) -> String {

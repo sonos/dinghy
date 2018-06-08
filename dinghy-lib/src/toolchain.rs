@@ -1,16 +1,16 @@
-use dinghy_build::build_env::append_path_to_target_env;
+use dinghy_build::build_env::append_path_to_target_env; // FIXME
 use dinghy_build::build_env::append_path_to_env;
 use dinghy_build::build_env::envify;
 use dinghy_build::build_env::set_env;
-use dinghy_build::build_env::set_target_env;
+use dinghy_build::build_env::target_key_from_triple;
 use errors::*;
 use itertools::Itertools;
 use std::{fs, path};
+use std::collections::HashMap;
 use std::io::Write;
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use walkdir::WalkDir;
+use utils::create_shim;
 
 #[cfg(not(target_os = "windows"))]
 static GLOB_ARGS: &str = r#""$@""#;
@@ -23,27 +23,27 @@ pub struct Toolchain {
 }
 
 impl Toolchain {
-    pub fn setup_tool(&self, var: &str, exe: &str) -> Result<()> {
+    pub fn setup_tool(&self, var: &str, exe: &str, env: &mut HashMap<String, Option<String>>) -> Result<()> {
         set_env(format!("TARGET_{}", var), exe);
         set_env(format!("{}_{}", var, self.rustc_triple), exe);
         Ok(())
     }
 
-    pub fn setup_cc(&self, _id: &str, compiler_command: &str) -> Result<()> {
-        set_env("TARGET_CC", compiler_command);
-        set_env(format!("CC_{}", self.rustc_triple), compiler_command);
+    pub fn setup_cc(&self, _id: &str, compiler_command: &str, env:&mut HashMap<String,Option<String>>) -> Result<()> {
+        self.setup_tool("CC", compiler_command, env)
+    }
+
+    pub fn setup_linker(&self, id: &str, linker_command: &str, env:&mut HashMap<String,Option<String>>) -> Result<()> {
+        let shim = create_shim(project_root()?, "toolchain", &self.rustc_triple, id, "linker", format!("{} {}", linker_command, GLOB_ARGS).as_str())?;
+        env.insert(
+            format!("CARGO_TARGET_{}_LINKER", envify(&self.rustc_triple)),
+            Some(shim.to_string_lossy().to_string()));
         Ok(())
     }
 
-    pub fn setup_linker(&self, id: &str, linker_command: &str) -> Result<()> {
-        let shim = create_shim(project_root()?, &self.rustc_triple, id, "linker", format!("{} {}", linker_command, GLOB_ARGS).as_str())?;
-        set_env(format!("CARGO_TARGET_{}_LINKER", envify(self.rustc_triple.as_str())).as_str(), shim);
-        Ok(())
-    }
-
-    pub fn setup_pkg_config(&self) -> Result<()> {
-        set_env("PKG_CONFIG_ALLOW_CROSS", "1");
-        set_target_env("PKG_CONFIG_LIBPATH", Some(&self.rustc_triple), "");
+    pub fn setup_pkg_config(&self, env: &mut HashMap<String, Option<String>>) -> Result<()> {
+        env.insert("PKG_CONFIG_ALLOW_CROSS".into(), Some("1".into()));
+        env.insert(target_key_from_triple("PKG_CONFIG_LIBPATH", Some(&self.rustc_triple)).to_string_lossy().to_string(), None);
         Ok(())
     }
 }
@@ -65,8 +65,8 @@ impl ToolchainConfig {
             .to_string()
     }
 
-    pub fn setup_pkg_config(&self) -> Result<()> {
-        self.as_toolchain().setup_pkg_config()?;
+    pub fn setup_pkg_config(&self, env: &mut HashMap<String, Option<String>>) -> Result<()> {
+        self.as_toolchain().setup_pkg_config(env)?;
 
         append_path_to_target_env("PKG_CONFIG_LIBDIR",
                                   Some(&self.rustc_triple),
@@ -76,8 +76,9 @@ impl ToolchainConfig {
                                       .filter(|e| e.file_name() == "pkgconfig" && e.file_type().is_dir())
                                       .map(|e| e.path().to_string_lossy().into_owned())
                                       .join(":"));
-
-        set_target_env("PKG_CONFIG_SYSROOT_DIR", Some(&self.rustc_triple), &self.sysroot.clone());
+        env.insert(
+            target_key_from_triple("PKG_CONFIG_SYSROOT_DIR", Some(&self.rustc_triple)).to_string_lossy().to_string(),
+            Some(self.sysroot.to_string_lossy().to_string()));
         Ok(())
     }
 
@@ -85,16 +86,16 @@ impl ToolchainConfig {
         set_env("TARGET_SYSROOT", &self.sysroot);
     }
 
-    pub fn setup_tool(&self, var: &str, command: &str) -> Result<()> {
-        self.as_toolchain().setup_tool(var, command)
+    pub fn setup_tool(&self, var: &str, command: &str, env: &mut HashMap<String,Option<String>>) -> Result<()> {
+        self.as_toolchain().setup_tool(var, command, env)
     }
 
-    pub fn setup_cc(&self, id: &str, compiler_command: &str) -> Result<()> {
-        self.as_toolchain().setup_cc(id, compiler_command)
+    pub fn setup_cc(&self, id: &str, compiler_command: &str, env: &mut HashMap<String,Option<String>>) -> Result<()> {
+        self.as_toolchain().setup_cc(id, compiler_command, env)
     }
 
-    pub fn setup_linker(&self, id: &str, linker_command: &str) -> Result<()> {
-        self.as_toolchain().setup_linker(id, linker_command)
+    pub fn setup_linker(&self, id: &str, linker_command: &str, env: &mut HashMap<String,Option<String>>) -> Result<()> {
+        self.as_toolchain().setup_linker(id, linker_command, env)
     }
 
     pub fn shim_executables(&self, id: &str) -> Result<()> {
@@ -112,6 +113,7 @@ impl ToolchainConfig {
                                                                          self.rustc_triple.as_str());
             trace!("Shim {} -> {}", exe_path, rustified_exe);
             create_shim(&root,
+                        "toolchain",
                         self.rustc_triple.as_str(),
                         id,
                         rustified_exe,
@@ -124,31 +126,6 @@ impl ToolchainConfig {
     fn as_toolchain(&self) -> Toolchain {
         Toolchain { rustc_triple: self.rustc_triple.clone() }
     }
-}
-
-fn create_shim<P: AsRef<path::Path>>(
-    root: P,
-    rustc_triple: &str,
-    id: &str,
-    name: &str,
-    shell: &str,
-) -> Result<PathBuf> {
-    let target_shim_path = root.as_ref().join("target").join(rustc_triple).join(id);
-    fs::create_dir_all(&target_shim_path)?;
-    let mut shim = target_shim_path.join(name);
-    if cfg!(target_os = "windows") {
-        shim.set_extension("bat");
-    };
-    let mut linker_shim = fs::File::create(&shim)?;
-    if !cfg!(target_os = "windows") {
-        writeln!(linker_shim, "#!/bin/sh")?;
-    }
-    linker_shim.write_all(shell.as_bytes())?;
-    writeln!(linker_shim, "\n")?;
-    if !cfg!(target_os = "windows") {
-        fs::set_permissions(&shim, PermissionsExt::from_mode(0o777))?;
-    }
-    Ok(shim)
 }
 
 fn project_root() -> Result<PathBuf> {

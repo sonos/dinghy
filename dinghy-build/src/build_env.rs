@@ -116,7 +116,7 @@ pub fn target_env_from_triple(var_base: &str, triple: &str, is_host: bool) -> Re
         .or_else(|_| build_env(var_base))
 }
 
-fn target_key_from_triple<K: AsRef<OsStr>, R: AsRef<str>>(k: K, rustc_triple: Option<R>) -> OsString {
+pub fn target_key_from_triple<K: AsRef<OsStr>, R: AsRef<str>>(k: K, rustc_triple: Option<R>) -> OsString {
     let mut target_key = OsString::new();
     target_key.push(k);
     if let Some(rustc_triple) = rustc_triple {

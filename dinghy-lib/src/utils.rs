@@ -3,8 +3,9 @@ use errors::Result;
 use filetime::FileTime;
 use filetime::set_file_times;
 use std::fs;
-use std::path::Path;
-use std::path::PathBuf;
+use std::path::{ Path, PathBuf };
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 pub fn arg_as_string_vec(matches: &ArgMatches, option: &str) -> Vec<String> {
     matches.values_of(option)
@@ -100,3 +101,31 @@ pub fn file_name_as_str(file_path: &Path) -> Result<&str> {
         .and_then(|it| it.to_str())
         .ok_or(format!("'{}' is not a valid file name", file_path.display()))?)
 }
+
+pub fn create_shim<P: AsRef<Path>>(
+    root: P,
+    kind: &str,
+    scope: &str,
+    id: &str,
+    name: &str,
+    shell: &str,
+) -> Result<PathBuf> {
+    use std::io::Write;
+    let target_shim_path = root.as_ref().join("target").join(kind).join(scope).join(id);
+    fs::create_dir_all(&target_shim_path)?;
+    let mut shim = target_shim_path.join(name);
+    if cfg!(target_os = "windows") {
+        shim.set_extension("bat");
+    };
+    let mut linker_shim = fs::File::create(&shim)?;
+    if !cfg!(target_os = "windows") {
+        writeln!(linker_shim, "#!/bin/sh")?;
+    }
+    linker_shim.write_all(shell.as_bytes())?;
+    writeln!(linker_shim, "\n")?;
+    if !cfg!(target_os = "windows") {
+        fs::set_permissions(&shim, PermissionsExt::from_mode(0o777))?;
+    }
+    Ok(shim)
+}
+
