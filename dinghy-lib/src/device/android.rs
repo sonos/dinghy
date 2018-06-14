@@ -144,7 +144,7 @@ impl Device for AndroidDevice {
         let args:Vec<String> = args.iter().map(|&a| ::shell_escape::escape(a.into()).to_string()).collect();
         let (build_bundle, remote_bundle) = self.install_app(&project, runnable, run_env)?;
         let command = format!(
-            "cd '{}'; {} DINGHY=1 RUST_BACKTRACE=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {} {} ; echo FORWARD_RESULT_TO_DINGHY_BECAUSE_ADB_DOES_NOT=$?",
+            "cd '{}'; {} DINGHY=1 RUST_BACKTRACE=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {} {} ; echo FORWARD RESULT CODE BACK TO DINGHY $?",
             path_to_str(&remote_bundle.bundle_dir)?,
             envs.join(" "),
             path_to_str(&remote_bundle.lib_dir)?,
@@ -153,7 +153,7 @@ impl Device for AndroidDevice {
             args.join(" "));
         info!("Run {} on {} ({:?})", runnable.id, self.id, run_env.compile_mode);
 
-        if !self.adb()?
+        let output = self.adb()?
             .arg("shell")
             .arg(&command)
             .output()
@@ -164,12 +164,20 @@ impl Device for AndroidDevice {
                 String::from_utf8(output.stdout).chain_err(|| format!("Couldn't run {} using adb.", runnable.exe.display()))
             } else {
                 bail!("Couldn't run {} using adb.", runnable.exe.display())
-            })
-            .map(|output| output.lines().last().unwrap_or("").to_string())
-            .map(|last_line| last_line.contains("FORWARD_RESULT_TO_DINGHY_BECAUSE_ADB_DOES_NOT=0"))? {
-            Err("Test failed 🐛")?
+            })?;
+
+        for line in output.lines() {
+            if line.starts_with("FORWARD RESULT CODE BACK TO DINGHY") {
+                let error_code = line.split(" ").last().unwrap(); // checked
+                let error_code = error_code.parse().map_err(|_| "Failed to parse error code")?;
+                if error_code == 0 {
+                    return Ok(())
+                } else {
+                    Err(::errors::ErrorKind::Child(error_code))?
+                }
+            }
         }
-        Ok(())
+        Err("Could not retrieve error code")?
     }
 
     fn start_remote_lldb(&self) -> Result<String> {

@@ -133,9 +133,8 @@ impl Device for SshDevice {
             .arg(&command)
             .status()?;
         if !status.success() {
-            Err("Test failed 🐛")?
+            Err(status)?
         }
-
         Ok(())
     }
 

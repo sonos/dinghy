@@ -17,6 +17,8 @@ error_chain! {
     }
 
     errors {
+        Child(code: i32) {
+        }
         PackagesCannotBeCompiledForPlatform(packages: Vec<String>) {
             description("Cannot compile selected packages for the selected platform")
             display("{:?} cannot be compiled for the selected platform (see project's [package.metadata.dinghy] in Cargo.toml)", packages)
@@ -24,3 +26,12 @@ error_chain! {
     }
 }
 
+impl From<::std::process::ExitStatus> for Error {
+    fn from(ex: ::std::process::ExitStatus) -> Error {
+        assert!(!ex.success());
+        match ex.code() {
+            Some(i) => ::errors::ErrorKind::Child(i).into(),
+            None => "No error code, child killed by some signal ?".into()
+        }
+    }
+}

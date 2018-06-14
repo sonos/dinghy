@@ -282,6 +282,8 @@ impl BuildBundle {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Runnable {
     pub id: String,
+    /// path to executable on host
     pub exe: PathBuf,
+    /// path to project root (where would the test be run from)
     pub src: PathBuf,
 }

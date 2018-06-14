@@ -91,14 +91,13 @@ impl Device for HostDevice {
         info!("Run {} ({:?})", runnable.id, run_env.compile_mode);
 
         let mut cmd = ::std::process::Command::new(&runnable.exe);
-        cmd.env("DINGHY", "1");
         for (env_key, env_value) in envs.iter().tuples() {
             cmd.env(env_key, env_value);
         }
         cmd.args(args);
         let status = cmd.status()?;
         if !status.success() {
-            Err("Test failed 🐛")?
+            Err(status)?
         }
 
         Ok(())

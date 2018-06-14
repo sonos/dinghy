@@ -1,4 +1,4 @@
-use std::{ env, io, process };
+use std::{ env, fs, io, process };
 use std::io::Write;
 use std::collections::{ HashMap, HashSet };
 use std::path::{ Path, PathBuf };
@@ -15,26 +15,28 @@ use utils::{ GLOB_ARGS, is_library, create_shim, project_root };
 use dinghy_build::build_env::target_env_from_triple;
 
 #[derive(Debug, Serialize, Deserialize)]
-struct CargoCompilerArtefact {
-    filenames: Vec<PathBuf>,
-    reason: String,
-    profile: CargoCompilerArtefactProfile,
-    target: CargoCompilerArtefactTarget,
+pub struct CargoCompilerArtefact {
+    pub filenames: Vec<PathBuf>,
+    pub reason: String,
+    pub profile: CargoCompilerArtefactProfile,
+    pub target: CargoCompilerArtefactTarget,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct CargoCompilerArtefactTarget {
+pub struct CargoCompilerArtefactTarget {
     kind: Vec<String>,
-    src_path: PathBuf,
+    pub src_path: PathBuf,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct CargoCompilerArtefactProfile {
+pub struct CargoCompilerArtefactProfile {
     test: bool
 }
 
 pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<String,Option<String>>) -> Result<Build> {
     use std::io::Read;
+    let artefacts_metadata = project_root()?.join("target").join("cargo-dinghy-current");
+    let artefacts_metadata_tmp = artefacts_metadata.clone().with_extension("tmp");
     let mut cargo = process::Command::new("cargo");
     cargo.arg(&build_args.cargo_args[0]).arg("--message-format=json");
     if let Some(target) = rustc_triple {
@@ -84,6 +86,11 @@ pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<
                     });
                 }
                 artefacts.push(artefact);
+                {
+                    let f = fs::File::create(&artefacts_metadata_tmp)?;
+                    ::serde_json::to_writer(f, &artefacts)?;
+                }
+                fs::rename(&artefacts_metadata_tmp, &artefacts_metadata)?;
             } else {
                 io::stdout().write_all(&buffer[done..done+eol+1])?;
                 io::stdout().flush()?;
@@ -99,7 +106,7 @@ pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<
     let status = process.status();
     if let Some(::rexpect::process::wait::WaitStatus::Exited(_, code)) = status {
         if code != 0 {
-            Err("cargo failed")?
+            Err(::errors::ErrorKind::Child(code as _))?
         }
     }
 
@@ -113,6 +120,13 @@ pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<
                 rustc_triple: rustc_triple.map(|a| a.to_string()),
                 runnables
     })
+}
+
+pub fn restore_artefacts_metadata() -> Result<Vec<CargoCompilerArtefact>> {
+    use std::io::Read;
+    let artefacts_metadata = project_root()?.join("target").join("cargo-dinghy-current");
+    let f = fs::File::open(&artefacts_metadata)?;
+    Ok(::serde_json::from_reader(f)?)
 }
 
 // Try to find all linked libraries in (absolutely all for now) cargo output files

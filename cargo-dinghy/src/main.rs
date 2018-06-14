@@ -18,12 +18,10 @@ use dinghy_lib::project::Project;
 use dinghy_lib::utils::arg_as_string_vec;
 use error_chain::ChainedError;
 use itertools::Itertools;
-use std::env;
+use std::{ env, path, thread, time };
 use std::env::current_dir;
 use std::ffi::{ OsStr, OsString };
 use std::sync::Arc;
-use std::thread;
-use std::time;
 use ErrorKind;
 
 /*
@@ -89,13 +87,7 @@ fn main() {
                 error!("{}", e.display_chain());
                 std::process::exit(3)
             }
-            /*
-            &ErrorKind::Cargo(ref cargo) => {
-                error!("Cargo error: {}", cargo.to_string().split("\n").next().unwrap_or(""));
-                println!("{}", cargo);
-                std::process::exit(1);
-            },
-            */
+            &ErrorKind::Child(ref cargo) => std::process::exit(*cargo as i32),
             _ => {
                 error!("{:?}", e.display_chain());
                 std::process::exit(1);
@@ -162,25 +154,38 @@ fn runner(args:&[&OsStr]) -> Result<()> {
 
     let conf = Arc::new(dinghy_config(current_dir().unwrap())?);
     let dinghy = Dinghy::probe(&conf)?;
+    let project = Project::new(&conf);
     let (platform, device) = select_platform_and_device_from_cli(&matches, &dinghy)?;
 
     let device = device.as_ref().ok_or("No device found")?;
     let args = arg_as_string_vec(&matches, "ARGS");
     let envs = arg_as_string_vec(&matches, "ENVS");
 
-    let exe = &args[0];
-
-    let args = args.iter().skip(1).map(|s| &s[..]).collect::<Vec<_>>();
+    let exe = path::PathBuf::from(&args[1]);
+    let args = args.iter().skip(2).map(|s| &s[..]).collect::<Vec<_>>();
     let envs = envs.iter().map(|s| &s[..]).collect::<Vec<_>>();
 
-    println!("in runner ! device {:#?} args:{:#?} envs:{:#?}", device, args, envs);
+    let artefacts = dinghy_lib::cargo::restore_artefacts_metadata()?;
+    let artefact = artefacts.into_iter()
+        .find(|art| art.filenames.iter().any(|f| path::Path::new(f).file_name() == exe.file_name()))
+        .ok_or("Could no retrieve metadata")?;
 
 //    let _build_bundles = if sub_args.is_present("DEBUGGER") {
         debug!("Debug app");
 //        device.debug_app(&project, runnable, run_env, &*args, &*envs)?
 //    } else {
         debug!("Run app");
-//        device.run_app(&project, runnable, run_env, &*args, &*envs)?
+        let runnable = dinghy_lib::Runnable {
+            id: exe.file_name().unwrap().to_str().unwrap().to_string(), // both checked
+            exe,
+            src: artefact.target.src_path.parent().unwrap().parent().unwrap().into(),
+        };
+        let run_env = dinghy_lib::RunEnv {
+            compile_mode: dinghy_lib::CompileMode::Test,
+            rustc_triple: platform.rustc_triple().map(|s| s.to_string()),
+            dynamic_libraries: vec!(),
+        };
+        device.run_app(&project, &runnable, &run_env, &args, &*envs)?;
 //    };
 
     // FIXME
