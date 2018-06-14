@@ -139,7 +139,7 @@ impl Dinghy {
     }
 
     #[cfg(not(target_os = "macos"))]
-    fn discover_ios_platform(id: String, rustc_triple: &str, _compiler: &Arc<Compiler>, _config: &PlatformConfiguration) -> Result<Option<Box<Platform>>> {
+    fn discover_ios_platform(id: String, rustc_triple: &str, _config: &PlatformConfiguration) -> Result<Option<Box<Platform>>> {
         warn!("Platform {} ({}) is an iOS one, and we are not on a Mac host.", id, rustc_triple);
         Ok(None)
     }
