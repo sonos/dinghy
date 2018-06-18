@@ -75,11 +75,9 @@ pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<
     loop {
         let mut tmp = [0; 256];
         let n = match f.read(&mut tmp) {
+            Ok(0) => break,
             Ok(n) => n,
-            Err(e) => {
-                warn!("{:?}", e);
-                0
-            }
+            Err(e) => break,
         };
         buffer.extend(&tmp[0..n]);
         let mut done = 0;
@@ -112,13 +110,9 @@ pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<
             done += eol+1;
         }
         buffer.drain(0..done);
-        if n == 0 {
-            break;
-        }
     }
-
-    let status = process.status();
-    if let Some(::rexpect::process::wait::WaitStatus::Exited(_, code)) = status {
+    let status = process.wait()?;
+    if let ::rexpect::process::wait::WaitStatus::Exited(_, code) = status {
         if code != 0 {
             Err(::errors::ErrorKind::Child(code as _))?
         }
