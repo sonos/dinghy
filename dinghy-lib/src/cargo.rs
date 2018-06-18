@@ -74,7 +74,13 @@ pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<
 
     loop {
         let mut tmp = [0; 256];
-        let n = f.read(&mut tmp)?;
+        let n = match f.read(&mut tmp) {
+            Ok(n) => n,
+            Err(e) => {
+                warn!("{:?}", e);
+                0
+            }
+        };
         buffer.extend(&tmp[0..n]);
         let mut done = 0;
         while let Some(eol) = buffer[done..].iter().position(|&c| c == b'\n') {
