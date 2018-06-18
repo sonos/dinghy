@@ -117,58 +117,92 @@ fn declare_common_args<'a, 'b>(app: clap::App<'a, 'b>) -> clap::App<'a, 'b> {
         .long("quiet")
         .multiple(true)
         .help("Lower the level of verbosity"))
-    .arg(Arg::with_name("ARGS")
-        .multiple(true)
-        .help("subcommand and arguments"))
 }
 
-fn cargo(args:&[&OsStr]) -> Result<()> {
-    let app = clap::App::new("dinghy runner");
-    let app = declare_common_args(app);
-    let matches = app.get_matches_from(args);
-    init_logger(&matches);
+struct DinghyCtxt {
+    dinghy: dinghy_lib::Dinghy,
+    conf: Arc<dinghy_lib::config::Configuration>,
+    project: Project,
+    platform: Arc<Box<Platform>>,
+    device: Option<Arc<Box<Device>>>,
+    verbose: bool,
+    args: Vec<String>,
+}
 
-    let conf = Arc::new(dinghy_config(current_dir().unwrap())?);
-    let dinghy = Dinghy::probe(&conf)?;
-    let project = Project::new(&conf);
-    let (platform, device) = select_platform_and_device_from_cli(&matches, &dinghy)?;
+impl DinghyCtxt {
+    pub fn new(args: &[&OsStr]) -> Result<DinghyCtxt> {
+        let app = clap::App::new("cargo dinghy");
+        let mut app = declare_common_args(app);
+        // try the longest argument string that we can match
+        let cargo_sub_len = (0..args.len()).filter_map(|i|
+            match app.get_matches_from_safe_borrow(&args[0..args.len()-i]) {
+                Ok(matches) => Some(i),
+                Err(_) => None,
+            }
+        ).next();
+        let (matches, dinghy_arg_len) = if let Some(i) = cargo_sub_len {
+            let dinghy_arg_len = args.len() - i;
+            (app.get_matches_from(&args[0..dinghy_arg_len]), dinghy_arg_len)
+        } else {
+            app.get_matches_from(args);
+            unreachable!()
+        };
+        init_logger(&matches);
+
+        let conf = Arc::new(dinghy_config(current_dir().unwrap())?);
+        let dinghy = Dinghy::probe(&conf)?;
+        let project = Project::new(&conf);
+        let (platform, device) = select_platform_and_device_from_cli(&matches, &dinghy)?;
+        Ok(DinghyCtxt {
+            verbose: matches.is_present("VERBOSE"),
+            conf,
+            dinghy,
+            project,
+            platform,
+            device,
+            args: args[dinghy_arg_len..].iter().map(|s| s.to_str().expect("could not convert arg to string (utf-8 ?)").to_string()).collect(),
+        })
+    }
+}
+
+
+fn cargo(args:&[&OsStr]) -> Result<()> {
+    let ctx = DinghyCtxt::new(args)?;
 
     info!("Targeting platform '{}' and device '{}'",
-          platform.id(), device.as_ref().map(|it| it.id()).unwrap_or("<none>"));
+          ctx.platform.id(), ctx.device.as_ref().map(|it| it.id()).unwrap_or("<none>"));
 
     let build_args = BuildArgs {
-        cargo_args: matches.values_of("ARGS").unwrap().map(|a| a.to_string()).collect::<Vec<_>>(),
-        verbose: matches.is_present("VERBOSE"),
+        cargo_args: ctx.args,
+        verbose: ctx.verbose,
         forced_overlays: vec!(),
-        device
+        device: ctx.device
     };
-    platform.build(&project, &build_args)?;
+    ctx.platform.build(&ctx.project, &build_args)?;
     Ok(())
 }
 
 fn runner(args:&[&OsStr]) -> Result<()> {
-    let app = clap::App::new("dinghy runner");
-    let app = declare_common_args(app);
-    let matches = app.get_matches_from(args);
-    init_logger(&matches);
+    let ctx = DinghyCtxt::new(args)?;
 
-    let conf = Arc::new(dinghy_config(current_dir().unwrap())?);
-    let dinghy = Dinghy::probe(&conf)?;
-    let project = Project::new(&conf);
-    let (platform, device) = select_platform_and_device_from_cli(&matches, &dinghy)?;
+    let device = ctx.device.ok_or("No device found")?;
 
-    let device = device.as_ref().ok_or("No device found")?;
+    /*
     let args = arg_as_string_vec(&matches, "ARGS");
     let envs = arg_as_string_vec(&matches, "ENVS");
+    */
 
-    let exe = path::PathBuf::from(&args[1]);
-    let args = args.iter().skip(2).map(|s| &s[..]).collect::<Vec<_>>();
-    let envs = envs.iter().map(|s| &s[..]).collect::<Vec<_>>();
-
+    let double_dash = args.iter().position(|a| a.to_str() == Some("--")).ok_or("Could not find -- in command line")?;
+    let exe = path::PathBuf::from(args[double_dash+1]);
+    let args:Vec<_> = args[double_dash+2..].iter().map(|s| s.to_str().expect("could not convert arg to string (utf-8 ?)")).collect();
+    // FIXME
+    let envs = vec!();
+//    let envs = envs.iter().map(|s| &s[..]).collect::<Vec<_>>();
+    info!("Runner called for {:?}", exe);
     let artefacts = dinghy_lib::cargo::restore_artefacts_metadata()?;
     let artefact = artefacts.into_iter()
         .find(|art| art.filenames.iter().any(|f| path::Path::new(f).file_name() == exe.file_name()))
-        .ok_or("Could no retrieve metadata")?;
+        .ok_or("Could not retrieve metadata")?;
 
 //    let _build_bundles = if sub_args.is_present("DEBUGGER") {
         debug!("Debug app");
@@ -182,10 +216,10 @@ fn runner(args:&[&OsStr]) -> Result<()> {
         };
         let run_env = dinghy_lib::RunEnv {
             compile_mode: dinghy_lib::CompileMode::Test,
-            rustc_triple: platform.rustc_triple().map(|s| s.to_string()),
-            dynamic_libraries: vec!(),
+            rustc_triple: ctx.platform.rustc_triple().map(|s| s.to_string()),
+            dynamic_libraries: vec!(), // FIXME
         };
-        device.run_app(&project, &runnable, &run_env, &args, &*envs)?;
+        device.run_app(&ctx.project, &runnable, &run_env, &args, &*envs)?;
 //    };
 
     // FIXME
