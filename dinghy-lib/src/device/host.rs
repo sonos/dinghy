@@ -15,9 +15,9 @@ use Result;
 use RunEnv;
 use Runnable;
 
-pub struct HostManager {
-//    compiler: Arc<Compiler>
-}
+pub static HOST_TRIPLE: &str = include_str!(concat!(env!("OUT_DIR"), "/host-target-triple"));
+
+pub struct HostManager { }
 
 impl HostManager {
     pub fn probe(/*compiler: &Arc<Compiler>*/) -> Option<HostManager> {
@@ -46,26 +46,23 @@ impl HostDevice {
         }
     }
 
-    fn install_all_apps(&self, project: &Project, build: &Build) -> Result<Vec<BuildBundle>> {
-        let root_dir = build.target_path.join("dinghy");
-        let bundle_libs_path = build.target_path.clone();
+    fn install_app(&self, project: &Project, runnable: &Runnable, run_env:&RunEnv) -> Result<BuildBundle> {
+        /*
 
-        let mut build_bundles = vec![];
-        for runnable in &build.runnables {
-            let bundle_path = root_dir.join(&runnable.id).clone();
-            let bundle_exe_path = build.target_path.join(&runnable.id);
+        let root_dir = runnable.exe.parent().ok_or("Build artefact at root")?.join("dinghy").join(runnable.exe.file_name().unwrap());
+        let bundle_path = root_dir.clone();
+        project.link_test_data(&runnable, &bundle_path)?;
 
-            project.link_test_data(&runnable, &bundle_path)?;
-
-            build_bundles.push(BuildBundle {
-                id: runnable.id.clone(),
-                bundle_dir: bundle_path.to_path_buf(),
-                bundle_exe: bundle_exe_path.to_path_buf(),
-                lib_dir: bundle_libs_path.to_path_buf(),
-                root_dir: root_dir.clone(),
-            });
-        }
-        Ok(build_bundles)
+        Ok(BuildBundle {
+            id: runnable.id.clone(),
+            bundle_dir: root_dir.clone(),
+            bundle_exe: runnable.exe.clone(),
+            lib_dir: root_dir.join("overlays"),
+            root_dir: root_dir.clone(),
+        })
+        */
+        info!("Install {} locally", runnable.id);
+        ::device::make_remote_app(project, run_env, runnable)
     }
 }
 
@@ -88,12 +85,15 @@ impl Device for HostDevice {
     }
 
     fn run_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv, args: &[&str], envs: &[&str]) -> Result<()> {
+        let installed = self.install_app(project, runnable, run_env)?;
         info!("Run {} ({:?})", runnable.id, run_env.compile_mode);
 
-        let mut cmd = ::std::process::Command::new(&runnable.exe);
+        let mut cmd = ::std::process::Command::new(&installed.bundle_exe);
+        cmd.current_dir(installed.bundle_dir);
         for (env_key, env_value) in envs.iter().tuples() {
             cmd.env(env_key, env_value);
         }
+        cmd.env("DINGHY", "1");
         cmd.args(args);
         let status = cmd.status()?;
         if !status.success() {

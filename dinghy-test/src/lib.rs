@@ -25,7 +25,6 @@ pub fn test_file_path(test_data_id: &str) -> PathBuf {
 pub fn try_test_file_path(test_data_id: &str) -> Option<PathBuf> {
     let current_exe = env::current_exe()
         .expect("Current exe path not accessible");
-
     if cfg!(any(target_os = "ios", target_os = "android")) || env::var("DINGHY").is_ok() {
         current_exe.parent()
             .map(|it| it.join("test_data"))

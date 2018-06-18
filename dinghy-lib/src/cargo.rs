@@ -35,7 +35,7 @@ pub struct CargoCompilerArtefactProfile {
 
 pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<String,Option<String>>) -> Result<Build> {
     use std::io::Read;
-    let artefacts_metadata = project_root()?.join("target").join("cargo-dinghy-current");
+    let artefacts_metadata = project_root()?.join("target").join("cargo-dinghy-current.json");
     let artefacts_metadata_tmp = artefacts_metadata.clone().with_extension("tmp");
     let mut cargo = process::Command::new("cargo");
     cargo.arg(&build_args.cargo_args[0]).arg("--message-format=json");
@@ -49,6 +49,13 @@ pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<
                 Some(path.to_string_lossy().to_string())
             );
         }
+    } else {
+        let path = create_shim(project_root()?, "runner", "host", "runner", "runner", 
+                               &format!("{:?} runner -- {}", ::std::env::current_exe()?, GLOB_ARGS))?;
+        env.insert(
+            format!("CARGO_TARGET_{}_RUNNER", envify(::device::host::HOST_TRIPLE)),
+            Some(path.to_string_lossy().to_string())
+        );
     }
     let workspace = ::cargo_metadata::metadata(None)?;
     cargo.args(&build_args.cargo_args[1..]);
@@ -72,25 +79,26 @@ pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<
         let mut done = 0;
         while let Some(eol) = buffer[done..].iter().position(|&c| c == b'\n') {
             if buffer[done] == b'{' {
-                let artefact = ::serde_json::from_reader::<_, CargoCompilerArtefact>(&buffer[done..done+eol])?;
-                if artefact.profile.test {
-                    let exe_path = Path::new(&artefact.filenames[0]);
-                    let mut source:&Path = artefact.target.src_path.as_path();
-                    while !source.join("Cargo.toml").exists() {
-                        source = source.parent().ok_or("no Cargo.toml found in package")?
+                if let Ok(artefact) = ::serde_json::from_reader::<_, CargoCompilerArtefact>(&buffer[done..done+eol]) {
+                    if artefact.profile.test {
+                        let exe_path = Path::new(&artefact.filenames[0]);
+                        let mut source:&Path = artefact.target.src_path.as_path();
+                        while !source.join("Cargo.toml").exists() {
+                            source = source.parent().ok_or("no Cargo.toml found in package")?
+                        }
+                        runnables.push(Runnable {
+                            id: exe_path.file_name().ok_or("test executable can not be a dir")?.to_string_lossy().to_string(),
+                            exe: exe_path.to_owned(),
+                            src: source.to_path_buf(),
+                        });
                     }
-                    runnables.push(Runnable {
-                        id: exe_path.file_name().ok_or("test executable can not be a dir")?.to_string_lossy().to_string(),
-                        exe: exe_path.to_owned(),
-                        src: source.to_path_buf(),
-                    });
+                    artefacts.push(artefact);
+                    {
+                        let f = fs::File::create(&artefacts_metadata_tmp)?;
+                        ::serde_json::to_writer(f, &artefacts)?;
+                    }
+                    fs::rename(&artefacts_metadata_tmp, &artefacts_metadata)?;
                 }
-                artefacts.push(artefact);
-                {
-                    let f = fs::File::create(&artefacts_metadata_tmp)?;
-                    ::serde_json::to_writer(f, &artefacts)?;
-                }
-                fs::rename(&artefacts_metadata_tmp, &artefacts_metadata)?;
             } else {
                 io::stdout().write_all(&buffer[done..done+eol+1])?;
                 io::stdout().flush()?;
@@ -124,7 +132,7 @@ pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<
 
 pub fn restore_artefacts_metadata() -> Result<Vec<CargoCompilerArtefact>> {
     use std::io::Read;
-    let artefacts_metadata = project_root()?.join("target").join("cargo-dinghy-current");
+    let artefacts_metadata = project_root()?.join("target").join("cargo-dinghy-current.json");
     let f = fs::File::open(&artefacts_metadata)?;
     Ok(::serde_json::from_reader(f)?)
 }
