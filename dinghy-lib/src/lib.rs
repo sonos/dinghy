@@ -69,6 +69,7 @@ use errors::*;
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum CompileMode { Bench, Test, Build }
 
+#[derive(Debug)]
 pub struct Dinghy {
     devices: Vec<Arc<Box<Device>>>,
     platforms: Vec<(String, Arc<Box<Platform>>)>,

@@ -24,63 +24,18 @@ use std::ffi::{ OsStr, OsString };
 use std::sync::Arc;
 use ErrorKind;
 
-/*
-#[derive(Debug)]
-pub struct Matches<'a> {
-    pub dinghy: ArgMatches<'a>,
-    pub raw_subcommand: Vec<&'a OsStr>,
-    pub cargo: ArgMatches<'a>,
-}
-
-impl<'a> Matches<'a> {
-    pub fn parse<I>(args: I) -> Matches<'a>
-        where I: IntoIterator<Item=&'a OsStr> {
-        let filtered_args = args.into_iter()
-            .enumerate()
-            .filter(|&(ix, ref s)| !(ix == 1 && *s == "dinghy"))
-            .map(|pair| pair.1);
-        let (dinghy, raw_subcommand) = CargoDinghyCli::parse_dinghy_args(filtered_args);
-        if raw_subcommand.len() == 0 {
-            panic!("expected subcommand, none found")
-        }
-        let mut cargo_args:Vec<&OsStr> = vec!(raw_subcommand[0]);
-        cargo_args.extend(raw_subcommand.iter());
-        let cargo = CargoDinghyCli::parse_subcommands(cargo_args.into_iter());
-        Matches {
-            dinghy,
-            raw_subcommand,
-            cargo,
-        }
-    }
-}
-*/
-
-fn init_logger(matches: &ArgMatches) {
-    if env::var("RUST_LOG").is_err() {
-        let dinghy_verbosity = match matches.occurrences_of("VERBOSE") as isize - matches.occurrences_of("QUIET") as isize {
-            -2 => "error",
-            -1 => "warn",
-            0 => "info",
-            1 => "debug",
-            _ => "trace",
-        };
-        env::set_var("RUST_LOG", format!("cargo_dinghy={},dinghy={}", dinghy_verbosity, dinghy_verbosity));
-    };
-    pretty_env_logger::init();
-}
-
 fn main() {
     let owned_args:Vec<OsString> = env::args_os().collect();
     let mut args:Vec<&OsStr> = owned_args.iter().map(|s| s.as_os_str()).collect();
     if args[1] == "dinghy" {
         args.remove(1);
     }
-    let result = if args[1] == "runner" {
-        runner(&args)
-    } else {
-        cargo(&args)
+    let result = match args[1].to_str() {
+        Some("runner") => runner(&args),
+        Some("all-devices") => show_all_devices(&args),
+        Some("all-platforms") => show_all_platforms(&args),
+        _ => cargo(&args),
     };
-
     if let Err(e) = result {
         match e.kind() {
             &ErrorKind::PackagesCannotBeCompiledForPlatform(_) => {
@@ -119,6 +74,21 @@ fn declare_common_args<'a, 'b>(app: clap::App<'a, 'b>) -> clap::App<'a, 'b> {
         .help("Lower the level of verbosity"))
 }
 
+fn init_logger(matches: &ArgMatches) {
+    if env::var("RUST_LOG").is_err() {
+        let dinghy_verbosity = match matches.occurrences_of("VERBOSE") as isize - matches.occurrences_of("QUIET") as isize {
+            -2 => "error",
+            -1 => "warn",
+            0 => "info",
+            1 => "debug",
+            _ => "trace",
+        };
+        env::set_var("RUST_LOG", format!("cargo_dinghy={},dinghy={}", dinghy_verbosity, dinghy_verbosity));
+    };
+    pretty_env_logger::init();
+}
+
+#[derive(Debug)]
 struct DinghyCtxt {
     dinghy: dinghy_lib::Dinghy,
     conf: Arc<dinghy_lib::config::Configuration>,
@@ -131,15 +101,19 @@ struct DinghyCtxt {
 
 impl DinghyCtxt {
     pub fn new(args: &[&OsStr]) -> Result<DinghyCtxt> {
+        // try the longest argument string that we can match
+        let cargo_sub_len = (0..args.len()).filter_map(|i| {
+            use std::error::Error;
+            let args = args[0..args.len()-i].to_vec();
+            let app = clap::App::new("cargo dinghy");
+            let mut app = declare_common_args(app);
+            match app.get_matches_from_safe_borrow(&args) {
+                Ok(_) => Some(i),
+                Err(e) => None,
+            }
+        }).next();
         let app = clap::App::new("cargo dinghy");
         let mut app = declare_common_args(app);
-        // try the longest argument string that we can match
-        let cargo_sub_len = (0..args.len()).filter_map(|i|
-            match app.get_matches_from_safe_borrow(&args[0..args.len()-i]) {
-                Ok(matches) => Some(i),
-                Err(_) => None,
-            }
-        ).next();
         let (matches, dinghy_arg_len) = if let Some(i) = cargo_sub_len {
             let dinghy_arg_len = args.len() - i;
             (app.get_matches_from(&args[0..dinghy_arg_len]), dinghy_arg_len)
@@ -183,9 +157,11 @@ fn cargo(args:&[&OsStr]) -> Result<()> {
 }
 
 fn runner(args:&[&OsStr]) -> Result<()> {
-    let ctx = DinghyCtxt::new(args)?;
-
+    let ctx = DinghyCtxt::new(&args[1..])?;
     let device = ctx.device.ok_or("No device found")?;
+
+    info!("Targeting platform '{}' and device '{:?}'",
+          ctx.platform.id(), device);
 
     /*
     let args = arg_as_string_vec(&matches, "ARGS");
@@ -198,7 +174,7 @@ fn runner(args:&[&OsStr]) -> Result<()> {
     // FIXME
     let envs = vec!();
 //    let envs = envs.iter().map(|s| &s[..]).collect::<Vec<_>>();
-    info!("Runner called for {:?}", exe);
+    info!("Runner {:?} on {}", exe, device);
     let artefacts = dinghy_lib::cargo::restore_artefacts_metadata()?;
     let artefact = artefacts.into_iter()
         .find(|art| art.filenames.iter().any(|f| path::Path::new(f).file_name() == exe.file_name()))
@@ -263,13 +239,15 @@ fn run_lldb(device: Option<Arc<Box<Device>>>) -> Result<()> {
     }
 }
 
-fn show_all_devices(dinghy: &Dinghy) -> Result<()> {
+fn show_all_devices(args:&[&OsStr]) -> Result<()> {
+    let ctx = DinghyCtxt::new(args)?;
     println!("List of available devices for all platforms:");
-    show_devices(&dinghy, None)
+    show_devices(&ctx.dinghy, None)
 }
 
-fn show_all_platforms(dinghy: &Dinghy) -> Result<()> {
-    for pf in dinghy.platforms() {
+fn show_all_platforms(args:&[&OsStr]) -> Result<()> {
+    let ctx = DinghyCtxt::new(args)?;
+    for pf in ctx.dinghy.platforms() {
         println!("* {} {}", pf.id(), pf.rustc_triple().map(|s| format!("({})", s)).unwrap_or("".to_string()));
     }
     Ok(())
