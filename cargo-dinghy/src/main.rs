@@ -155,7 +155,9 @@ fn cargo(args:&[&OsStr]) -> Result<()> {
           ctx.platform.id(), ctx.device.as_ref().map(|it| it.id()).unwrap_or("<none>"));
 
     { // scope file, it must be closed before the build 
-        let run_env_file = ::dinghy_lib::utils::project_root()?.join("target").join("cargo-dinghy-run-env");
+        let target = ::dinghy_lib::utils::project_root()?.join("target");
+        std::fs::create_dir_all(&target)?;
+        let run_env_file = target.join("cargo-dinghy-run-env");
         let mut run_env_file = std::fs::File::create(run_env_file)?;
         for env in ctx.envs {
             write!(run_env_file, "{}", env);
