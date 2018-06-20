@@ -154,12 +154,13 @@ fn cargo(args:&[&OsStr]) -> Result<()> {
     info!("Targeting platform '{}' and device '{}'",
           ctx.platform.id(), ctx.device.as_ref().map(|it| it.id()).unwrap_or("<none>"));
 
-    let run_env_file = ::dinghy_lib::utils::project_root()?.join("target").join("cargo-dinghy-run-env");
-    let mut run_env_file = std::fs::File::create(run_env_file)?;
-    for env in ctx.envs {
-        write!(run_env_file, "{}", env);
+    { // scope file, it must be closed before the build 
+        let run_env_file = ::dinghy_lib::utils::project_root()?.join("target").join("cargo-dinghy-run-env");
+        let mut run_env_file = std::fs::File::create(run_env_file)?;
+        for env in ctx.envs {
+            write!(run_env_file, "{}", env);
+        }
     }
-
 
     let build_args = BuildArgs {
         cargo_args: ctx.args,
