@@ -33,9 +33,19 @@ pub struct CargoCompilerArtefactProfile {
     test: bool
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CargoCompilerMessage {
+    message: CargoCompilerMessageMessage
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CargoCompilerMessageMessage {
+    rendered: String
+}
+
 pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<String,Option<String>>) -> Result<Build> {
     use std::io::Read;
-    let artefacts_metadata = project_root()?.join("target").join("cargo-dinghy-current.json");
+    let artefacts_metadata = project_root()?.join("target").join("cargo-dinghy-current-artefacts.json");
     let artefacts_metadata_tmp = artefacts_metadata.clone().with_extension("tmp");
     let mut cargo = process::Command::new("cargo");
     cargo.arg(&build_args.cargo_args[0]).arg("--message-format=json");
@@ -83,7 +93,8 @@ pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<
         let mut done = 0;
         while let Some(eol) = buffer[done..].iter().position(|&c| c == b'\n') {
             if buffer[done] == b'{' {
-                if let Ok(artefact) = ::serde_json::from_reader::<_, CargoCompilerArtefact>(&buffer[done..done+eol]) {
+                let line = &buffer[done..done+eol];
+                if let Ok(artefact) = ::serde_json::from_reader::<_, CargoCompilerArtefact>(line) {
                     if artefact.profile.test {
                         let exe_path = Path::new(&artefact.filenames[0]);
                         let mut source:&Path = artefact.target.src_path.as_path();
@@ -102,7 +113,10 @@ pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<
                         ::serde_json::to_writer(f, &artefacts)?;
                     }
                     fs::rename(&artefacts_metadata_tmp, &artefacts_metadata)?;
-                }
+                } else if let Ok(message) = ::serde_json::from_reader::<_, CargoCompilerMessage>(line) {
+                    io::stdout().write_all(message.message.rendered.as_bytes())?;
+                    io::stdout().flush()?;
+            }
             } else {
                 io::stdout().write_all(&buffer[done..done+eol+1])?;
                 io::stdout().flush()?;
@@ -132,7 +146,7 @@ pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<
 
 pub fn restore_artefacts_metadata() -> Result<Vec<CargoCompilerArtefact>> {
     use std::io::Read;
-    let artefacts_metadata = project_root()?.join("target").join("cargo-dinghy-current.json");
+    let artefacts_metadata = project_root()?.join("target").join("cargo-dinghy-current-artefacts.json");
     let f = fs::File::open(&artefacts_metadata)?;
     Ok(::serde_json::from_reader(f)?)
 }

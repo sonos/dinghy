@@ -119,10 +119,10 @@ impl Device for IosDevice {
         unimplemented!()
     }
 
-    fn debug_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv, args: &[&str], envs: &[&str]) -> Result<()> {
+    fn debug_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv) -> Result<()> {
         let build_bundle = self.install_app(project, run_env, runnable)?;
         let lldb_proxy = self.start_remote_lldb()?;
-        run_remote(self.ptr, &lldb_proxy, &build_bundle.bundle_dir, args, true)?;
+        run_remote(self.ptr, &lldb_proxy, &build_bundle.bundle_dir, &run_env.args, true)?;
         Ok(())
     }
 
@@ -134,10 +134,10 @@ impl Device for IosDevice {
         &self.name
     }
 
-    fn run_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv, args: &[&str], envs: &[&str]) -> Result<()> {
+    fn run_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv) -> Result<()> {
         let build_bundle = self.install_app(&project, run_env, runnable)?;
         let lldb_proxy = self.start_remote_lldb()?;
-        run_remote(self.ptr, &lldb_proxy, &build_bundle.bundle_dir, args, false)?;
+        run_remote(self.ptr, &lldb_proxy, &build_bundle.bundle_dir, &run_env.args, false)?;
         Ok(())
     }
 
@@ -183,7 +183,7 @@ impl Device for IosSimDevice {
         unimplemented!()
     }
 
-    fn debug_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv, args: &[&str], envs: &[&str]) -> Result<()> {
+    fn debug_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv) -> Result<()> {
         let build_bundle = self.install_app(project, run_env, runnable)?;
         let install_path = String::from_utf8(
             process::Command::new("xcrun")
@@ -191,7 +191,7 @@ impl Device for IosSimDevice {
                 .output()?
                 .stdout,
         )?;
-        launch_lldb_simulator(&self, &install_path, args, true)?;
+        launch_lldb_simulator(&self, &install_path, &run_env.args, true)?;
         Ok(())
     }
 
@@ -203,7 +203,7 @@ impl Device for IosSimDevice {
         &self.name
     }
 
-    fn run_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv, args: &[&str], envs: &[&str]) -> Result<()> {
+    fn run_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv) -> Result<()> {
         let build_bundle = self.install_app(&project, &run_env, &runnable)?;
         let install_path = String::from_utf8(
             process::Command::new("xcrun")
@@ -211,7 +211,7 @@ impl Device for IosSimDevice {
                 .output()?
                 .stdout,
         )?;
-        launch_lldb_simulator(&self, &install_path, args, false)?;
+        launch_lldb_simulator(&self, &install_path, &run_env.args, false)?;
         Ok(())
     }
 
@@ -635,7 +635,7 @@ fn launch_lldb_device<P: AsRef<Path>, P2: AsRef<Path>>(
     proxy: &str,
     local: P,
     remote: P2,
-    args: &[&str],
+    args: &Vec<String>,
     debugger: bool,
 ) -> Result<()> {
     use std::process::Command;
@@ -701,7 +701,7 @@ fn launch_lldb_device<P: AsRef<Path>, P2: AsRef<Path>>(
 fn launch_lldb_simulator(
     dev: &IosSimDevice,
     installed: &str,
-    args: &[&str],
+    args: &Vec<String>,
     debugger: bool,
 ) -> Result<()> {
     use std::process::Command;
@@ -750,7 +750,7 @@ pub fn run_remote<P: AsRef<Path>>(
     dev: *const am_device,
     lldb_proxy: &str,
     app_path: P,
-    args: &[&str],
+    args: &Vec<String>,
     debugger: bool,
 ) -> Result<()> {
     let _session = ensure_session(dev)?;

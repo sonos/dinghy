@@ -100,7 +100,7 @@ impl Device for SshDevice {
         Ok(())
     }
 
-    fn debug_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv, args: &[&str], envs: &[&str]) -> Result<()> {
+    fn debug_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv) -> Result<()> {
         unimplemented!()
     }
 
@@ -112,15 +112,15 @@ impl Device for SshDevice {
         &self.id
     }
 
-    fn run_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv, args: &[&str], envs: &[&str]) -> Result<()> {
-        let args:Vec<String> = args.iter().map(|&a| ::shell_escape::escape(a.into()).to_string()).collect();
+    fn run_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv) -> Result<()> {
+        let args:Vec<String> = run_env.args.iter().map(|a| ::shell_escape::escape(a.to_string().into()).to_string()).collect();
         info!("Install {:?}", runnable.id);
         let (build_bundle, remote_bundle) = self.install_app(&project, runnable, run_env)?;
         debug!("Installed {:?}", runnable.id);
         let command = format!(
             "cd '{}' ; {} RUST_BACKTRACE=1 DINGHY=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {} {}",
             path_to_str(&remote_bundle.bundle_dir)?,
-            envs.join(" "),
+            run_env.envs.join(" "),
             path_to_str(&remote_bundle.lib_dir)?,
             path_to_str(&remote_bundle.bundle_exe)?,
             if run_env.compile_mode == ::CompileMode::Bench { "--bench" } else { "" },

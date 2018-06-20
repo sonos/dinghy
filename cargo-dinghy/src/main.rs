@@ -72,6 +72,12 @@ fn declare_common_args<'a, 'b>(app: clap::App<'a, 'b>) -> clap::App<'a, 'b> {
         .long("quiet")
         .multiple(true)
         .help("Lower the level of verbosity"))
+    .arg(Arg::with_name("ENVS")
+        .long("env")
+        .takes_value(true)
+        .multiple(true)
+        .number_of_values(1)
+        .help("env variable to set e.g. RUST_TRACE=trace"))
 }
 
 fn init_logger(matches: &ArgMatches) {
@@ -97,6 +103,7 @@ struct DinghyCtxt {
     device: Option<Arc<Box<Device>>>,
     verbose: bool,
     args: Vec<String>,
+    envs: Vec<String>,
 }
 
 impl DinghyCtxt {
@@ -135,16 +142,24 @@ impl DinghyCtxt {
             platform,
             device,
             args: args[dinghy_arg_len..].iter().map(|s| s.to_str().expect("could not convert arg to string (utf-8 ?)").to_string()).collect(),
+            envs: arg_as_string_vec(&matches, "ENVS"),
         })
     }
 }
 
-
 fn cargo(args:&[&OsStr]) -> Result<()> {
+    use std::io::Write;
     let ctx = DinghyCtxt::new(args)?;
 
     info!("Targeting platform '{}' and device '{}'",
           ctx.platform.id(), ctx.device.as_ref().map(|it| it.id()).unwrap_or("<none>"));
+
+    let run_env_file = ::dinghy_lib::utils::project_root()?.join("target").join("cargo-dinghy-run-env");
+    let mut run_env_file = std::fs::File::create(run_env_file)?;
+    for env in ctx.envs {
+        write!(run_env_file, "{}", env);
+    }
+
 
     let build_args = BuildArgs {
         cargo_args: ctx.args,
@@ -157,23 +172,24 @@ fn cargo(args:&[&OsStr]) -> Result<()> {
 }
 
 fn runner(args:&[&OsStr]) -> Result<()> {
+    use std::io::BufRead;
     let ctx = DinghyCtxt::new(&args[1..])?;
     let device = ctx.device.ok_or("No device found")?;
 
     info!("Targeting platform '{}' and device '{:?}'",
           ctx.platform.id(), device);
 
-    /*
-    let args = arg_as_string_vec(&matches, "ARGS");
-    let envs = arg_as_string_vec(&matches, "ENVS");
-    */
+    let run_env_file = ::dinghy_lib::utils::project_root()?.join("target").join("cargo-dinghy-run-env");
+    let run_env_file = std::fs::File::open(run_env_file)?;
+    let run_env_file = std::io::BufReader::new(run_env_file);
+    let mut envs = vec!();
+    for line in run_env_file.lines() {
+        envs.push(line?);
+    }
 
     let double_dash = args.iter().position(|a| a.to_str() == Some("--")).ok_or("Could not find -- in command line")?;
     let exe = path::PathBuf::from(args[double_dash+1]);
-    let args:Vec<_> = args[double_dash+2..].iter().map(|s| s.to_str().expect("could not convert arg to string (utf-8 ?)")).collect();
-    // FIXME
-    let envs = vec!();
-//    let envs = envs.iter().map(|s| &s[..]).collect::<Vec<_>>();
+    let args:Vec<_> = args[double_dash+2..].iter().map(|s| s.to_str().expect("could not convert arg to string (utf-8 ?)").to_string()).collect();
     info!("Runner {:?} on {}", exe, device);
     let artefacts = dinghy_lib::cargo::restore_artefacts_metadata()?;
     let artefact = artefacts.into_iter()
@@ -194,8 +210,10 @@ fn runner(args:&[&OsStr]) -> Result<()> {
             compile_mode: dinghy_lib::CompileMode::Test,
             rustc_triple: ctx.platform.rustc_triple().map(|s| s.to_string()),
             dynamic_libraries: vec!(), // FIXME
+            args,
+            envs,
         };
-        device.run_app(&ctx.project, &runnable, &run_env, &args, &*envs)?;
+        device.run_app(&ctx.project, &runnable, &run_env)?;
 //    };
 
     // FIXME

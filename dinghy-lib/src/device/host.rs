@@ -72,7 +72,7 @@ impl Device for HostDevice {
         Ok(())
     }
 
-    fn debug_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv, args: &[&str], envs: &[&str]) -> Result<()> {
+    fn debug_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv) -> Result<()> {
         unimplemented!()
     }
 
@@ -84,17 +84,20 @@ impl Device for HostDevice {
         "host device"
     }
 
-    fn run_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv, args: &[&str], envs: &[&str]) -> Result<()> {
+    fn run_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv) -> Result<()> {
         let installed = self.install_app(project, runnable, run_env)?;
         info!("Run {} ({:?})", runnable.id, run_env.compile_mode);
 
         let mut cmd = ::std::process::Command::new(&installed.bundle_exe);
         cmd.current_dir(installed.bundle_dir);
-        for (env_key, env_value) in envs.iter().tuples() {
-            cmd.env(env_key, env_value);
+        for pair in run_env.envs.iter() {
+            let mut tokens = pair.split("=");
+            let k = tokens.next().ok_or("malformed saved environment")?;
+            let v = tokens.next().ok_or("malformed saved environment")?;
+            cmd.env(k, v);
         }
         cmd.env("DINGHY", "1");
-        cmd.args(args);
+        cmd.args(&run_env.args);
         let status = cmd.status()?;
         if !status.success() {
             Err(status)?

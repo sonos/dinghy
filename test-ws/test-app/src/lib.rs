@@ -10,6 +10,9 @@ mod tests {
         use std::path;
 
         #[test]
+        fn it_works() {}
+
+        #[test]
         fn it_finds_source_files() {
             println!("pwd: {:?}", ::std::env::current_dir());
             println!("test_project_path: {:?}", test_project_path());
@@ -46,8 +49,14 @@ mod tests {
             );
         }
 
+
+    }
+
+    mod env {
         #[test]
-        fn it_works() {}
+        fn it_receives_env_vars() {
+            assert_eq!(::std::env::var("TEST_ME").unwrap(), "TEST_ME");
+        }
     }
 
     mod fails {

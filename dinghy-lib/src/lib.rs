@@ -187,8 +187,8 @@ pub trait Device: std::fmt::Debug + Display + DeviceCompatibility {
 
     fn name(&self) -> &str;
 
-    fn debug_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv, args: &[&str], envs: &[&str]) -> Result<()>;
-    fn run_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv, args: &[&str], envs: &[&str]) -> Result<()>;
+    fn debug_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv) -> Result<()>;
+    fn run_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv) -> Result<()>;
 
     fn start_remote_lldb(&self) -> Result<String>;
 }
@@ -244,6 +244,8 @@ pub struct RunEnv {
     pub compile_mode: CompileMode,
     pub rustc_triple: Option<String>,
     pub dynamic_libraries: Vec<PathBuf>,
+    pub args: Vec<String>,
+    pub envs: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
