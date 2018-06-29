@@ -14,6 +14,8 @@ extern crate ignore;
 extern crate isatty;
 extern crate itertools;
 extern crate json;
+#[macro_use]
+extern crate lazy_static;
 #[cfg(target_os = "macos")]
 extern crate libc;
 #[macro_use]

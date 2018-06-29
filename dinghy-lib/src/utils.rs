@@ -135,7 +135,21 @@ pub fn create_shim<P: AsRef<Path>>(
     Ok(shim)
 }
 
+pub fn cargo_metadata<'a>() -> Result<&'a ::cargo_metadata::Metadata> {
+    use std::sync::{Once, ONCE_INIT};
+    unsafe {
+        static START: Once = ONCE_INIT;
+        static mut IT: Option<::std::result::Result<::cargo_metadata::Metadata, String>> = None;
+
+        START.call_once(|| {
+            IT = Some(::cargo_metadata::metadata(None)
+                      .map_err(|e| format!("Can not read cargo metadata: {}", e)));
+        });
+
+        Ok(IT.as_ref().unwrap().as_ref().map_err(|s| s.clone())?)
+    }
+}
+
 pub fn project_root() -> Result<PathBuf> {
-    let workspace = ::cargo_metadata::metadata(None)?;
-    Ok(workspace.workspace_root.into())
+    Ok(PathBuf::from(cargo_metadata()?.workspace_root.clone()))
 }
