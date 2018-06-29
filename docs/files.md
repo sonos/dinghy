@@ -9,7 +9,7 @@ So, the tests are "bundled" in the following way:
 * root dinghy test directory
     * test_executable
     * recursive copy of the not-ignorable files and directories from your projects
-    * test_data is contains configurable data to be sent to the device
+    * test_data contains configurable data to be sent to the device
         * some_file
         * some_dir
 
@@ -26,7 +26,7 @@ extern crate dinghy_test;
 mod tests {
     #[test]
     fn my_test() {
-        let my_file_path = dinghy_test::test_project_path().join(("tests/data_1.txt");
+        let my_file_path = dinghy_test::test_project_path().join("tests/data_1.txt");
         // ...
     }
 }
