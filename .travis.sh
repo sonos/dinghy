@@ -75,12 +75,12 @@ then
 fi
 
 
-# Test from workspace root with project filter
+# Test standalone project
 ( \
-    cd test-ws \
+    cd test-nows \
     && cargo clean \
-    && $CARGO_DINGHY test -p test-app pass \
-    && ! $CARGO_DINGHY test -p test-app fails \
+    && $CARGO_DINGHY test pass \
+    && ! $CARGO_DINGHY test fails \
 )
 echo "##"
 echo "## latest failure was expected ##"
@@ -91,8 +91,8 @@ then
     ( \
         cd test-ws \
         && cargo clean \
-        && $CARGO_DINGHY --platform 'ios-x86_64' test -p test-app pass \
-        && ! $CARGO_DINGHY --platform 'ios-x86_64' test -p test-app fails \
+        && $CARGO_DINGHY --platform 'ios-x86_64' test pass \
+        && ! $CARGO_DINGHY --platform 'ios-x86_64' test fails \
     )
     echo "##"
     echo "## latest failure was expected ##"
