@@ -81,7 +81,7 @@ pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<
         };
         debug!("Target filtered projects {:?}", packages_to_build);
         for p in packages_to_build {
-            if build_args.excludes.contains(p) {
+            if !build_args.excludes.contains(p) {
                 cargo.arg("-p").arg(p);
             }
         }
@@ -111,6 +111,8 @@ pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<
             None => cargo.env_remove(k),
         };
     }
+
+    debug!("Invoke Cargo: {:?}", cargo);
 
     let process = PtyProcess::new(cargo)?;
     let mut f = process.get_file_handle();
