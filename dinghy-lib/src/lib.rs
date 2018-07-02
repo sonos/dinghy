@@ -256,6 +256,7 @@ pub struct BuildArgs {
 //    pub compile_mode: CompileMode,
     pub verbose: bool,
     pub all: bool,
+    pub excludes: Vec<String>,
     pub forced_overlays: Vec<String>,
     #[serde(skip)] // FIXME
     pub device: Option<Arc<Box<Device>>>,

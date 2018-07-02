@@ -74,6 +74,12 @@ fn declare_common_args<'a, 'b>(app: clap::App<'a, 'b>) -> clap::App<'a, 'b> {
     .arg(Arg::with_name("ALL")
         .long("all")
         .help("Build/test/bench all packages, filtered by Cargo.toml dinghy metadata"))
+    .arg(Arg::with_name("EXCLUDE")
+        .long("exclude")
+        .takes_value(true)
+        .multiple(true)
+        .number_of_values(1)
+        .help("exclude projects from build"))
     .arg(Arg::with_name("ENVS")
         .long("env")
         .takes_value(true)
@@ -107,6 +113,7 @@ struct DinghyCtxt {
     args: Vec<String>,
     envs: Vec<String>,
     all: bool,
+    excludes: Vec<String>,
 }
 
 impl DinghyCtxt {
@@ -146,6 +153,7 @@ impl DinghyCtxt {
             args: args[dinghy_arg_len..].iter().map(|s| s.to_str().expect("could not convert arg to string (utf-8 ?)").to_string()).collect(),
             envs: arg_as_string_vec(&matches, "ENVS"),
             all: matches.is_present("ALL"),
+            excludes: matches.values_of("EXCLUDE").map(|vs| vs.map(|s| s.to_string()).collect()).unwrap_or(vec!()),
         })
     }
 }
@@ -170,6 +178,7 @@ fn cargo(args:&[&OsStr]) -> Result<()> {
     let build_args = BuildArgs {
         cargo_args: ctx.args,
         all: ctx.all,
+        excludes: ctx.excludes,
         verbose: ctx.verbose,
         forced_overlays: vec!(),
         device: ctx.device

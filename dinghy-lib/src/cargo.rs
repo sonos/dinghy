@@ -79,9 +79,11 @@ pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<
                 packages_to_build.push(&package.name)
             }
         };
-        debug!("Build projects {:?}", packages_to_build);
+        debug!("Target filtered projects {:?}", packages_to_build);
         for p in packages_to_build {
-            cargo.arg("-p").arg(p);
+            if build_args.excludes.contains(p) {
+                cargo.arg("-p").arg(p);
+            }
         }
     }
     if let Some(target) = rustc_triple {
