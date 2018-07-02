@@ -1,4 +1,3 @@
-#[macro_use]
 extern crate clap;
 extern crate dinghy_lib;
 extern crate error_chain;
@@ -8,7 +7,7 @@ extern crate log;
 extern crate pretty_env_logger;
 
 use clap::ArgMatches;
-use dinghy_lib::{ Build, BuildArgs, RunEnv };
+use dinghy_lib::BuildArgs;
 use dinghy_lib::config::dinghy_config;
 use dinghy_lib::Device;
 use dinghy_lib::Dinghy;
@@ -72,6 +71,9 @@ fn declare_common_args<'a, 'b>(app: clap::App<'a, 'b>) -> clap::App<'a, 'b> {
         .long("quiet")
         .multiple(true)
         .help("Lower the level of verbosity"))
+    .arg(Arg::with_name("ALL")
+        .long("all")
+        .help("Build/test/bench all packages, filtered by Cargo.toml dinghy metadata"))
     .arg(Arg::with_name("ENVS")
         .long("env")
         .takes_value(true)
@@ -104,23 +106,23 @@ struct DinghyCtxt {
     verbose: bool,
     args: Vec<String>,
     envs: Vec<String>,
+    all: bool,
 }
 
 impl DinghyCtxt {
     pub fn new(args: &[&OsStr]) -> Result<DinghyCtxt> {
         // try the longest argument string that we can match
         let cargo_sub_len = (0..args.len()).filter_map(|i| {
-            use std::error::Error;
             let args = args[0..args.len()-i].to_vec();
             let app = clap::App::new("cargo dinghy");
             let mut app = declare_common_args(app);
             match app.get_matches_from_safe_borrow(&args) {
                 Ok(_) => Some(i),
-                Err(e) => None,
+                Err(_) => None,
             }
         }).next();
         let app = clap::App::new("cargo dinghy");
-        let mut app = declare_common_args(app);
+        let app = declare_common_args(app);
         let (matches, dinghy_arg_len) = if let Some(i) = cargo_sub_len {
             let dinghy_arg_len = args.len() - i;
             (app.get_matches_from(&args[0..dinghy_arg_len]), dinghy_arg_len)
@@ -143,6 +145,7 @@ impl DinghyCtxt {
             device,
             args: args[dinghy_arg_len..].iter().map(|s| s.to_str().expect("could not convert arg to string (utf-8 ?)").to_string()).collect(),
             envs: arg_as_string_vec(&matches, "ENVS"),
+            all: matches.is_present("ALL"),
         })
     }
 }
@@ -154,18 +157,19 @@ fn cargo(args:&[&OsStr]) -> Result<()> {
     info!("Targeting platform '{}' and device '{}'",
           ctx.platform.id(), ctx.device.as_ref().map(|it| it.id()).unwrap_or("<none>"));
 
-    { // scope file, it must be closed before the build 
+    { // scope file, it must be closed before the build is started
         let target = ::dinghy_lib::utils::project_root()?.join("target");
         std::fs::create_dir_all(&target)?;
         let run_env_file = target.join("cargo-dinghy-run-env");
         let mut run_env_file = std::fs::File::create(run_env_file)?;
         for env in ctx.envs {
-            write!(run_env_file, "{}", env);
+            write!(run_env_file, "{}", env)?;
         }
     }
 
     let build_args = BuildArgs {
         cargo_args: ctx.args,
+        all: ctx.all,
         verbose: ctx.verbose,
         forced_overlays: vec!(),
         device: ctx.device

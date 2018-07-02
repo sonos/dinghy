@@ -89,7 +89,7 @@ echo "##"
 if [ `uname` = Darwin ]
 then
     ( \
-        cd test-ws \
+        cd test-nows \
         && cargo clean \
         && $CARGO_DINGHY --platform 'ios-x86_64' test pass \
         && ! $CARGO_DINGHY --platform 'ios-x86_64' test fails \
@@ -97,4 +97,20 @@ then
     echo "##"
     echo "## latest failure was expected ##"
     echo "##"
+fi
+
+# Test project filters
+( \
+    cd test-project-filter \
+    && cargo clean \
+    && $CARGO_DINGHY --all build
+)
+
+if [ `uname` = Darwin ]
+then
+    ( \
+        cd test-project-filter \
+        && cargo clean \
+        && $CARGO_DINGHY --platform 'ios-x86_64' --all build
+    )
 fi

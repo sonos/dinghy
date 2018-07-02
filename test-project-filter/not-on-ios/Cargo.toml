@@ -1,0 +1,9 @@
+[package]
+name = "not-on-ios"
+version = "0.1.0"
+authors = ["Mathieu Poumeyrol <kali@zoy.org>"]
+
+[dependencies]
+
+[package.metadata.dinghy]
+ignored_rustc_triples = ["aarch64-apple-ios", "armv7-apple-ios", "armv7s-apple-ios", "i386-apple-ios", "x86_64-apple-ios"]

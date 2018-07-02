@@ -43,12 +43,47 @@ pub struct CargoCompilerMessageMessage {
     rendered: String
 }
 
+#[derive(Clone, Debug, Default, Deserialize)]
+struct DinghyProjectMetadata {
+    #[serde(default)]
+    allowed_rustc_triples: HashSet<String>,
+    #[serde(default)]
+    ignored_rustc_triples: HashSet<String>,
+}
+
+impl DinghyProjectMetadata {
+    pub fn is_allowed_for(&self, rustc_triple: Option<&str>) -> bool {
+        (self.allowed_rustc_triples.is_empty()
+            || self.allowed_rustc_triples.contains(rustc_triple.unwrap_or("host")))
+            && (self.ignored_rustc_triples.is_empty()
+            || !self.ignored_rustc_triples.contains(rustc_triple.unwrap_or("host")))
+    }
+}
+
 pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<String,Option<String>>) -> Result<Build> {
     use std::io::Read;
     let artefacts_metadata = project_root()?.join("target").join("cargo-dinghy-current-artefacts.json");
     let artefacts_metadata_tmp = artefacts_metadata.clone().with_extension("tmp");
+    let workspace = ::utils::cargo_metadata()?;
     let mut cargo = process::Command::new("cargo");
     cargo.arg(&build_args.cargo_args[0]).arg("--message-format=json");
+    if build_args.all {
+        let mut packages_to_build = vec!();
+        for package in &workspace.packages {
+            if let Some(value) = package.metadata.get("dinghy") {
+                let value = ::serde_json::from_value::<DinghyProjectMetadata>(value.clone())?;
+                if value.is_allowed_for(rustc_triple) {
+                    packages_to_build.push(&package.name)
+                }
+            } else {
+                packages_to_build.push(&package.name)
+            }
+        };
+        debug!("Build projects {:?}", packages_to_build);
+        for p in packages_to_build {
+            cargo.arg("-p").arg(p);
+        }
+    }
     if let Some(target) = rustc_triple {
         cargo.arg("--target").arg(target);
         if let Some(dev) = build_args.device.as_ref() {
@@ -67,7 +102,6 @@ pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<
             Some(path.to_string_lossy().to_string())
         );
     }
-    let workspace = ::cargo_metadata::metadata(None)?;
     cargo.args(&build_args.cargo_args[1..]);
     for (k,v) in env {
         match v {

@@ -1,0 +1,9 @@
+[package]
+name = "test-project-filter"
+version = "0.1.0"
+authors = ["Mathieu Poumeyrol <kali@zoy.org>"]
+
+[workspace]
+members = ["not-on-ios"]
+
+[dependencies]
