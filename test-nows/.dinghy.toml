@@ -1,2 +1,3 @@
 [test_data]
 dinghy_source = ".."
+dinghy_license = { source = "../LICENSE", copy_git_ignored = true }
