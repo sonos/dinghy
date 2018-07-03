@@ -85,11 +85,15 @@ impl Device for HostDevice {
     }
 
     fn run_app(&self, project: &Project, runnable: &Runnable, run_env: &RunEnv) -> Result<()> {
-        let installed = self.install_app(project, runnable, run_env)?;
+        let mut cmd = if run_env.bundle {
+            let installed = self.install_app(project, runnable, run_env)?;
+            let mut cmd = ::std::process::Command::new(installed.bundle_exe);
+            cmd.current_dir(installed.bundle_dir);
+            cmd
+        } else {
+            ::std::process::Command::new(&runnable.exe)
+        };
         info!("Run {} ({:?})", runnable.id, run_env.compile_mode);
-
-        let mut cmd = ::std::process::Command::new(&installed.bundle_exe);
-        cmd.current_dir(installed.bundle_dir);
         for pair in run_env.envs.iter() {
             let mut tokens = pair.split("=");
             let k = tokens.next().ok_or("malformed saved environment")?;

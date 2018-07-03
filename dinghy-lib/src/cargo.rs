@@ -98,7 +98,10 @@ pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<
         }
     } else {
         let path = create_shim(project_root()?, "runner", "host", "runner", "runner", 
-                               &format!("{:?} runner -- {}", ::std::env::current_exe()?, GLOB_ARGS))?;
+                               &format!("{:?} runner {} -- {}",
+                                        ::std::env::current_exe()?,
+                                        if build_args.bundle { "--bundle" } else { "" },
+                                        GLOB_ARGS))?;
         env.insert(
             format!("CARGO_TARGET_{}_RUNNER", envify(::device::host::HOST_TRIPLE)),
             Some(path.to_string_lossy().to_string())
@@ -121,7 +124,7 @@ pub fn call(build_args: &BuildArgs, rustc_triple:Option<&str>, mut env: HashMap<
     let mut artefacts = vec!();
 
     loop {
-        let mut tmp = [0; 256];
+        let mut tmp = [0; 4096];
         let n = match f.read(&mut tmp) {
             Ok(0) => break,
             Ok(n) => n,

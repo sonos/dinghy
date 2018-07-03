@@ -246,6 +246,7 @@ pub struct RunEnv {
     pub compile_mode: CompileMode,
     pub rustc_triple: Option<String>,
     pub dynamic_libraries: Vec<PathBuf>,
+    pub bundle: bool,
     pub args: Vec<String>,
     pub envs: Vec<String>,
 }
@@ -256,6 +257,7 @@ pub struct BuildArgs {
 //    pub compile_mode: CompileMode,
     pub verbose: bool,
     pub all: bool,
+    pub bundle: bool,
     pub excludes: Vec<String>,
     pub forced_overlays: Vec<String>,
     #[serde(skip)] // FIXME
