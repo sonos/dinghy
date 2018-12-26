@@ -47,7 +47,7 @@ impl SshDevice {
         if let Some(port) = self.conf.port {
             command.arg("-p").arg(&format!("{}", port));
         }
-        if ::isatty::stdout_isatty() {
+        if atty::is(atty::Stream::Stdout) {
             command.arg("-t").arg("-o").arg("LogLevel=QUIET");
         }
         Ok(command)

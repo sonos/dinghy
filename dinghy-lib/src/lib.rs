@@ -1,3 +1,4 @@
+extern crate atty;
 extern crate cargo;
 extern crate clap;
 #[cfg(target_os = "macos")]
@@ -10,7 +11,6 @@ extern crate dirs;
 extern crate error_chain;
 extern crate filetime;
 extern crate ignore;
-extern crate isatty;
 extern crate itertools;
 extern crate json;
 #[cfg(target_os = "macos")]

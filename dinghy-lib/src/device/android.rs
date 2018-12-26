@@ -20,7 +20,6 @@ use DeviceCompatibility;
 use PlatformManager;
 use Runnable;
 
-
 static ANDROID_WORK_DIR: &str = "/data/local/tmp/dinghy";
 
 pub struct AndroidDevice {

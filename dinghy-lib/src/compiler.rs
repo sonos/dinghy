@@ -506,13 +506,13 @@ fn find_all_linked_library_names(compilation: &Compilation, build_args: &BuildAr
     }
 
     let linked_library_names =
-        Itertools::flatten(
             WalkDir::new(&compilation.root_output)
                 .into_iter()
                 .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
                 .filter(is_output_file)
                 .map(|output_file| CargoCoreCompiler::BuildOutput::parse_file(&output_file, "idontcare", &compilation.root_output, &compilation.root_output))
-                .flat_map(|build_output| build_output.map(|it| it.library_links)))
+                .flat_map(|build_output| build_output.map(|it| it.library_links))
+                .flatten()
             .map(|lib_name| lib_name.clone())
             .map(parse_lib_name)
             .chain(build_args.forced_overlays.clone())
