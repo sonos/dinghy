@@ -47,7 +47,7 @@ impl SshDevice {
         if let Some(port) = self.conf.port {
             command.arg("-p").arg(&format!("{}", port));
         }
-        if ::isatty::stdout_isatty() {
+        if atty::is(atty::Stream::Stdout) {
             command.arg("-t").arg("-o").arg("LogLevel=QUIET");
         }
         Ok(command)
@@ -124,7 +124,7 @@ impl Device for SshDevice {
                 envs.join(" "),
                 path_to_str(&remote_bundle.lib_dir)?,
                 path_to_str(&remote_bundle.bundle_exe)?,
-                if build.build_args.compile_mode == ::cargo::ops::CompileMode::Bench { "--bench" } else { "" },
+                if build.build_args.compile_mode == ::cargo::core::compiler::CompileMode::Bench { "--bench" } else { "" },
                 args.join(" ")
                 );
             trace!("Ssh command: {}", command);

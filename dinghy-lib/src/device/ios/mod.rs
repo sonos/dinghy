@@ -764,8 +764,7 @@ pub fn run_remote<P: AsRef<Path>>(
     debugger: bool,
 ) -> Result<()> {
     let _session = ensure_session(dev)?;
-    let plist_file = fs::File::open(app_path.as_ref().join("Info.plist"))?;
-    let plist = ::plist::Plist::read(plist_file)?;
+    let plist = plist::Value::from_file(app_path.as_ref().join("Info.plist"))?;
     let bundle_id = plist
         .as_dictionary()
         .and_then(|btreemap| btreemap.get("CFBundleIdentifier"))

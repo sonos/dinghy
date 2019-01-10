@@ -8,7 +8,7 @@ use itertools::Itertools;
 use project::Project;
 use std::io::Write;
 use std::path::PathBuf;
-use std::env::home_dir;
+use dirs::home_dir;
 use std::fs::create_dir_all;
 use std::fs::remove_dir_all;
 use std::fs::File;

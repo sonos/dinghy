@@ -1,5 +1,5 @@
 use errors::*;
-use std::{env, fs, io, process};
+use std::{fs, io, process};
 use std::io::Write;
 use super::{SignatureSettings, SigningIdentity};
 
@@ -122,8 +122,8 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
     debug!("signing identities: {:?}", identities);
     let mut settings = vec![];
     for file in fs::read_dir(
-        env::home_dir()
-            .unwrap()
+        dirs::home_dir()
+            .expect("can't get HOME dir")
             .join("Library/MobileDevice/Provisioning Profiles"),
     )? {
         let file = file?;
@@ -134,7 +134,7 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
             .arg("-i")
             .arg(file.path())
             .output()?;
-        let plist = ::plist::Plist::read(io::Cursor::new(&decoded.stdout))?;
+        let plist = plist::Value::from_reader(io::Cursor::new(&decoded.stdout))?;
         let dict = plist
             .as_dictionary()
             .ok_or("plist root should be a dictionary")?;
@@ -149,7 +149,7 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
         } else {
             Err("ProvisionedDevices expected to be array")?
         };
-        if !devices.contains(&::plist::Plist::String(device_id.into())) {
+        if !devices.contains(&plist::Value::String(device_id.into())) {
             debug!("  no device match in profile");
             continue;
         }

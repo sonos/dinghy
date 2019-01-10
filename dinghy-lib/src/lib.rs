@@ -1,3 +1,4 @@
+extern crate atty;
 extern crate cargo;
 extern crate clap;
 #[cfg(target_os = "macos")]
@@ -5,11 +6,11 @@ extern crate core_foundation;
 #[cfg(target_os = "macos")]
 extern crate core_foundation_sys;
 extern crate dinghy_build;
+extern crate dirs;
 #[macro_use]
 extern crate error_chain;
 extern crate filetime;
 extern crate ignore;
-extern crate isatty;
 extern crate itertools;
 extern crate json;
 #[cfg(target_os = "macos")]
@@ -52,7 +53,7 @@ use platform::host::HostPlatform;
 use platform::ios::IosPlatform;
 use platform::regular_platform::RegularPlatform;
 use project::Project;
-use std::env::home_dir;
+use dirs::home_dir;
 use std::fmt::Display;
 use std::path::Path;
 use std::path::PathBuf;

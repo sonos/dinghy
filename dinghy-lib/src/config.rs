@@ -187,7 +187,7 @@ pub fn dinghy_config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
         d = d.parent().unwrap();
     }
     files_to_try.push(d.join(".dinghy.toml"));
-    if let Some(home) = ::std::env::home_dir() {
+    if let Some(home) = dirs::home_dir() {
         if !dir.starts_with(&home) {
             files_to_try.push(home.join("dinghy.toml"));
             files_to_try.push(home.join(".dinghy.toml"));

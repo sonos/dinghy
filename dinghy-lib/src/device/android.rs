@@ -20,7 +20,6 @@ use DeviceCompatibility;
 use PlatformManager;
 use Runnable;
 
-
 static ANDROID_WORK_DIR: &str = "/data/local/tmp/dinghy";
 
 pub struct AndroidDevice {
@@ -150,7 +149,7 @@ impl Device for AndroidDevice {
                 envs.join(" "),
                 path_to_str(&remote_bundle.lib_dir)?,
                 path_to_str(&remote_bundle.bundle_exe)?,
-                if build.build_args.compile_mode == ::cargo::ops::CompileMode::Bench { "--bench" } else { "" },
+                if build.build_args.compile_mode == ::cargo::core::compiler::CompileMode::Bench { "--bench" } else { "" },
                 args.join(" "));
             info!("Run {} on {} ({:?})", runnable.id, self.id, build.build_args.compile_mode);
 

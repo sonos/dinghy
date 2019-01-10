@@ -2,14 +2,15 @@ extern crate cargo;
 
 use Build;
 use BuildArgs;
+use cargo::core::compiler as CargoCoreCompiler;
+use cargo::core::compiler::Compilation;
+pub use cargo::core::compiler::CompileMode;
+use cargo::core::compiler::MessageFormat;
 use cargo::core::Workspace;
 use cargo::ops as CargoOps;
 use cargo::ops::CleanOptions;
-use cargo::ops::Compilation;
 use cargo::ops::CompileFilter;
-pub use cargo::ops::CompileMode;
 use cargo::ops::CompileOptions;
-use cargo::ops::MessageFormat;
 use cargo::ops::Packages as CompilePackages;
 use cargo::ops::TestOptions;
 use cargo::util::config::Config as CompileConfig;
@@ -114,6 +115,7 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs
                          &None,
                          false,
                          false,
+                         &None,
                          &[])?;
         let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?,
                                        &config)?;
@@ -144,10 +146,18 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs
             (packages.clone(), excludes.clone())
         };
 
+        let build_config = CargoCoreCompiler::BuildConfig {
+            release,
+            message_format: MessageFormat::Human,
+            ..
+            CargoCoreCompiler::BuildConfig::new(&config,
+                                                jobs,
+                                                &rustc_triple.map(str::to_string), build_args.compile_mode)?
+        };
+
         let compile_options = CompileOptions {
             config: &config,
-            jobs,
-            target: rustc_triple.map(str::to_string),
+            build_config,
             features: features.clone(),
             all_features,
             no_default_features,
@@ -164,11 +174,10 @@ fn create_build_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs
                 benches.clone(), false,
                 false, // all_targets
             ),
-            release,
-            mode: build_args.compile_mode,
-            message_format: MessageFormat::Human,
             target_rustdoc_args: None,
             target_rustc_args: None,
+            export_dir: None,
+            local_rustdoc_args: None,
         };
 
         if bearded { setup_dinghy_wrapper(&workspace, rustc_triple)?; }
@@ -191,6 +200,7 @@ fn create_clean_command(matches: &ArgMatches) -> Box<Fn(Option<&str>) -> Result<
                          &None,
                          false,
                          false,
+                         &None,
                          &[])?;
         let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?,
                                        &config)?;
@@ -200,6 +210,7 @@ fn create_clean_command(matches: &ArgMatches) -> Box<Fn(Option<&str>) -> Result<
             release,
             spec: packages.clone(),
             target: rustc_triple.map(str::to_string),
+            doc: false,
         };
 
         CargoOps::clean(&workspace, &options)?;
@@ -239,6 +250,7 @@ fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs, 
                          &None,
                          false,
                          false,
+                         &None,
                          &[])?;
         let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?,
                                        &config)?;
@@ -250,10 +262,19 @@ fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs, 
                                      excludes.as_slice())
         } else { excludes.clone() };
 
+        let build_config = CargoCoreCompiler::BuildConfig {
+            release,
+            message_format: MessageFormat::Human,
+            ..
+            CargoCoreCompiler::BuildConfig::new(&config,
+                                                jobs,
+                                                &rustc_triple.map(str::to_string), build_args.compile_mode)?
+        };
+
+
         let compile_options = CompileOptions {
             config: &config,
-            jobs,
-            target: rustc_triple.map(str::to_string),
+            build_config,
             features: features.clone(),
             all_features,
             no_default_features,
@@ -270,18 +291,17 @@ fn create_run_command(matches: &ArgMatches) -> Box<Fn(Option<&str>, &BuildArgs, 
                 benches.clone(), false,
                 false, // all_targets
             ),
-            release,
-            mode: build_args.compile_mode,
-            message_format: MessageFormat::Human,
+
             target_rustdoc_args: None,
             target_rustc_args: None,
+            export_dir: None,
+            local_rustdoc_args: None,
         };
 
         let test_options = TestOptions {
             compile_opts: compile_options,
             no_run: false,
             no_fail_fast: false,
-            only_doc: false,
         };
 
         if bearded { setup_dinghy_wrapper(&workspace, rustc_triple)?; }
@@ -486,13 +506,13 @@ fn find_all_linked_library_names(compilation: &Compilation, build_args: &BuildAr
     }
 
     let linked_library_names =
-        Itertools::flatten(
             WalkDir::new(&compilation.root_output)
                 .into_iter()
                 .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
                 .filter(is_output_file)
-                .map(|output_file| CargoOps::BuildOutput::parse_file(&output_file, "idontcare", &compilation.root_output, &compilation.root_output))
-                .flat_map(|build_output| build_output.map(|it| it.library_links)))
+                .map(|output_file| CargoCoreCompiler::BuildOutput::parse_file(&output_file, "idontcare", &compilation.root_output, &compilation.root_output))
+                .flat_map(|build_output| build_output.map(|it| it.library_links))
+                .flatten()
             .map(|lib_name| lib_name.clone())
             .map(parse_lib_name)
             .chain(build_args.forced_overlays.clone())
