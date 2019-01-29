@@ -47,6 +47,7 @@ use device::android::AndroidManager;
 use device::host::HostManager;
 #[cfg(target_os = "macos")]
 use device::ios::IosManager;
+use device::script::ScriptDeviceManager;
 use device::ssh::SshDeviceManager;
 use platform::host::HostPlatform;
 #[cfg(target_os = "macos")]
@@ -76,6 +77,10 @@ impl Dinghy {
         if let Some(android) = AndroidManager::probe() {
             debug!("register AndroidManager");
             managers.push(Box::new(android))
+        }
+        if let Some(script) = ScriptDeviceManager::probe(conf.clone()) {
+            debug!("register ScriptDeviceManager");
+            managers.push(Box::new(script))
         }
         if let Some(ssh) = SshDeviceManager::probe(conf.clone()) {
             debug!("register SshDeviceManager");

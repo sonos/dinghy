@@ -51,7 +51,7 @@ impl Toolchain {
 
 #[derive(Clone, Debug)]
 pub struct ToolchainConfig {
-    pub bin: PathBuf,
+    pub bin_dir: PathBuf,
     pub root: PathBuf,
     pub rustc_triple: String,
     pub sysroot: PathBuf,
@@ -60,7 +60,7 @@ pub struct ToolchainConfig {
 
 impl ToolchainConfig {
     pub fn executable(&self, name_without_triple: &str) -> String {
-        self.bin
+        self.bin_dir
             .join(format!("{}-{}", self.toolchain_triple, name_without_triple))
             .to_string_lossy()
             .to_string()
@@ -103,7 +103,7 @@ impl ToolchainConfig {
         let root = wd_path.parent().ok_or("building at / ?")?;
         let shims_path = root.join("target").join(self.rustc_triple.as_str()).join(id);
 
-        for exe in self.bin.read_dir()? {
+        for exe in self.bin_dir.read_dir()? {
             let exe = exe?;
             let exe_file_name = exe.file_name();
             let exe_path = exe.path();

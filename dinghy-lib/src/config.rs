@@ -82,6 +82,7 @@ impl<'de> de::Deserialize<'de> for TestDataConfiguration {
 pub struct Configuration {
     pub platforms: collections::BTreeMap<String, PlatformConfiguration>,
     pub ssh_devices: collections::BTreeMap<String, SshDeviceConfiguration>,
+    pub script_devices: collections::BTreeMap<String, ScriptDeviceConfiguration>,
     pub test_data: Vec<TestData>,
 }
 
@@ -89,11 +90,13 @@ pub struct Configuration {
 struct ConfigurationFileContent {
     pub platforms: Option<collections::BTreeMap<String, PlatformConfiguration>>,
     pub ssh_devices: Option<collections::BTreeMap<String, SshDeviceConfiguration>>,
+    pub script_devices: Option<collections::BTreeMap<String, ScriptDeviceConfiguration>>,
     pub test_data: Option<collections::BTreeMap<String, TestDataConfiguration>>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
 pub struct PlatformConfiguration {
+    pub deb_multiarch: Option<String>,
     pub env: Option<collections::HashMap<String, String>>,
     pub overlays: Option<collections::HashMap<String, OverlayConfiguration>>,
     pub rustc_triple: Option<String>,
@@ -104,6 +107,7 @@ pub struct PlatformConfiguration {
 impl PlatformConfiguration {
     pub fn empty() -> Self {
         PlatformConfiguration {
+            deb_multiarch: None,
             env: None,
             overlays: None,
             rustc_triple: None,
@@ -138,6 +142,12 @@ pub struct SshDeviceConfiguration {
     pub platform: Option<String>,
 }
 
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct ScriptDeviceConfiguration {
+    pub path: String,
+    pub platform: Option<String>,
+}
+
 impl Configuration {
     pub fn merge(&mut self, file: &path::Path) -> Result<()> {
         let other = read_config_file(&file)?;
@@ -146,6 +156,8 @@ impl Configuration {
         }
         self.ssh_devices
             .extend(other.ssh_devices.unwrap_or(collections::BTreeMap::new()));
+        self.script_devices
+            .extend(other.script_devices.unwrap_or(collections::BTreeMap::new()));
         for (id, source) in other.test_data.unwrap_or(collections::BTreeMap::new()) { // TODO Remove key
             self.test_data.push(TestData {
                 id: id.to_string(),

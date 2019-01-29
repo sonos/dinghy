@@ -35,6 +35,20 @@ impl RegularPlatform {
                                id: String,
                                rustc_triple: String,
                                toolchain_path: P) -> Result<Box<Platform>> {
+        if let Some(prefix) = configuration.deb_multiarch.clone() {
+            return Ok(Box::new(RegularPlatform {
+                compiler: compiler.clone(),
+                configuration,
+                id,
+                toolchain: ToolchainConfig {
+                    bin_dir: "/usr/bin".into(),
+                    rustc_triple,
+                    root: "/".into(),
+                    sysroot: "/".into(),
+                    toolchain_triple: prefix.clone(),
+                },
+            }))
+        }
         let toolchain_path = toolchain_path.as_ref();
         let toolchain_bin_path = toolchain_path.join("bin");
 
@@ -54,7 +68,7 @@ impl RegularPlatform {
                 break;
             }
         }
-        let bin = bin.ok_or("no bin/*-gcc found in toolchain")?;
+        let bin_dir = bin.ok_or("no bin/*-gcc found in toolchain")?;
         let tc_triple = prefix.ok_or("no gcc in toolchain")?.to_string();
         let sysroot = find_sysroot(&toolchain_path)?;
 
@@ -63,7 +77,7 @@ impl RegularPlatform {
             configuration,
             id,
             toolchain: ToolchainConfig {
-                bin,
+                bin_dir,
                 rustc_triple,
                 root: toolchain_path.into(),
                 sysroot,
@@ -108,6 +122,7 @@ impl Platform for RegularPlatform {
         if Path::new(&self.toolchain.executable("gfortran")).exists() {
             self.toolchain.setup_tool("FC", &self.toolchain.executable("gfortran"))?;
         }
+        trace!("Setup linker...");
 
         let mut linker_cmd = self.toolchain.executable("gcc");
         linker_cmd.push_str(" ");
@@ -120,10 +135,14 @@ impl Platform for RegularPlatform {
         }
         self.toolchain.setup_linker(&self.id, &linker_cmd)?;
 
+        trace!("Setup pkg-config");
         self.toolchain.setup_pkg_config()?;
+        trace!("Setup sysroot...");
         self.toolchain.setup_sysroot();
+        trace!("Setup shims...");
         self.toolchain.shim_executables(&self.id)?;
 
+        trace!("Internally invoke cargo");
         self.compiler.build(self.rustc_triple(), &build_args)
     }
 

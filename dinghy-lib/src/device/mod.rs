@@ -10,6 +10,7 @@ pub mod android;
 pub mod host;
 #[cfg(target_os = "macos")]
 pub mod ios;
+pub mod script;
 pub mod ssh;
 
 
