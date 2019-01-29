@@ -57,7 +57,12 @@ impl Device for ScriptDevice {
                 .arg("run")
                 .arg(&bundle_exe_path)
                 .args(&args)
-//                .env(envs.iter().tuples())
+                .envs(envs
+                        .iter()
+                        .map(|kv| Ok((
+                            kv.split("=").nth(0).ok_or("Wrong env spec")?,
+                            kv.split("=").nth(1).ok_or("Wrong env spec")?
+                        ))).collect::<Result<Vec<_>>>()?)
                 .status()?;
             if !status.success() {
                 Err("Test failed")?
