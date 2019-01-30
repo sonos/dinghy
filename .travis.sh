@@ -99,7 +99,7 @@ then
     echo "##"
 fi
 
-if [ "$DEPLOY" == "true" ]
+if [ "$DEPLOY" = "true" ]
 then
     cargo build --release -p cargo-dinghy
     mkdir -p cargo-dinghy-travis
