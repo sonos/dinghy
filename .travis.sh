@@ -98,3 +98,11 @@ then
     echo "## latest failure was expected ##"
     echo "##"
 fi
+
+if [ "$DEPLOY" == "true" ]
+then
+    cargo build --release -p cargo-dinghy
+    mkdir -p cargo-dinghy-travis
+    cp target/release/cargo-dinghy cargo-dinghy-travis
+    tar vczf cargo-dinghy-travis.tgz cargo-dinghy-travis
+fi
