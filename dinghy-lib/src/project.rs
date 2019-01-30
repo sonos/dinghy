@@ -52,7 +52,7 @@ impl Project {
         })
     }
 
-    pub fn link_test_data<T: AsRef<Path>>(&self, runnable: &Runnable, app_path: T) -> Result<()> {
+    pub fn link_test_data<T: AsRef<Path>>(&self, runnable: &Runnable, app_path: T) -> Result<PathBuf> {
         let app_path = app_path.as_ref();
         let sub_project = self.for_runnable(runnable)?;
         let test_data_path = app_path.join("test_data");
@@ -70,7 +70,7 @@ impl Project {
             test_data_cfg.write_all(target_path.as_bytes())?;
             test_data_cfg.write_all(b"\n")?;
         }
-        Ok(())
+        Ok(test_data_path)
     }
 
     pub fn copy_test_data<T: AsRef<Path>>(&self, app_path: T) -> Result<()> {
