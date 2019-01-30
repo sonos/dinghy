@@ -9,25 +9,23 @@ pub struct ScriptDevice {
 }
 
 impl ScriptDevice {
-    fn command(&self) -> Result<process::Command> {
+    fn command(&self, build: &Build) -> Result<process::Command> {
         if fs::metadata(&self.conf.path).is_err() {
             bail!("Can not read {:?} for {}.", self.conf.path, self.id);
         }
         let mut cmd = process::Command::new(&self.conf.path);
-        cmd.arg(&self.id);
+        cmd.env("DINGHY_TEST_DATA", &*self.id);
+        cmd.env("DINGHY_DEVICE", &*self.id);
+        if let Some(ref pf) = self.conf.platform {
+            cmd.env("DINGHY_PLATFORM", &*pf);
+        }
+        cmd.env("DINGHY_COMPILE_MODE", &*format!("{:?}", build.build_args.compile_mode));
         Ok(cmd)
     }
 }
 
 impl Device for ScriptDevice {
-    fn clean_app(&self, build_bundle: &BuildBundle) -> Result<()> {
-        let status = self.command()?
-            .arg("clean")
-            .arg(&build_bundle.bundle_exe)
-            .status()?;
-        if !status.success() {
-            Err("clean fail.")?
-        }
+    fn clean_app(&self, _build_bundle: &BuildBundle) -> Result<()> {
         Ok(())
     }
 
@@ -46,17 +44,18 @@ impl Device for ScriptDevice {
     fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>> {
         let root_dir = build.target_path.join("dinghy");
         let mut build_bundles = vec![];
-        let args:Vec<String> = args.iter().map(|&a| ::shell_escape::escape(a.into()).to_string()).collect();
         for runnable in &build.runnables {
-            let bundle_path = root_dir.join(&runnable.id).clone();
+            let bundle_path = &runnable.source;
             let bundle_exe_path = build.target_path.join(&runnable.id);
 
-            project.link_test_data(&runnable, &bundle_path)?;
             trace!("About to start runner script...");
-            let status = self.command()?
-                .arg("run")
+            let test_data_path = project.link_test_data(&runnable, &bundle_path)?;
+
+            let status = self.command(build)?
                 .arg(&bundle_exe_path)
-                .args(&args)
+                .current_dir(&runnable.source)
+                .env("DINGHY_TEST_DATA_PATH", test_data_path)
+                .args(args)
                 .envs(envs
                         .iter()
                         .map(|kv| Ok((
