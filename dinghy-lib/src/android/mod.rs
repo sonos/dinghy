@@ -158,6 +158,9 @@ fn adb() -> Result<path::PathBuf> {
             Err(_) => false,
         }
     }
+    if let Ok(adb) = env::var("DINGHY_ANDROID_ADB") {
+        return Ok(adb.into());
+    }
     if let Ok(adb) = ::which::which("adb") {
         return Ok(adb);
     }
