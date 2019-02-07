@@ -6,7 +6,7 @@ use core_foundation::data::CFData;
 use core_foundation::number::CFNumber;
 use core_foundation::boolean::CFBoolean;
 use core_foundation_sys::number::kCFBooleanTrue;
-use device::make_remote_app_with_name;
+use ::device::make_remote_app_with_name;
 use errors::*;
 use libc::*;
 use project::Project;
@@ -16,61 +16,41 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process;
 use std::ptr;
-use std::sync;
 use std::thread;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::time::Duration;
-use platform::ios::IosPlatform;
+use ios::IosPlatform;
 use Build;
 use BuildBundle;
 use Device;
 use DeviceCompatibility;
-use PlatformManager;
 use Runnable;
-use self::mobiledevice_sys::*;
-
-mod mobiledevice_sys;
-mod xcode;
+use super::mobiledevice_sys::*;
+use super::xcode;
 
 #[derive(Clone, Debug)]
 pub struct IosDevice {
+    pub id: String,
+    pub name: String,
     ptr: *const am_device,
-    id: String,
-    name: String,
     arch_cpu: &'static str,
     rustc_triple: String,
 }
 
-#[derive(Debug, Clone)]
-pub struct SignatureSettings {
-    pub identity: SigningIdentity,
-    pub file: String,
-    pub entitlements: String,
-    pub name: String,
-    pub profile: String,
-}
-
-#[derive(Debug, Clone)]
-pub struct SigningIdentity {
-    pub id: String,
-    pub name: String,
-    pub team: String,
-}
-
 #[derive(Clone, Debug)]
 pub struct IosSimDevice {
-    id: String,
-    name: String,
-    os: String,
+    pub id: String,
+    pub name: String,
+    pub os: String,
 }
 
 unsafe impl Send for IosDevice {}
 
 impl IosDevice {
-    fn from(ptr: *const am_device) -> Result<IosDevice> {
+    pub fn new(ptr: *const am_device) -> Result<IosDevice> {
         let _session = ensure_session(ptr)?;
         let name = match device_read_value(ptr, "DeviceName")? {
             Some(Value::String(s)) => s,
@@ -103,7 +83,7 @@ impl IosDevice {
 
         let build_bundle = make_ios_app(project, build, runnable, &app_id)?;
 
-        xcode::sign_app(&build_bundle, &signing)?;
+        super::xcode::sign_app(&build_bundle, &signing)?;
         Ok(build_bundle)
     }
 
@@ -268,85 +248,6 @@ impl DeviceCompatibility for IosDevice {
 impl DeviceCompatibility for IosSimDevice {
     fn is_compatible_with_ios_platform(&self, platform: &IosPlatform) -> bool {
         platform.sim && platform.toolchain.rustc_triple == "x86_64-apple-ios"
-    }
-}
-
-pub struct IosManager {
-    devices: sync::Arc<sync::Mutex<Vec<IosDevice>>>,
-}
-
-impl IosManager {
-    pub fn new() -> Result<Option<IosManager>> {
-        let devices = sync::Arc::new(sync::Mutex::new(vec![]));
-
-        let devices_to_take_away = Box::new(devices.clone());
-        thread::spawn(move || {
-            let notify: *const am_device_notification = ptr::null();
-            unsafe {
-                AMDeviceNotificationSubscribe(
-                    device_callback,
-                    0,
-                    0,
-                    Box::into_raw(devices_to_take_away) as *mut c_void,
-                    &mut notify.into(),
-                );
-            }
-            ::core_foundation::runloop::CFRunLoop::run_current();
-        });
-
-        extern "C" fn device_callback(
-            info: *mut am_device_notification_callback_info,
-            devices: *mut c_void,
-        ) {
-            let device = unsafe { (*info).dev };
-            let devices: &sync::Arc<sync::Mutex<Vec<IosDevice>>> =
-                unsafe { mem::transmute(devices) };
-            let _ = devices
-                .lock()
-                .map(|mut devices| devices.push(IosDevice::from(device).unwrap()));
-        }
-
-        Ok(Some(IosManager { devices: devices }))
-    }
-}
-
-impl PlatformManager for IosManager {
-    fn devices(&self) -> Result<Vec<Box<Device>>> {
-        let sims_list = ::std::process::Command::new("xcrun")
-            .args(&["simctl", "list", "--json", "devices"])
-            .output()?;
-        if !sims_list.status.success() {
-            info!(
-                "Failed while looking for ios simulators. It this is not expected, you need to make sure `xcrun simctl list --json` works."
-            );
-            return Ok(vec![]);
-        }
-        let sims_list = String::from_utf8(sims_list.stdout)?;
-        let sims_list = ::json::parse(&sims_list)?;
-        let mut sims: Vec<Box<Device>> = vec![];
-        for (ref k, ref v) in sims_list["devices"].entries() {
-            for ref sim in v.members() {
-                if sim["state"] == "Booted" {
-                    sims.push(Box::new(IosSimDevice {
-                        name: sim["name"]
-                            .as_str()
-                            .ok_or("unexpected simulator list format (missing name)")?
-                            .to_string(),
-                        id: sim["udid"]
-                            .as_str()
-                            .ok_or("unexpected simulator list format (missing udid)")?
-                            .to_string(),
-                        os: k.split(" ").last().unwrap().to_string(),
-                    }))
-                }
-            }
-        }
-        let devices = self.devices.lock().map_err(|_| "poisoned lock")?;
-        Ok(devices
-            .iter()
-            .map(|d| Box::new(d.clone()) as Box<Device>)
-            .chain(sims.into_iter())
-            .collect())
     }
 }
 

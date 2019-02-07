@@ -45,7 +45,9 @@ impl RegularPlatform {
                     rustc_triple,
                     root: "/".into(),
                     sysroot: "/".into(),
-                    toolchain_triple: prefix.clone(),
+                    cc: "gcc".to_string(),
+                    binutils_prefix: prefix.clone(),
+                    cc_prefix: prefix.clone(),
                 },
             }))
         }
@@ -72,17 +74,24 @@ impl RegularPlatform {
         let tc_triple = prefix.ok_or("no gcc in toolchain")?.to_string();
         let sysroot = find_sysroot(&toolchain_path)?;
 
-        Ok(Box::new(RegularPlatform {
-            compiler: compiler.clone(),
-            configuration,
-            id,
-            toolchain: ToolchainConfig {
+        let toolchain = ToolchainConfig {
                 bin_dir,
                 rustc_triple,
                 root: toolchain_path.into(),
                 sysroot,
-                toolchain_triple: tc_triple,
-            },
+                cc: "gcc".to_string(),
+                binutils_prefix: tc_triple.clone(),
+                cc_prefix: tc_triple,
+            };
+        Self::new_with_tc(compiler.clone(), configuration, id, toolchain)
+    }
+
+    pub fn new_with_tc(compiler: Arc<Compiler>, configuration: PlatformConfiguration, id: String, toolchain: ToolchainConfig) -> Result<Box<Platform>> {
+        Ok(Box::new(RegularPlatform {
+            compiler,
+            configuration,
+            id,
+            toolchain,
         }))
     }
 }
@@ -105,26 +114,26 @@ impl Platform for RegularPlatform {
 
         Overlayer::overlay(&self.configuration, self, project, &self.toolchain.sysroot)?;
 
-        self.toolchain.setup_cc(&self.id, &self.toolchain.executable("gcc"))?;
+        self.toolchain.setup_cc(&self.id, &self.toolchain.cc_executable(&self.toolchain.cc))?;
 
-        if Path::new(&self.toolchain.executable("ar")).exists() {
-            self.toolchain.setup_tool("AR", &self.toolchain.executable("ar"))?;
+        if Path::new(&self.toolchain.binutils_executable("ar")).exists() {
+            self.toolchain.setup_tool("AR", &self.toolchain.binutils_executable("ar"))?;
         }
-        if Path::new(&self.toolchain.executable("as")).exists() {
-            self.toolchain.setup_tool("AS", &self.toolchain.executable("as"))?;
+        if Path::new(&self.toolchain.binutils_executable("as")).exists() {
+            self.toolchain.setup_tool("AS", &self.toolchain.binutils_executable("as"))?;
         }
-        if Path::new(&self.toolchain.executable("c++")).exists() {
-            self.toolchain.setup_tool("CXX", &self.toolchain.executable("c++"))?;
+        if Path::new(&self.toolchain.binutils_executable("c++")).exists() {
+            self.toolchain.setup_tool("CXX", &self.toolchain.cc_executable("c++"))?;
         }
-        if Path::new(&self.toolchain.executable("cpp")).exists() {
-            self.toolchain.setup_tool("CPP", &self.toolchain.executable("cpp"))?;
+        if Path::new(&self.toolchain.cc_executable("cpp")).exists() {
+            self.toolchain.setup_tool("CPP", &self.toolchain.cc_executable("cpp"))?;
         }
-        if Path::new(&self.toolchain.executable("gfortran")).exists() {
-            self.toolchain.setup_tool("FC", &self.toolchain.executable("gfortran"))?;
+        if Path::new(&self.toolchain.binutils_executable("gfortran")).exists() {
+            self.toolchain.setup_tool("FC", &self.toolchain.binutils_executable("gfortran"))?;
         }
         trace!("Setup linker...");
 
-        let mut linker_cmd = self.toolchain.executable("gcc");
+        let mut linker_cmd = self.toolchain.cc_executable(&*self.toolchain.cc);
         linker_cmd.push_str(" ");
         if build_args.verbose { linker_cmd.push_str("-Wl,--verbose -v") }
         linker_cmd.push_str(&format!(" --sysroot {}", self.toolchain.sysroot.display()));
@@ -160,7 +169,7 @@ impl Platform for RegularPlatform {
 
     fn strip(&self, build: &Build) -> Result<()> {
         for runnable in &build.runnables {
-            platform::strip_runnable(runnable, Command::new(self.toolchain.executable("strip")))?;
+            platform::strip_runnable(runnable, Command::new(self.toolchain.binutils_executable("strip")))?;
         }
         Ok(())
     }

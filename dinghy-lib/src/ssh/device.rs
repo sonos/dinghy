@@ -1,4 +1,4 @@
-use config::{Configuration, SshDeviceConfiguration};
+use config::SshDeviceConfiguration;
 use errors::*;
 use device::make_remote_app;
 use platform::regular_platform::RegularPlatform;
@@ -9,18 +9,16 @@ use std::fmt::Formatter;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
-use std::sync::Arc;
 use utils::path_to_str;
 use Build;
 use Device;
 use DeviceCompatibility;
-use PlatformManager;
 use BuildBundle;
 use Runnable;
 
 pub struct SshDevice {
-    id: String,
-    conf: SshDeviceConfiguration,
+    pub id: String,
+    pub conf: SshDeviceConfiguration,
 }
 
 impl SshDevice {
@@ -163,26 +161,3 @@ impl Display for SshDevice {
     }
 }
 
-pub struct SshDeviceManager {
-    conf: Arc<Configuration>
-}
-
-impl SshDeviceManager {
-    pub fn probe(conf: Arc<Configuration>) -> Option<SshDeviceManager> {
-        Some(SshDeviceManager { conf })
-    }
-}
-
-impl PlatformManager for SshDeviceManager {
-    fn devices(&self) -> Result<Vec<Box<Device>>> {
-        Ok(self.conf.ssh_devices
-            .iter()
-            .map(|(k, conf)| {
-                Box::new(SshDevice {
-                    id: k.clone(),
-                    conf: conf.clone(),
-                }) as _
-            })
-            .collect())
-    }
-}
