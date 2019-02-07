@@ -6,19 +6,11 @@ use Build;
 use BuildBundle;
 use Runnable;
 
-pub mod android;
-pub mod host;
-#[cfg(target_os = "macos")]
-pub mod ios;
-pub mod script;
-pub mod ssh;
-
-
-fn make_remote_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
+pub fn make_remote_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
     make_remote_app_with_name(project, build, runnable, None)
 }
 
-fn make_remote_app_with_name(project: &Project, build: &Build, runnable: &Runnable, bundle_name: Option<&str>) -> Result<BuildBundle> {
+pub fn make_remote_app_with_name(project: &Project, build: &Build, runnable: &Runnable, bundle_name: Option<&str>) -> Result<BuildBundle> {
     let project = project.for_runnable(runnable)?;
     let root_dir = build.target_path.join("dinghy");
     let bundle_path = match bundle_name {

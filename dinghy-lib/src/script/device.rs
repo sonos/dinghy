@@ -4,8 +4,8 @@ use crate::config::ScriptDeviceConfiguration;
 
 #[derive(Debug)]
 pub struct ScriptDevice {
-    id: String,
-    conf: ScriptDeviceConfiguration,
+    pub id: String,
+    pub conf: ScriptDeviceConfiguration,
 }
 
 impl ScriptDevice {
@@ -95,26 +95,3 @@ impl Display for ScriptDevice {
     }
 }
 
-pub struct ScriptDeviceManager {
-    conf: Arc<Configuration>
-}
-
-impl ScriptDeviceManager {
-    pub fn probe(conf: Arc<Configuration>) -> Option<ScriptDeviceManager> {
-        Some(ScriptDeviceManager { conf })
-    }
-}
-
-impl PlatformManager for ScriptDeviceManager {
-    fn devices(&self) -> Result<Vec<Box<Device>>> {
-        Ok(self.conf.script_devices
-            .iter()
-            .map(|(k, conf)| {
-                Box::new(ScriptDevice {
-                    id: k.clone(),
-                    conf: conf.clone(),
-                }) as _
-            })
-            .collect())
-    }
-}

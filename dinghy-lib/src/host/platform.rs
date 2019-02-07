@@ -21,9 +21,9 @@ pub struct HostPlatform {
 }
 
 impl HostPlatform {
-    pub fn new(compiler: &Arc<Compiler>, configuration: PlatformConfiguration) -> Result<Box<Platform>> {
+    pub fn new(compiler: Arc<Compiler>, configuration: PlatformConfiguration) -> Result<Box<Platform>> {
         Ok(Box::new(HostPlatform {
-            compiler: compiler.clone(),
+            compiler: compiler,
             configuration,
             id: "host".to_string(),
         }))

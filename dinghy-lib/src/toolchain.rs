@@ -55,13 +55,22 @@ pub struct ToolchainConfig {
     pub root: PathBuf,
     pub rustc_triple: String,
     pub sysroot: PathBuf,
-    pub toolchain_triple: String,
+    pub cc: String,
+    pub binutils_prefix: String,
+    pub cc_prefix: String,
 }
 
 impl ToolchainConfig {
-    pub fn executable(&self, name_without_triple: &str) -> String {
+    pub fn cc_executable(&self, name_without_triple: &str) -> String {
         self.bin_dir
-            .join(format!("{}-{}", self.toolchain_triple, name_without_triple))
+            .join(format!("{}-{}", self.cc_prefix, name_without_triple))
+            .to_string_lossy()
+            .to_string()
+    }
+
+    pub fn binutils_executable(&self, name_without_triple: &str) -> String {
+        self.bin_dir
+            .join(format!("{}-{}", self.binutils_prefix, name_without_triple))
             .to_string_lossy()
             .to_string()
     }
@@ -101,8 +110,10 @@ impl ToolchainConfig {
     pub fn shim_executables(&self, id: &str) -> Result<()> {
         let wd_path = ::cargo::util::important_paths::find_root_manifest_for_wd(&env::current_dir()?)?;
         let root = wd_path.parent().ok_or("building at / ?")?;
-        let shims_path = root.join("target").join(self.rustc_triple.as_str()).join(id);
+        let shims_path = root.join("target").join(&self.rustc_triple).join(id);
 
+        /*
+        // FIXME: what is the point of this ?
         for exe in self.bin_dir.read_dir()? {
             let exe = exe?;
             let exe_file_name = exe.file_name();
@@ -118,6 +129,7 @@ impl ToolchainConfig {
                         rustified_exe,
                         &format!("{} {}", exe_path, GLOB_ARGS))?;
         }
+        */
         append_path_to_env("PATH", shims_path.to_string_lossy().as_ref());
         Ok(())
     }

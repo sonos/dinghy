@@ -5,11 +5,8 @@ use std::process::Command;
 use utils::file_name_as_str;
 
 pub mod regular_platform;
-pub mod host;
-#[cfg(target_os = "macos")]
-pub mod ios;
 
-fn strip_runnable(runnable: &Runnable, mut command: Command) -> Result<()> {
+pub fn strip_runnable(runnable: &Runnable, mut command: Command) -> Result<()> {
     let exe_stripped_name = file_name_as_str(&runnable.exe)?;
 
     let mut stripped_runnable = runnable.clone();

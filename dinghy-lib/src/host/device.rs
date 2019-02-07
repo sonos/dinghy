@@ -1,7 +1,6 @@
 use compiler::Compiler;
 use dinghy_build::build_env::set_env;
 use itertools::Itertools;
-use platform::host::HostPlatform;
 use project::Project;
 use std::fmt;
 use std::fmt::{ Debug, Display };
@@ -10,28 +9,8 @@ use std::sync::Arc;
 use Build;
 use BuildBundle;
 use Device;
-use PlatformManager;
 use DeviceCompatibility;
 use Result;
-
-pub struct HostManager {
-    compiler: Arc<Compiler>
-}
-
-impl HostManager {
-    pub fn probe(compiler: &Arc<Compiler>) -> Option<HostManager> {
-        Some(HostManager {
-            compiler: compiler.clone(),
-        })
-    }
-}
-
-impl PlatformManager for HostManager {
-    fn devices(&self) -> Result<Vec<Box<Device>>> {
-        Ok(vec![Box::new(HostDevice::new(&self.compiler))])
-    }
-}
-
 
 pub struct HostDevice {
     compiler: Arc<Compiler>
@@ -112,7 +91,7 @@ impl Display for HostDevice {
 }
 
 impl DeviceCompatibility for HostDevice {
-    fn is_compatible_with_host_platform(&self, _platform: &HostPlatform) -> bool {
+    fn is_compatible_with_host_platform(&self, _platform: &super::HostPlatform) -> bool {
         true
     }
 }
