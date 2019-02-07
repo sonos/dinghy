@@ -41,8 +41,8 @@ then
     ( \
         cd test-ws \
         && cargo clean \
-        && $CARGO_DINGHY --platform 'ios-x86_64' test pass \
-        && ! $CARGO_DINGHY --platform 'ios-x86_64' test fails \
+        && $CARGO_DINGHY --platform 'auto-ios-x86_64' test pass \
+        && ! $CARGO_DINGHY --platform 'auto-ios-x86_64' test fails \
     )
     echo "##"
     echo "## latest failure was expected"
@@ -66,8 +66,8 @@ then
     ( \
         cd test-ws/test-app \
         && cargo clean \
-        && $CARGO_DINGHY --platform 'ios-x86_64' test pass \
-        && ! $CARGO_DINGHY --platform 'ios-x86_64' test fails \
+        && $CARGO_DINGHY --platform 'auto-ios-x86_64' test pass \
+        && ! $CARGO_DINGHY --platform 'auto-ios-x86_64' test fails \
     )
     echo "##"
     echo "## latest failure was expected"
@@ -91,8 +91,8 @@ then
     ( \
         cd test-ws \
         && cargo clean \
-        && $CARGO_DINGHY --platform 'ios-x86_64' test -p test-app pass \
-        && ! $CARGO_DINGHY --platform 'ios-x86_64' test -p test-app fails \
+        && $CARGO_DINGHY --platform 'auto-ios-x86_64' test -p test-app pass \
+        && ! $CARGO_DINGHY --platform 'auto-ios-x86_64' test -p test-app fails \
     )
     echo "##"
     echo "## latest failure was expected ##"
