@@ -1,7 +1,7 @@
 use config::PlatformConfiguration;
-use toolchain::ToolchainConfig;
 use platform::regular_platform::RegularPlatform;
 use std::{env, fs, path, process, sync};
+use toolchain::ToolchainConfig;
 use {Compiler, Device, Platform, PlatformManager, Result};
 
 pub use self::device::AndroidDevice;
@@ -28,33 +28,36 @@ impl PlatformManager for AndroidManager {
         Ok(devices)
     }
     fn platforms(&self) -> Result<Vec<Box<Platform>>> {
-        if let Some(sdk) = sdk()? {
-            let version = ndk_version(&sdk)?;
+        if let Some(ndk) = ndk()? {
+            let version = ndk_version(&ndk)?;
             let major = version
                 .split(".")
                 .next()
-                .ok_or_else(|| format!("Invalid version found for sdk {:?}", &sdk))?;
+                .ok_or_else(|| format!("Invalid version found for ndk {:?}", &ndk))?;
             let major: usize = major
                 .parse()
-                .map_err(|_| format!("Invalid version found for sdk {:?}", &sdk))?;
+                .map_err(|_| format!("Invalid version found for ndk {:?}", &ndk))?;
             debug!(
-                "Android sdk: {:?}, ndk version: {}, major: {}",
-                sdk, version, major
+                "Android ndk: {:?}, ndk version: {}, major: {}",
+                ndk, version, major
             );
             if major >= 19 {
                 let mut platforms = vec![];
                 let abi = "28";
-                let prebuilt = sdk.join("ndk-bundle/toolchains/llvm/prebuilt");
-                let tools = prebuilt.read_dir()?.next().ok_or("No tools in toolchain")??;
+                let prebuilt = ndk.join("toolchains/llvm/prebuilt");
+                let tools = prebuilt
+                    .read_dir()?
+                    .next()
+                    .ok_or("No tools in toolchain")??;
                 let bin = tools.path().join("bin");
                 debug!("Android tools bin: {:?}", bin);
                 for (rustc_cpu, cc_cpu, binutils_cpu, abi_kind) in &[
                     ("aarch64", "aarch64", "aarch64", "android"),
                     ("armv7", "armv7a", "arm", "androideabi"),
                     ("i686", "i686", "i686", "android"),
-                    ("x86_64", "x86_64", "x86_64", "android")
+                    ("x86_64", "x86_64", "x86_64", "android"),
                 ] {
-                    let id = format!("auto-android-{}",rustc_cpu);
+                    let id = format!("auto-android-{}", rustc_cpu);
                     let tc = ToolchainConfig {
                         bin_dir: bin.clone(),
                         rustc_triple: format!("{}-linux-{}", rustc_cpu, abi_kind),
@@ -68,11 +71,11 @@ impl PlatformManager for AndroidManager {
                         self.compiler.clone(),
                         PlatformConfiguration::default(),
                         id,
-                        tc
+                        tc,
                     )?;
                     platforms.push(pf);
                 }
-                return Ok(platforms)
+                return Ok(platforms);
             }
         }
         return Ok(vec![]);
@@ -131,17 +134,26 @@ fn sdk() -> Result<Option<path::PathBuf>> {
     Ok(probable_sdk_locs()?.into_iter().next())
 }
 
-fn ndk_version(sdk: &path::Path) -> Result<String> {
-    let props = fs::read_to_string(sdk.join("ndk-bundle/source.properties")).map_err(|e| format!(
-        "Android SDK at {:?} does not contains ndk-bundle (consider \"sdkmanager ndk-bundle\"): {:?}",
-        sdk, e
-    ))?;
+fn ndk() -> Result<Option<path::PathBuf>> {
+    if let Ok(path) = env::var("ANDROID_NDK_HOME") {
+        return Ok(Some(path.into()));
+    } else if let Some(sdk) = sdk()? {
+        if sdk.join("ndk-bundle/source.properties").is_file() {
+            return Ok(Some(sdk.join("ndk-bundle")));
+        }
+    }
+    Ok(None)
+}
+
+fn ndk_version(ndk: &path::Path) -> Result<String> {
+    let sources_prop_file = ndk.join("source.properties");
+    let props = fs::read_to_string(sources_prop_file)?;
     let revision_line = props
         .split("\n")
         .find(|l| l.starts_with("Pkg.Revision"))
         .ok_or(format!(
-            "Android SDK at {:?} does not contains a valid ndk-bundle: no source.properties",
-            sdk
+            "Android NDK at {:?} does not contains a valid ndk-bundle: no source.properties",
+            ndk
         ))?;
     Ok(revision_line.split(" ").last().unwrap().to_string())
 }
