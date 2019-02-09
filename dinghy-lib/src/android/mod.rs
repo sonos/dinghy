@@ -29,6 +29,7 @@ impl PlatformManager for AndroidManager {
     }
     fn platforms(&self) -> Result<Vec<Box<Platform>>> {
         if let Some(ndk) = ndk()? {
+            debug!("Android NDK: {:?}", ndk);
             let version = ndk_version(&ndk)?;
             let major = version
                 .split(".")
@@ -127,6 +128,7 @@ fn probable_sdk_locs() -> Result<Vec<path::PathBuf>> {
             }
         }
     }
+    debug!("Candidates SDK: {:?}", v);
     Ok(v)
 }
 
@@ -137,7 +139,8 @@ fn sdk() -> Result<Option<path::PathBuf>> {
 fn ndk() -> Result<Option<path::PathBuf>> {
     if let Ok(path) = env::var("ANDROID_NDK_HOME") {
         return Ok(Some(path.into()));
-    } else if let Some(sdk) = sdk()? {
+    }
+    for sdk in probable_sdk_locs()? {
         if sdk.join("ndk-bundle/source.properties").is_file() {
             return Ok(Some(sdk.join("ndk-bundle")));
         }

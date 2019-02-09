@@ -550,7 +550,7 @@ pub fn linker_lib_dirs(compilation: &Compilation, config: &CompileConfig) -> Res
     let mut paths = vec![];
     for line in output.lines() {
         if line.starts_with("libraries: =") {
-            let line = line.trim_left_matches("libraries: =");
+            let line = line.trim_start_matches("libraries: =");
             for path_str in line.split(":") {
                 paths.push(PathBuf::from(path_str))
             }
