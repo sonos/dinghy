@@ -28,3 +28,4 @@ done
 (cd test-ws ; cargo update)
 
 git commit . -m "post-release $VERSION"
+git push
