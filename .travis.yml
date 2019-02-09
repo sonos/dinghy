@@ -23,3 +23,5 @@ deploy:
   on:
     tags: true
     repo: snipsco/dinghy
+    condition: "$TRAVIS_TAG =~ ^v.*$"
+

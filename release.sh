@@ -31,10 +31,13 @@ set_version() {
 }
 
 set_version $CRATE/Cargo.toml $VERSION
-(cd $CRATE ; cargo publish --dry-run --allow-dirty)
-
 git commit . -m "release $CRATE/$VERSION"
+(cd $CRATE ; cargo publish)
+
+if [ "$CRATE" = "cargo-dinghy" ]
+then
+    git tag "v$VERSION"
+fi
 git tag "$CRATE/$VERSION"
 git push --tags
 
-(cd $CRATE ; cargo publish)
