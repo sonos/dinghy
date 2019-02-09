@@ -7,10 +7,11 @@ matrix:
   include:
   - os: osx
     osx_image: xcode8.3
+    env: DEPLOY=macos
   - os: linux
     dist: trusty
   - rust: stable
-    env: DEPLOY=true
+    env: DEPLOY=travis
   - rust: beta
   - rust: nightly
 script: sh .travis.sh
@@ -19,9 +20,9 @@ deploy:
   skip_cleanup: true
   api_key:
     secure: YJlTT/zACnSNi3jFVXF+pPx615hxUrRe5ZCLLd3bgek/daEI4FIYJQIbO8ZlL8ufx7/SVKg8gjGxNYqDUsd3dozjVlALibogi6XBZfoAWZBkCUQNyoqALzNnTP+PbKme5mRQbtNPp5X0g7KDYoJGUHsvD6FUD7rxYe6QMpbGUvaa89cwFguNvWsjZgGBYtf5HO42u+JE6hXhmO8WGyK0cQYZEdXWn9kUBgQD1ua4+rqn9h35IFveEG0QAq59HNDTfmg67okXJINqYlJ0DzGJM4yN8BH9nSsBD/vGn79Z7nLp6PXOBIvwBY2sRUt3WwVNLGAVCqlmIeRdioQbUvJm09uqgNt8O9vKZYcAxUYja1xfCO5lyUDQ8IYJ5EZU9lSpW3wvalLKswL6bvLQ1ckI2ASe8rYMxsbUZ5TE3fJWuHpuGkaoJnvIvefrR4orB/Gi5cSJ708TBtUwS/Law95hUHPbCKs6nsC1vsoLLj33xZqpoNCZH8BSWyDWsfSuDdiMrSW68LeYe/DxWFuSg/AWfqDXi5xY5CMFzRJ5TgxhZ7wGVvrUTAvripVyPQkewb3fThgLDGqAwboPq9wq7UqiJKT5l8/BOHdlKTEeX5AKlaMCERZtupM6LT/2v3YuaBZpiVnsDW8nWAz0DyEcFcWo/UFl44Njrah9f/t4tJXuF7k=
-  file: cargo-dinghy-travis.tgz
+  file_glob: true
+  file: cargo-dinghy-*.tgz
   on:
     tags: true
     repo: snipsco/dinghy
-    condition: "$TRAVIS_TAG =~ ^v.*$"
-
+    condition: "$TRAVIS_TAG =~ ^.*$"
