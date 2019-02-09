@@ -49,7 +49,7 @@ impl IosPlatform {
         let xcrun = process::Command::new("xcrun")
             .args(&["--sdk", sdk_name, "--show-sdk-path"])
             .output()?;
-        Ok(String::from_utf8(xcrun.stdout)?.trim_right().to_string())
+        Ok(String::from_utf8(xcrun.stdout)?.trim_end().to_string())
     }
 }
 
