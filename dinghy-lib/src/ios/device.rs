@@ -235,12 +235,14 @@ impl DeviceCompatibility for IosDevice {
         if platform.toolchain.rustc_triple == self.rustc_triple.as_str() {
             return true;
         }
+        /*
         if platform.toolchain.rustc_triple == "armv7-apple-ios" && (self.arch_cpu == "armv7s" || self.arch_cpu == "aarch64") {
             return true;
         }
         if platform.toolchain.rustc_triple == "armv7s-apple-ios" && self.arch_cpu == "aarch64" {
             return true;
         }
+        */
         return false;
     }
 }
@@ -262,6 +264,8 @@ enum Value {
 fn mk_result(rv: i32) -> Result<()> {
     if rv as u32 == 0xe80000e2 {
         Err(format!("error: Device is locked. ({:x})", rv))?
+    } else if rv as u32 ==0xe8000087 {
+        Err("error: 0xe8000087, Architecture mismatch")?
     } else if rv as u32 == 0xe8008015 {
         Err("error: 0xe8008015, A valid provisioning profile for this executable was not found.")?
     } else if rv as u32 == 0xe8008016 {
@@ -405,8 +409,9 @@ fn mount_developper_image(dev: *const am_device) -> Result<()> {
 }
 
 fn make_ios_app(project: &Project, build: &Build, runnable: &Runnable, app_id:&str) -> Result<BuildBundle> {
+    use project;
     let build_bundle = make_remote_app_with_name(project, build, runnable, Some("Dinghy.app"))?;
-    fs::copy(&runnable.exe, build_bundle.bundle_dir.join("Dinghy"))?;
+    project::rec_copy(&runnable.exe, build_bundle.bundle_dir.join("Dinghy"), false)?;
     let magic = process::Command::new("file")
         .arg(runnable.exe.to_str().ok_or("path conversion to string")?)
         .output()?;

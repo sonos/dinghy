@@ -127,6 +127,10 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
             .join("Library/MobileDevice/Provisioning Profiles"),
     )? {
         let file = file?;
+        if file.path().starts_with(".") || file.path().extension().map(|ext| ext.to_string_lossy() != "mobileprovision").unwrap_or(true) {
+            trace!("skipping profile (?) {:?}", file.path());
+            continue;
+        }
         debug!("considering profile {:?}", file.path());
         let decoded = process::Command::new("security")
             .arg("cms")
@@ -134,7 +138,8 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
             .arg("-i")
             .arg(file.path())
             .output()?;
-        let plist = plist::Value::from_reader(io::Cursor::new(&decoded.stdout))?;
+        let plist = plist::Value::from_reader(io::Cursor::new(&decoded.stdout))
+            .map_err(|e| format!("While trying to read profile {:?}, {:?}", file.path(), e))?;
         let dict = plist
             .as_dictionary()
             .ok_or("plist root should be a dictionary")?;

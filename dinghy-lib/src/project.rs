@@ -84,7 +84,7 @@ impl Project {
                 let metadata = file.metadata()?;
                 let dst = test_data_path.join(&td.id);
                 if metadata.is_dir() {
-                    self.rec_copy(file, dst, td.copy_git_ignored)?;
+                    rec_copy(file, dst, td.copy_git_ignored)?;
                 } else {
                     fs::copy(file, dst)?;
                 }
@@ -95,77 +95,77 @@ impl Project {
         Ok(())
     }
 
-    pub fn rec_copy<P1: AsRef<Path>, P2: AsRef<Path>>(
-        &self,
-        src: P1,
-        dst: P2,
-        copy_ignored_test_data: bool) -> Result<()> {
-        let empty:&[&str] = &[];
-        self.rec_copy_excl(src, dst, copy_ignored_test_data, empty)
-    }
+}
 
-    pub fn rec_copy_excl<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path> + ::std::fmt::Debug>(
-        &self,
-        src: P1,
-        dst: P2,
-        copy_ignored_test_data: bool,
-        more_exclude: &[P3]
-    ) -> Result<()> {
-        let src = src.as_ref();
-        let dst = dst.as_ref();
-        let ignore_file = src.join(".dinghyignore");
-        debug!("Copying recursively from {} to {} excluding {:?}", src.display(), dst.display(), more_exclude);
+pub fn rec_copy<P1: AsRef<Path>, P2: AsRef<Path>>(
+    src: P1,
+    dst: P2,
+    copy_ignored_test_data: bool) -> Result<()> {
+    let empty:&[&str] = &[];
+    rec_copy_excl(src, dst, copy_ignored_test_data, empty)
+}
 
-        let mut walker = WalkBuilder::new(src);
-        walker.git_ignore(!copy_ignored_test_data);
-        walker.add_ignore(ignore_file);
-        for entry in walker.build() {
-            let entry = entry?;
-            let metadata = entry.metadata()?;
+pub fn rec_copy_excl<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path> + ::std::fmt::Debug>(
+    src: P1,
+    dst: P2,
+    copy_ignored_test_data: bool,
+    more_exclude: &[P3]
+) -> Result<()> {
+    let src = src.as_ref();
+    let dst = dst.as_ref();
+    let ignore_file = src.join(".dinghyignore");
+    debug!("Copying recursively from {} to {} excluding {:?}", src.display(), dst.display(), more_exclude);
 
-            if more_exclude.iter().any(|ex| entry.path().starts_with(ex)) {
-                debug!("Exclude {:?}", entry.path());
-                continue;
+    let mut walker = WalkBuilder::new(src);
+    walker.git_ignore(!copy_ignored_test_data);
+    walker.add_ignore(ignore_file);
+    for entry in walker.build() {
+        let entry = entry?;
+        let metadata = entry.metadata()?;
+
+        if more_exclude.iter().any(|ex| entry.path().starts_with(ex)) {
+            debug!("Exclude {:?}", entry.path());
+            continue;
+        }
+        trace!("Processing entry {:?} is_dir:{:?}", entry.path(), metadata.is_dir());
+
+        let path = entry.path().strip_prefix(src)?;
+
+        // Check if root path is a file or a directory
+        let target = if path.parent().is_none() && metadata.is_file() {
+            fs::create_dir_all(&dst.parent()
+                .ok_or(format!("Invalid file {}", dst.display()))?)?;
+            dst.to_path_buf()
+        } else {
+            dst.join(path)
+        };
+
+        if metadata.is_dir() {
+            if target.exists() && target.is_file() {
+                fs::remove_file(&target)?;
             }
-            trace!("Processing entry {:?} is_dir:{:?}", entry.path(), metadata.is_dir());
-
-            let path = entry.path().strip_prefix(src)?;
-
-            // Check if root path is a file or a directory
-            let target = if path.parent().is_none() && metadata.is_file() {
-                fs::create_dir_all(&dst.parent()
-                    .ok_or(format!("Invalid file {}", dst.display()))?)?;
-                dst.to_path_buf()
-            } else {
-                dst.join(path)
-            };
-
-            if metadata.is_dir() {
-                if target.exists() && target.is_file() {
-                    fs::remove_file(&target)?;
-                }
-                trace!("Creating directory {}", target.display());
-                &fs::create_dir_all(&target)?;
-            } else if metadata.is_file() {
-                if target.exists() && !target.is_file() {
-                    trace!("Remove 2 {:?}", target);
+            trace!("Creating directory {}", target.display());
+            &fs::create_dir_all(&target)?;
+        } else if metadata.is_file() {
+            if target.exists() && !target.is_file() {
+                trace!("Remove 2 {:?}", target);
+                fs::remove_dir_all(&target)?;
+            }
+            if !target.exists()
+                || target.metadata()?.len() != entry.metadata()?.len()
+                || target.metadata()?.modified()? < entry.metadata()?.modified()? {
+                if target.exists() && target.metadata()?.permissions().readonly() {
                     fs::remove_dir_all(&target)?;
                 }
-                if !target.exists()
-                    || target.metadata()?.len() != entry.metadata()?.len()
-                    || target.metadata()?.modified()? < entry.metadata()?.modified()? {
-                    if target.exists() && target.metadata()?.permissions().readonly() {
-                        fs::remove_dir_all(&target)?;
-                    }
-                    trace!("Copying {} to {}", entry.path().display(), target.display());
-                    copy_and_sync_file(entry.path(), &target)?;
-                } else {
-                    trace!("{} is already up-to-date", target.display());
-                }
+                trace!("Copying {} to {}", entry.path().display(), target.display());
+                copy_and_sync_file(entry.path(), &target)?;
             } else {
-                debug!("ignored {:?} ({:?})", path, metadata);
+                trace!("{} is already up-to-date", target.display());
             }
+        } else {
+            debug!("ignored {:?} ({:?})", path, metadata);
         }
-        Ok(())
     }
+    trace!("Copied recursively from {} to {} excluding {:?}", src.display(), dst.display(), more_exclude);
+    Ok(())
 }

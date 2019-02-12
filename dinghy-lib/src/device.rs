@@ -1,4 +1,5 @@
 use errors::*;
+use project;
 use project::Project;
 use std::fs;
 use utils::copy_and_sync_file;
@@ -48,7 +49,7 @@ pub fn make_remote_app_with_name(project: &Project, build: &Build, runnable: &Ru
     }
 
     debug!("Copying src {} to bundle {}", runnable.source.display(), bundle_path.display());
-    project.rec_copy_excl(&runnable.source, &bundle_path, false, &[runnable.source.join("target")])?;
+    project::rec_copy_excl(&runnable.source, &bundle_path, false, &[runnable.source.join("target")])?;
     debug!("Copying test_data to bundle {}", bundle_path.display());
     project.copy_test_data(&bundle_path)?;
 
