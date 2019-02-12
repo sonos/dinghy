@@ -235,14 +235,6 @@ impl DeviceCompatibility for IosDevice {
         if platform.toolchain.rustc_triple == self.rustc_triple.as_str() {
             return true;
         }
-        /*
-        if platform.toolchain.rustc_triple == "armv7-apple-ios" && (self.arch_cpu == "armv7s" || self.arch_cpu == "aarch64") {
-            return true;
-        }
-        if platform.toolchain.rustc_triple == "armv7s-apple-ios" && self.arch_cpu == "aarch64" {
-            return true;
-        }
-        */
         return false;
     }
 }
