@@ -444,7 +444,7 @@ dependencies = [
 
 [[package]]
 name = "dinghy-test"
-version = "0.4.7-pre"
+version = "0.4.7"
 
 [[package]]
 name = "dirs"
