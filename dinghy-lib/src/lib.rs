@@ -101,6 +101,9 @@ impl Dinghy {
             );
         }
         for (platform_name, platform_conf) in &conf.platforms {
+            if platform_name == "host" {
+                continue
+            }
             let rustc_triple = platform_conf.rustc_triple.as_ref()
                 .ok_or_else(|| format!("Platform {} has no rustc_triple", platform_name))?;
             let pf = RegularPlatform::new(
