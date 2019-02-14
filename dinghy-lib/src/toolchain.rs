@@ -112,16 +112,15 @@ impl ToolchainConfig {
         let root = wd_path.parent().ok_or("building at / ?")?;
         let shims_path = root.join("target").join(&self.rustc_triple).join(id);
 
-        /*
-        // FIXME: what is the point of this ?
         for exe in self.bin_dir.read_dir()? {
             let exe = exe?;
             let exe_file_name = exe.file_name();
             let exe_path = exe.path();
-            let exe_path = exe_path.to_string_lossy(); // Rust and paths = 💩💩💩
+            let exe_path = exe_path.to_string_lossy();
 
-            let rustified_exe = &exe_file_name.to_string_lossy().replace(self.toolchain_triple.as_str(),
-                                                                         self.rustc_triple.as_str());
+            let rustified_exe = &exe_file_name.to_string_lossy()
+                .replace(self.binutils_prefix.as_str(),self.rustc_triple.as_str())
+                .replace(self.cc_prefix.as_str(), self.rustc_triple.as_str());
             trace!("Shim {} -> {}", exe_path, rustified_exe);
             create_shim(root,
                         self.rustc_triple.as_str(),
@@ -129,7 +128,6 @@ impl ToolchainConfig {
                         rustified_exe,
                         &format!("{} {}", exe_path, GLOB_ARGS))?;
         }
-        */
         append_path_to_env("PATH", shims_path.to_string_lossy().as_ref());
         Ok(())
     }
