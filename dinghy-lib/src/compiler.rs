@@ -25,6 +25,7 @@ use Runnable;
 use std::collections::HashSet;
 use std::env;
 use std::env::current_dir;
+use std::ffi::OsString;
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
@@ -489,6 +490,15 @@ fn find_dynamic_libraries(compilation: &Compilation,
         .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
         .filter(|path| is_library(path) && is_library_linked_to_project(path))
         .filter(|path| is_banned(path))
+        .fold(Vec::new(), |mut acc : Vec<PathBuf>, x| {
+            if !acc.iter().find(|x1| x.file_name().unwrap_or(&OsString::from("")) == x1.file_name().unwrap_or(&OsString::from(""))).is_some() { //If there is not yet a copy of the lib file in the vector
+                acc.push(x);
+                acc
+            }
+            else {
+                acc
+            }
+        }).into_iter()
         .inspect(|path| debug!("Found library {}", path.display()))
         .collect())
 }
