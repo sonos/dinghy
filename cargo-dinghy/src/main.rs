@@ -158,7 +158,9 @@ fn show_all_devices(dinghy: &Dinghy) -> Result<()> {
 }
 
 fn show_all_platforms(dinghy: &Dinghy) -> Result<()> {
-    for pf in dinghy.platforms() {
+    let mut platforms = dinghy.platforms();
+    platforms.sort_by(|str1, str2| str1.id().cmp(&str2.id()));
+    for pf in platforms.iter() {
         println!("* {} {}", pf.id(), pf.rustc_triple().map(|s| format!("({})", s)).unwrap_or("".to_string()));
     }
     Ok(())
