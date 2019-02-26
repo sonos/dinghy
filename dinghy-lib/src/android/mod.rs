@@ -44,7 +44,6 @@ impl PlatformManager for AndroidManager {
             );
             if major >= 19 {
                 let mut platforms = vec![];
-                let abi = "28";
                 let prebuilt = ndk.join("toolchains/llvm/prebuilt");
                 let tools = prebuilt
                     .read_dir()?
@@ -58,23 +57,30 @@ impl PlatformManager for AndroidManager {
                     ("i686", "i686", "i686", "android"),
                     ("x86_64", "x86_64", "x86_64", "android"),
                 ] {
-                    let id = format!("auto-android-{}", rustc_cpu);
-                    let tc = ToolchainConfig {
-                        bin_dir: bin.clone(),
-                        rustc_triple: format!("{}-linux-{}", rustc_cpu, abi_kind),
-                        root: prebuilt.clone(),
-                        sysroot: tools.path().join("sysroot"),
-                        cc: "clang".to_string(),
-                        binutils_prefix: format!("{}-linux-{}", binutils_cpu, abi_kind),
-                        cc_prefix: format!("{}-linux-{}{}", cc_cpu, abi_kind, abi),
-                    };
-                    let pf = RegularPlatform::new_with_tc(
-                        self.compiler.clone(),
-                        PlatformConfiguration::default(),
-                        id,
-                        tc,
-                    )?;
-                    platforms.push(pf);
+                    for entry in tools.path()
+                        .join(format!("sysroot/usr/lib/{}-linux-{}",binutils_cpu,abi_kind)).read_dir()? {
+                            let entry = entry?;
+                            if entry.file_type()?.is_dir() {
+                                let api = entry.file_name().into_string().unwrap();
+                                let id = format!("auto-android-{}-api{}", rustc_cpu, api);
+                                let tc = ToolchainConfig {
+                                    bin_dir: bin.clone(),
+                                    rustc_triple: format!("{}-linux-{}", rustc_cpu, abi_kind),
+                                    root: prebuilt.clone(),
+                                    sysroot: tools.path().join("sysroot"),
+                                    cc: "clang".to_string(),
+                                    binutils_prefix: format!("{}-linux-{}", binutils_cpu, abi_kind),
+                                    cc_prefix: format!("{}-linux-{}{}", cc_cpu, abi_kind, api),
+                                };
+                                let pf = RegularPlatform::new_with_tc(
+                                    self.compiler.clone(),
+                                    PlatformConfiguration::default(),
+                                    id,
+                                    tc,
+                                )?;
+                                platforms.push(pf);
+                            }
+                    }
                 }
                 return Ok(platforms);
             }
