@@ -210,7 +210,7 @@ fn select_platform_and_device_from_cli(matches: &ArgMatches,
             Err(format!("No devices found for name hint `{}'", device_filter))?;
         }
         devices.into_iter().filter_map(|d| {
-            let pf = dinghy.platforms().iter().find(|pf| pf.is_compatible_with(&**d)).cloned();
+            let pf = dinghy.platforms().iter().filter(|pf| !is_banned_auto_platform_id(&pf.id())).find(|pf| pf.is_compatible_with(&**d)).cloned();
             debug!("Looking for platform for {}: found {:?}", d.id(), pf.as_ref().map(|p| p.id()));
             pf.map(|it| (it,Some(d)))
         })
@@ -219,4 +219,10 @@ fn select_platform_and_device_from_cli(matches: &ArgMatches,
     } else {
         Ok((dinghy.host_platform(), Some(dinghy.host_device())))
     }
+}
+
+fn is_banned_auto_platform_id(id: &str) -> bool {
+    id.contains("auto-android") && (id.contains("min")
+                                    || id.contains("latest")
+                                    || id.contains("api"))
 }
