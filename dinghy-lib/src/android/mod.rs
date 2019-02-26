@@ -29,6 +29,7 @@ impl PlatformManager for AndroidManager {
     }
     fn platforms(&self) -> Result<Vec<Box<Platform>>> {
         if let Some(ndk) = ndk()? {
+            let default_api_level = "21";
             debug!("Android NDK: {:?}", ndk);
             let version = ndk_version(&ndk)?;
             let major = version
@@ -57,30 +58,46 @@ impl PlatformManager for AndroidManager {
                     ("i686", "i686", "i686", "android"),
                     ("x86_64", "x86_64", "x86_64", "android"),
                 ] {
+                    let mut api_levels : Vec<String> = Vec::new();
                     for entry in tools.path()
                         .join(format!("sysroot/usr/lib/{}-linux-{}",binutils_cpu,abi_kind)).read_dir()? {
                             let entry = entry?;
                             if entry.file_type()?.is_dir() {
-                                let api = entry.file_name().into_string().unwrap();
-                                let id = format!("auto-android-{}-api{}", rustc_cpu, api);
-                                let tc = ToolchainConfig {
-                                    bin_dir: bin.clone(),
-                                    rustc_triple: format!("{}-linux-{}", rustc_cpu, abi_kind),
-                                    root: prebuilt.clone(),
-                                    sysroot: tools.path().join("sysroot"),
-                                    cc: "clang".to_string(),
-                                    binutils_prefix: format!("{}-linux-{}", binutils_cpu, abi_kind),
-                                    cc_prefix: format!("{}-linux-{}{}", cc_cpu, abi_kind, api),
-                                };
-                                let pf = RegularPlatform::new_with_tc(
-                                    self.compiler.clone(),
-                                    PlatformConfiguration::default(),
-                                    id,
-                                    tc,
-                                )?;
-                                platforms.push(pf);
+                                let folder_name = entry.file_name().into_string().unwrap();
+                                match folder_name.parse::<u32>() {
+                                    Ok(_) => api_levels.push(folder_name),
+                                    Err(_) => {}
+                                }
                             }
                     }
+                    api_levels.sort();
+                    let create_platform = |api: &str, suffix: &str| {
+                        let id = format!("auto-android-{}{}", rustc_cpu, suffix);
+                        let tc = ToolchainConfig {
+                            bin_dir: bin.clone(),
+                            rustc_triple: format!("{}-linux-{}", rustc_cpu, abi_kind),
+                            root: prebuilt.clone(),
+                            sysroot: tools.path().join("sysroot"),
+                            cc: "clang".to_string(),
+                            binutils_prefix: format!("{}-linux-{}", binutils_cpu, abi_kind),
+                            cc_prefix: format!("{}-linux-{}{}", cc_cpu, abi_kind, api),
+                        };
+                        RegularPlatform::new_with_tc(
+                            self.compiler.clone(),
+                            PlatformConfiguration::default(),
+                            id,
+                            tc,
+                        )
+
+                    };
+                    for api in api_levels.iter() {
+                        platforms.push(create_platform(&api,&format!("-api{}",api))?);
+                    }
+                    if !api_levels.is_empty() {
+                        platforms.push(create_platform(api_levels.first().expect("The api level vector shouldn't be empty"),"-min")?);
+                        platforms.push(create_platform(api_levels.last().expect("The api level vector shouldn't be empty"),"-latest")?);
+                    }
+                    platforms.push(create_platform(default_api_level,"")?);
                 }
                 return Ok(platforms);
             }
@@ -88,6 +105,7 @@ impl PlatformManager for AndroidManager {
         return Ok(vec![]);
     }
 }
+
 
 impl AndroidManager {
     pub fn probe(compiler: sync::Arc<Compiler>) -> Option<AndroidManager> {
