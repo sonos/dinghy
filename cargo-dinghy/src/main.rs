@@ -225,5 +225,3 @@ fn select_platform_and_device_from_cli(matches: &ArgMatches,
         Ok((dinghy.host_platform(), Some(dinghy.host_device())))
     }
 }
-
-
