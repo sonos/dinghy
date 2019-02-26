@@ -202,6 +202,11 @@ fn select_platform_and_device_from_cli(matches: &ArgMatches,
 
         Ok((platform, device))
     } else if let Some(device_filter) = matches.value_of("DEVICE") {
+        let is_banned_auto_platform_id = |id: &str| -> bool {
+            id.contains("auto-android") && (id.contains("min")
+                                    || id.contains("latest")
+                                    || id.contains("api"))
+        };
         let devices = dinghy.devices()
             .into_iter()
             .filter(move |it| format!("{:?}", it).to_lowercase().contains(&device_filter.to_lowercase()))
@@ -221,8 +226,4 @@ fn select_platform_and_device_from_cli(matches: &ArgMatches,
     }
 }
 
-fn is_banned_auto_platform_id(id: &str) -> bool {
-    id.contains("auto-android") && (id.contains("min")
-                                    || id.contains("latest")
-                                    || id.contains("api"))
-}
+
