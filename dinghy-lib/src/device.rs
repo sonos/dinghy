@@ -2,6 +2,7 @@ use errors::*;
 use project;
 use project::Project;
 use std::fs;
+use std::path::Path;
 use utils::copy_and_sync_file;
 use Build;
 use BuildBundle;
@@ -12,6 +13,10 @@ pub fn make_remote_app(project: &Project, build: &Build, runnable: &Runnable) ->
 }
 
 pub fn make_remote_app_with_name(project: &Project, build: &Build, runnable: &Runnable, bundle_name: Option<&str>) -> Result<BuildBundle> {
+    fn is_sysroot_library(path: &Path) -> bool {
+        path.ancestors().find(|ancestor_path| ancestor_path.ends_with("sysroot/usr/lib")).is_some()
+    }
+
     let project = project.for_runnable(runnable)?;
     let root_dir = build.target_path.join("dinghy");
     let bundle_path = match bundle_name {
@@ -43,9 +48,14 @@ pub fn make_remote_app_with_name(project: &Project, build: &Build, runnable: &Ru
     for src_lib_path in &build.dynamic_libraries {
         let target_lib_path = bundle_libs_path.join(src_lib_path.file_name()
             .ok_or(format!("Invalid file name {:?}", src_lib_path.file_name()))?);
-        debug!("Copying dynamic lib {} to {}", src_lib_path.display(), target_lib_path.display());
-        copy_and_sync_file(&src_lib_path, &target_lib_path)
-            .chain_err(|| format!("Couldn't copy {} to {}", src_lib_path.display(), &target_lib_path.display()))?;
+        if !is_sysroot_library(&src_lib_path) {
+            debug!("Copying dynamic lib {} to {}", src_lib_path.display(), target_lib_path.display());
+            copy_and_sync_file(&src_lib_path, &target_lib_path)
+                .chain_err(|| format!("Couldn't copy {} to {}", src_lib_path.display(), &target_lib_path.display()))?;
+        }
+        else {
+            debug!("Dynamic lib {} will not be copied as it is a sysroot library", src_lib_path.display());
+        }
     }
 
     debug!("Copying src {} to bundle {}", runnable.source.display(), bundle_path.display());
