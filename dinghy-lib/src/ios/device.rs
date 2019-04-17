@@ -75,20 +75,20 @@ impl IosDevice {
         })
     }
 
-    fn make_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
+    fn make_app(&self, project: &Project, build: &Build, runnable: &Runnable, send: &[&str]) -> Result<BuildBundle> {
         let signing = xcode::look_for_signature_settings(&self.id)?
             .pop()
             .ok_or("no signing identity found")?;
         let app_id = signing.name.split(" ").last().ok_or("no app id ?")?;
 
-        let build_bundle = make_ios_app(project, build, runnable, &app_id)?;
+        let build_bundle = make_ios_app(project, build, runnable, &app_id, send)?;
 
         super::xcode::sign_app(&build_bundle, &signing)?;
         Ok(build_bundle)
     }
 
-    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
-        let build_bundle = self.make_app(project, build, runnable)?;
+    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable, send: &[&str]) -> Result<BuildBundle> {
+        let build_bundle = self.make_app(project, build, runnable, send)?;
         install_app(self.ptr, &build_bundle.bundle_dir)?;
         Ok(build_bundle)
     }
@@ -99,9 +99,9 @@ impl Device for IosDevice {
         unimplemented!()
     }
 
-    fn debug_app(&self, project: &Project, build: &Build, args: &[&str], _envs: &[&str]) -> Result<BuildBundle> {
+    fn debug_app(&self, project: &Project, build: &Build, args: &[&str], _envs: &[&str], send: &[&str]) -> Result<BuildBundle> {
         let runnable = build.runnables.iter().next().ok_or("No executable compiled")?;
-        let build_bundle = self.install_app(project, build, runnable)?;
+        let build_bundle = self.install_app(project, build, runnable, send)?;
         let lldb_proxy = self.start_remote_lldb()?;
         run_remote(self.ptr, &lldb_proxy, &build_bundle.bundle_dir, args, true)?;
         Ok(build_bundle)
@@ -115,10 +115,10 @@ impl Device for IosDevice {
         &self.name
     }
 
-    fn run_app(&self, project: &Project, build: &Build, args: &[&str], _envs: &[&str]) -> Result<Vec<BuildBundle>> {
+    fn run_app(&self, project: &Project, build: &Build, args: &[&str], _envs: &[&str], send: &[&str]) -> Result<Vec<BuildBundle>> {
         let mut build_bundles = vec![];
         for runnable in &build.runnables {
-            let build_bundle = self.install_app(&project, &build, &runnable)?;
+            let build_bundle = self.install_app(&project, &build, &runnable, send)?;
             let lldb_proxy = self.start_remote_lldb()?;
             run_remote(self.ptr, &lldb_proxy, &build_bundle.bundle_dir, args, false)?;
             build_bundles.push(build_bundle)
@@ -138,8 +138,8 @@ impl Device for IosDevice {
 
 
 impl IosSimDevice {
-    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
-        let build_bundle = IosSimDevice::make_app(project, build, runnable)?;
+    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable, send: &[&str]) -> Result<BuildBundle> {
+        let build_bundle = IosSimDevice::make_app(project, build, runnable, send)?;
         let _ = process::Command::new("xcrun")
             .args(&["simctl", "uninstall", &self.id, "Dinghy"])
             .status()?;
@@ -158,8 +158,8 @@ impl IosSimDevice {
         }
     }
 
-    fn make_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
-        make_ios_app(project, build, runnable, "Dinghy")
+    fn make_app(project: &Project, build: &Build, runnable: &Runnable, send: &[&str]) -> Result<BuildBundle> {
+        make_ios_app(project, build, runnable, "Dinghy", send)
     }
 }
 
@@ -168,9 +168,9 @@ impl Device for IosSimDevice {
         unimplemented!()
     }
 
-    fn debug_app(&self, project: &Project, build: &Build, args: &[&str], _envs: &[&str]) -> Result<BuildBundle> {
+    fn debug_app(&self, project: &Project, build: &Build, args: &[&str], _envs: &[&str], send: &[&str]) -> Result<BuildBundle> {
         let runnable = build.runnables.iter().next().ok_or("No executable compiled")?;
-        let build_bundle = self.install_app(project, build, runnable)?;
+        let build_bundle = self.install_app(project, build, runnable, send)?;
         let install_path = String::from_utf8(
             process::Command::new("xcrun")
                 .args(&["simctl", "get_app_container", &self.id, "Dinghy"])
@@ -189,10 +189,10 @@ impl Device for IosSimDevice {
         &self.name
     }
 
-    fn run_app(&self, project: &Project, build: &Build, args: &[&str], _envs: &[&str]) -> Result<Vec<BuildBundle>> {
+    fn run_app(&self, project: &Project, build: &Build, args: &[&str], _envs: &[&str], send: &[&str]) -> Result<Vec<BuildBundle>> {
         let mut build_bundles = vec![];
         for runnable in &build.runnables {
-            let build_bundle = self.install_app(&project, &build, &runnable)?;
+            let build_bundle = self.install_app(&project, &build, &runnable, send)?;
             let install_path = String::from_utf8(
                 process::Command::new("xcrun")
                     .args(&["simctl", "get_app_container", &self.id, "Dinghy"])
@@ -400,9 +400,9 @@ fn mount_developper_image(dev: *const am_device) -> Result<()> {
     }
 }
 
-fn make_ios_app(project: &Project, build: &Build, runnable: &Runnable, app_id:&str) -> Result<BuildBundle> {
+fn make_ios_app(project: &Project, build: &Build, runnable: &Runnable, app_id:&str, send: &[&str]) -> Result<BuildBundle> {
     use project;
-    let build_bundle = make_remote_app_with_name(project, build, runnable, Some("Dinghy.app"))?;
+    let build_bundle = make_remote_app_with_name(project, build, runnable, Some("Dinghy.app"), send)?;
     project::rec_copy(&runnable.exe, build_bundle.bundle_dir.join("Dinghy"), false)?;
     let magic = process::Command::new("file")
         .arg(runnable.exe.to_str().ok_or("path conversion to string")?)

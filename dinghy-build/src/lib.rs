@@ -9,7 +9,6 @@
 //!
 //! As an optional feature, it offers `with-bindgen`, which helps dealing with
 //! some idiosyncrasies of `bindgen` code generation.
-
 #[cfg(feature="with-bindgen")]
 extern crate bindgen;
 #[macro_use]
@@ -33,13 +32,17 @@ use std::process::Command;
 use utils::path_to_str;
 use utils::path_between;
 
-error_chain! {
-    foreign_links {
-        Io(::std::io::Error);
-        EnvVar(::std::env::VarError);
-        StringFromUtf8(::std::string::FromUtf8Error);
+#[allow(deprecated)]
+mod errors {
+    error_chain! {
+        foreign_links {
+            Io(::std::io::Error);
+            EnvVar(::std::env::VarError);
+            StringFromUtf8(::std::string::FromUtf8Error);
+        }
     }
 }
+use errors::*;
 
 /// Decorator for the std::process::Command adding a some chainable helpers.
 /// 
