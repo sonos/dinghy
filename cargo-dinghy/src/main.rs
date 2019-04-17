@@ -122,17 +122,20 @@ fn prepare_and_run(
 
     debug!("Run on {:?}", device);
     let device = device.ok_or("No device found")?;
+    let send = arg_as_string_vec(args, "SEND");
     let args = arg_as_string_vec(sub_args, "ARGS");
     let envs = arg_as_string_vec(sub_args, "ENVS");
 
     let args = args.iter().map(|s| &s[..]).collect::<Vec<_>>();
     let envs = envs.iter().map(|s| &s[..]).collect::<Vec<_>>();
+    let send = send.iter().map(|s| &s[..]).collect::<Vec<_>>();
+
     let build_bundles = if sub_args.is_present("DEBUGGER") {
         debug!("Debug app");
-        vec![device.debug_app(&project, &build, &*args, &*envs)?]
+        vec![device.debug_app(&project, &build, &*args, &*envs, &*send)?]
     } else {
         debug!("Run app");
-        device.run_app(&project, &build, &*args, &*envs)?
+        device.run_app(&project, &build, &*args, &*envs, &*send)?
     };
 
     if sub_args.is_present("CLEANUP") {

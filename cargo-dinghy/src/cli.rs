@@ -21,6 +21,7 @@ impl CargoDinghyCli {
                 .quiet()
                 .overlay()
                 .platform()
+                .send()
 
                 .subcommand(SubCommand::with_name("all-devices")
                     .about("List all devices that can be used with Dinghy"))
@@ -155,6 +156,7 @@ pub trait CargoDinghyCliExt {
     fn package(self) -> Self;
     fn platform(self) -> Self;
     fn debug_or_release(self) -> Self;
+    fn send(self) -> Self;
     fn strip(self) -> Self;
     fn target(self) -> Self;
     fn test(self) -> Self;
@@ -306,6 +308,7 @@ impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
 
     fn platform(self) -> Self {
         self.arg(Arg::with_name("PLATFORM")
+            .short("p")
             .long("platform")
             .takes_value(true)
             .help("Use a specific platform (build only)"))
@@ -322,6 +325,14 @@ impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
             .group(ArgGroup::with_name("BUILD_TYPE")
                 .args(&["DEBUG", "RELEASE"])
                 .multiple(false))
+    }
+
+    fn send(self) -> Self {
+        self.arg(Arg::with_name("SEND")
+            .short("s")
+            .long("send")
+            .takes_value(true)
+            .help("send a file to the device (it will land in ./)"))
     }
 
     fn target(self) -> Self {

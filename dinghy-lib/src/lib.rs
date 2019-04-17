@@ -161,6 +161,7 @@ pub trait Device: std::fmt::Debug + Display + DeviceCompatibility {
         build: &Build,
         args: &[&str],
         envs: &[&str],
+        send: &[&str],
     ) -> Result<BuildBundle>;
 
     fn id(&self) -> &str;
@@ -173,6 +174,7 @@ pub trait Device: std::fmt::Debug + Display + DeviceCompatibility {
         build: &Build,
         args: &[&str],
         envs: &[&str],
+        send: &[&str],
     ) -> Result<Vec<BuildBundle>>;
 
     fn start_remote_lldb(&self) -> Result<String>;

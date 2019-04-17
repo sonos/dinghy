@@ -29,7 +29,7 @@ impl Device for ScriptDevice {
         Ok(())
     }
 
-    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str]) -> Result<BuildBundle> {
+    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str], _send: &[&str]) -> Result<BuildBundle> {
         unimplemented!()
     }
 
@@ -41,7 +41,7 @@ impl Device for ScriptDevice {
         &self.id
     }
 
-    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>> {
+    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str], _send: &[&str]) -> Result<Vec<BuildBundle>> {
         let root_dir = build.target_path.join("dinghy");
         let mut build_bundles = vec![];
         for runnable in &build.runnables {

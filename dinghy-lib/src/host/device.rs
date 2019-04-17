@@ -52,7 +52,7 @@ impl Device for HostDevice {
         Ok(())
     }
 
-    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str]) -> Result<BuildBundle> {
+    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str], _send: &[&str]) -> Result<BuildBundle> {
         unimplemented!()
     }
 
@@ -64,7 +64,7 @@ impl Device for HostDevice {
         "host device"
     }
 
-    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>> {
+    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str], _send: &[&str]) -> Result<Vec<BuildBundle>> {
         for (env_key, env_value) in envs.iter().tuples() {
             set_env(env_key, env_value);
         }

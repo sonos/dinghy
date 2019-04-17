@@ -53,13 +53,13 @@ impl AndroidDevice {
         Ok(command)
     }
 
-    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<(BuildBundle, BuildBundle)> {
+    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable, send: &[&str]) -> Result<(BuildBundle, BuildBundle)> {
         info!("Install {} to {}", runnable.id, self.id);
         if !self.adb()?.arg("shell").arg("mkdir").arg("-p").arg(ANDROID_WORK_DIR).status()?.success() {
             Err(format!("Failure to create dinghy work dir '{:?}' on target android device", ANDROID_WORK_DIR))?;
         }
 
-        let build_bundle = make_remote_app(project, build, runnable)?;
+        let build_bundle = make_remote_app(project, build, runnable, send)?;
         let remote_bundle = AndroidDevice::to_remote_bundle(&build_bundle)?;
 
         self.sync(&build_bundle.bundle_dir, &remote_bundle.bundle_dir.parent()
@@ -117,7 +117,7 @@ impl Device for AndroidDevice {
         Ok(())
     }
 
-    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str]) -> Result<BuildBundle> {
+    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str], _send: &[&str]) -> Result<BuildBundle> {
         unimplemented!()
     }
 
@@ -129,11 +129,11 @@ impl Device for AndroidDevice {
         "android device"
     }
 
-    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>> {
+    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str], send: &[&str]) -> Result<Vec<BuildBundle>> {
         let mut build_bundles = vec![];
         let args:Vec<String> = args.iter().map(|&a| ::shell_escape::escape(a.into()).to_string()).collect();
         for runnable in &build.runnables {
-            let (build_bundle, remote_bundle) = self.install_app(&project, &build, &runnable)?;
+            let (build_bundle, remote_bundle) = self.install_app(&project, &build, &runnable, send)?;
             let command = format!(
                 "cd '{}'; {} DINGHY=1 RUST_BACKTRACE=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {} {} ; echo FORWARD_RESULT_TO_DINGHY_BECAUSE_ADB_DOES_NOT=$?",
                 path_to_str(&remote_bundle.bundle_dir)?,

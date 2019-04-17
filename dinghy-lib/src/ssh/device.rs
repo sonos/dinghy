@@ -22,9 +22,9 @@ pub struct SshDevice {
 }
 
 impl SshDevice {
-    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<(BuildBundle, BuildBundle)> {
+    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable, send: &[&str]) -> Result<(BuildBundle, BuildBundle)> {
         debug!("make_remote_app {}", runnable.id);
-        let build_bundle = make_remote_app(project, build, runnable)?;
+        let build_bundle = make_remote_app(project, build, runnable, send)?;
         trace!("make_remote_app {} done", runnable.id);
         let remote_bundle = self.to_remote_bundle(&build_bundle)?;
         trace!("Create remote dir: {:?}", remote_bundle.bundle_dir);
@@ -97,7 +97,7 @@ impl Device for SshDevice {
         Ok(())
     }
 
-    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str]) -> Result<BuildBundle> {
+    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str], _send: &[&str]) -> Result<BuildBundle> {
         unimplemented!()
     }
 
@@ -109,12 +109,12 @@ impl Device for SshDevice {
         &self.id
     }
 
-    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>> {
+    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str], send: &[&str]) -> Result<Vec<BuildBundle>> {
         let mut build_bundles = vec![];
         let args:Vec<String> = args.iter().map(|&a| ::shell_escape::escape(a.into()).to_string()).collect();
         for runnable in &build.runnables {
             info!("Install {:?}", runnable.id);
-            let (build_bundle, remote_bundle) = self.install_app(&project, &build, &runnable)?;
+            let (build_bundle, remote_bundle) = self.install_app(&project, &build, &runnable, send)?;
             debug!("Installed {:?}", runnable.id);
             let command = format!(
                 "cd '{}' ; {} RUST_BACKTRACE=1 DINGHY=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {} {}",

@@ -2,16 +2,17 @@ use errors::*;
 use project;
 use project::Project;
 use std::fs;
+use std::path;
 use utils::copy_and_sync_file;
 use Build;
 use BuildBundle;
 use Runnable;
 
-pub fn make_remote_app(project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
-    make_remote_app_with_name(project, build, runnable, None)
+pub fn make_remote_app(project: &Project, build: &Build, runnable: &Runnable, send: &[&str]) -> Result<BuildBundle> {
+    make_remote_app_with_name(project, build, runnable, None, send)
 }
 
-pub fn make_remote_app_with_name(project: &Project, build: &Build, runnable: &Runnable, bundle_name: Option<&str>) -> Result<BuildBundle> {
+pub fn make_remote_app_with_name(project: &Project, build: &Build, runnable: &Runnable, bundle_name: Option<&str>, send: &[&str]) -> Result<BuildBundle> {
     let project = project.for_runnable(runnable)?;
     let root_dir = build.target_path.join("dinghy");
     let bundle_path = match bundle_name {
@@ -52,6 +53,13 @@ pub fn make_remote_app_with_name(project: &Project, build: &Build, runnable: &Ru
     project::rec_copy_excl(&runnable.source, &bundle_path, false, &[runnable.source.join("target")])?;
     debug!("Copying test_data to bundle {}", bundle_path.display());
     project.copy_test_data(&bundle_path)?;
+
+    for file in send {
+        let name = path::Path::new(file).file_name().unwrap();
+        let target_name = bundle_target_path.join(name);
+        copy_and_sync_file(&file, &target_name)
+            .chain_err(|| format!("Couldn't copy {:?} to {:?}", file, target_name))?;
+    }
 
     Ok(BuildBundle {
         id: runnable.id.clone(),
