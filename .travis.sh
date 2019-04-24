@@ -6,10 +6,6 @@ export RUST_BACKTRACE=1
 
 if [ `uname` = Darwin ]
 then
-    (xcrun simctl list devices | grep Booted) || xcrun simctl boot "iPhone 6"
-    rustup target install "x86_64-apple-ios"
-    pip2 install six
-    pip2 install six
     export OPENSSL_INCLUDE_DIR=`brew --prefix openssl`/include
     export OPENSSL_LIB_DIR=`brew --prefix openssl`/lib
 fi
@@ -36,20 +32,6 @@ echo "##"
 echo "## latest failure was expected ##"
 echo "##"
 
-if [ `uname` = Darwin ]
-then
-    ( \
-        cd test-ws \
-        && cargo clean \
-        && $CARGO_DINGHY --platform 'auto-ios-x86_64' test pass \
-        && ! $CARGO_DINGHY --platform 'auto-ios-x86_64' test fails \
-    )
-    echo "##"
-    echo "## latest failure was expected"
-    echo "##"
-fi
-
-
 # Test in project subdir
 ( \
     cd test-ws/test-app \
@@ -61,22 +43,6 @@ echo "##"
 echo "## latest failure was expected ##"
 echo "##"
 
-# Disabling test on ios sim as they do not work with non deprecated versions :/
-# 
-# if [ `uname` = Darwin ]
-# then
-#     ( \
-#         cd test-ws/test-app \
-#         && cargo clean \
-#         && $CARGO_DINGHY --platform 'auto-ios-x86_64' test pass \
-#         && ! $CARGO_DINGHY --platform 'auto-ios-x86_64' test fails \
-#     )
-#     echo "##"
-#     echo "## latest failure was expected"
-#     echo "##"
-# fi
-
-
 # Test from workspace root with project filter
 ( \
     cd test-ws \
@@ -87,19 +53,6 @@ echo "##"
 echo "##"
 echo "## latest failure was expected ##"
 echo "##"
-
-# if [ `uname` = Darwin ]
-# then
-#     ( \
-#         cd test-ws \
-#         && cargo clean \
-#         && $CARGO_DINGHY --platform 'auto-ios-x86_64' test -p test-app pass \
-#         && ! $CARGO_DINGHY --platform 'auto-ios-x86_64' test -p test-app fails \
-#     )
-#     echo "##"
-#     echo "## latest failure was expected ##"
-#     echo "##"
-# fi
 
 if [ -n "$DEPLOY" ]
 then
