@@ -14,37 +14,42 @@ use Runnable;
 static ANDROID_WORK_DIR: &str = "/data/local/tmp/dinghy";
 
 pub struct AndroidDevice {
-    adb: path::PathBuf,
-    id: String,
-    supported_targets: Vec<&'static str>,
+    pub adb: path::PathBuf,
+    pub id: String,
+    pub supported_targets: Vec<&'static str>,
 }
 
 impl AndroidDevice {
     pub fn from_id(adb: path::PathBuf, id: &str) -> Result<AndroidDevice> {
-        let getprop_output = process::Command::new(&adb)
-            .args(&["-s", id, "shell", "getprop", "ro.product.cpu.abilist"])
-            .output()?;
-        let abilist = String::from_utf8(getprop_output.stdout)?;
-        let supported_targets = abilist
-            .trim()
-            .split(",")
-            .filter_map(|abi| {
-                Some(match abi {
-                    "arm64-v8a" => "aarch64-linux-android",
-                    "armeabi-v7a" => "armv7-linux-androideabi",
-                    "armeabi" => "arm-linux-androideabi",
-                    "x86" => "i686-linux-android",
-                    _ => return None,
-                })
-            })
-            .collect::<Vec<_>>();
+        for prop in &[ "ro.product.cpu.abilist", "ro.product.cpu.abi", "ro.product.cpu.abi2" ] {
+            let getprop_output = process::Command::new(&adb)
+                .args(&["-s", id, "shell", "getprop", prop])
+                .output()?;
+            let mut abilist = String::from_utf8(getprop_output.stdout)?;
+            debug!("Android device {}, getprop {} returned {}", id, prop, abilist.trim());
+            if abilist.trim().len() > 0 {
+                let supported_targets = abilist
+                    .trim()
+                    .split(",")
+                    .filter_map(|abi| {
+                        Some(match abi {
+                            "arm64-v8a" => "aarch64-linux-android",
+                            "armeabi-v7a" => "armv7-linux-androideabi",
+                            "armeabi" => "arm-linux-androideabi",
+                            "x86" => "i686-linux-android",
+                            _ => return None,
+                        })
+                    })
+                    .collect::<Vec<_>>();
 
-        let device = AndroidDevice {
-            adb,
-            id: id.into(),
-            supported_targets: supported_targets,
-        };
-        Ok(device)
+                return Ok(AndroidDevice {
+                    adb,
+                    id: id.into(),
+                    supported_targets: supported_targets,
+                });
+            }
+        }
+        bail!("Could not match a platform to the device")
     }
 
     fn adb(&self) -> Result<process::Command> {
@@ -142,8 +147,12 @@ impl AndroidDevice {
 
 impl DeviceCompatibility for AndroidDevice {
     fn is_compatible_with_regular_platform(&self, platform: &RegularPlatform) -> bool {
-        self.supported_targets
-            .contains(&&*platform.toolchain.binutils_prefix)
+        if platform.id.starts_with("auto-android") {
+            let cpu = platform.id.split("-").nth(2).unwrap();
+            self.supported_targets.iter().any(|target| target.starts_with(cpu))
+        } else {
+            self.supported_targets.contains(&&*platform.toolchain.binutils_prefix)
+        }
     }
 }
 

@@ -21,7 +21,7 @@ impl PlatformManager for AndroidManager {
         for line in String::from_utf8(result.stdout)?.split("\n").skip(1) {
             if let Some(caps) = device_regex.captures(line) {
                 let d = AndroidDevice::from_id(self.adb.clone(), &caps[1])?;
-                debug!("Discovered Android device {}", d);
+                debug!("Discovered Android device {} ({:?})", d, d.supported_targets);
                 devices.push(Box::new(d) as Box<dyn Device>);
             }
         }
