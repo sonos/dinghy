@@ -44,6 +44,10 @@ pub fn path_to_str<'a>(path: &'a Path) -> Result<&'a str> {
         .ok_or(format!("Path is invalid '{}'", path.display()))?)
 }
 
+pub fn normalize_path(path: &Path) -> PathBuf {
+    PathBuf::from(path.to_string_lossy().replace("\\", "/"))
+}
+
 pub fn contains_file_with_ext(dir_path: &Path, ext: &str) -> bool {
     if !dir_path.is_dir() {
         return false;
