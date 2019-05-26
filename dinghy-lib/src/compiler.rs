@@ -405,7 +405,7 @@ fn setup_dinghy_wrapper(workspace: &Workspace, rustc_triple: Option<&str>) -> Re
             .as_bytes(),
         )?;
     }
-	#[cfg(unix)]
+    #[cfg(unix)]
     fs::set_permissions(&measure_sh_path, PermissionsExt::from_mode(0o755))?;
     env::set_var("RUSTC_WRAPPER", measure_sh_path);
     Ok(())

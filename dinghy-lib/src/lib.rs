@@ -251,18 +251,18 @@ impl BuildBundle {
     fn replace_prefix_with<P: AsRef<path::Path>>(&self, path: P) -> Result<Self> {
         Ok(BuildBundle {
             id: self.id.clone(),
-            bundle_dir: path
+            bundle_dir: utils::normalize_path(&path
                 .as_ref()
                 .to_path_buf()
-                .join(self.bundle_dir.strip_prefix(&self.root_dir)?),
-            bundle_exe: path
+                .join(self.bundle_dir.strip_prefix(&self.root_dir)?)),
+            bundle_exe: utils::normalize_path(&path
                 .as_ref()
                 .to_path_buf()
-                .join(self.bundle_exe.strip_prefix(&self.root_dir)?),
-            lib_dir: path
+                .join(self.bundle_exe.strip_prefix(&self.root_dir)?)),
+            lib_dir: utils::normalize_path(&path
                 .as_ref()
                 .to_path_buf()
-                .join(self.lib_dir.strip_prefix(&self.root_dir)?),
+                .join(self.lib_dir.strip_prefix(&self.root_dir)?)),
             root_dir: path.as_ref().to_path_buf(),
         })
     }
