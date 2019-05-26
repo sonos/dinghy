@@ -156,9 +156,8 @@ fn create_shim<P: AsRef<path::Path>>(
     }
     linker_shim.write_all(shell.as_bytes())?;
     writeln!(linker_shim, "\n")?;
-    if !cfg!(target_os = "windows") {
-        fs::set_permissions(&shim, PermissionsExt::from_mode(0o777))?;
-    }
+	#[cfg(unix)]
+    fs::set_permissions(&shim, PermissionsExt::from_mode(0o777))?;
     Ok(shim)
 }
 
