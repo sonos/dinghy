@@ -355,7 +355,7 @@ fn setup_dinghy_wrapper(workspace: &Workspace, rustc_triple: Option<&str>) -> Re
         measure_sh.write_all(b"ELAPSED_TIME=$(($SECONDS - $START_TIME))\n")?;
         measure_sh.write_all(format!("echo \"$4 = $ELAPSED_TIME s\" >> {}\n", target_dir.join("dinghy-wrapper.log").display()).as_bytes())?;
     }
-	#[cfg(unix)]
+    #[cfg(unix)]
     fs::set_permissions(&measure_sh_path, PermissionsExt::from_mode(0o755))?;
     env::set_var("RUSTC_WRAPPER", measure_sh_path);
     Ok(())
