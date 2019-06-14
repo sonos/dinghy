@@ -1,3 +1,4 @@
+#![type_length_limit="1074778"]
 extern crate atty;
 extern crate cargo;
 extern crate clap;
