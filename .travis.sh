@@ -56,6 +56,13 @@ echo "##"
 
 if [ -n "$DEPLOY" ]
 then
+    if [`uname` = Linux ]
+    then
+        export OPENSSL_STATIC=yes
+        export OPENSSL_INCLUDE_DIR=/usr/include/
+        export OPENSSL_LIB_DIR=/usr/local/lib64/
+        cargo clean
+    fi
     cargo build --release -p cargo-dinghy
     mkdir -p cargo-dinghy-$DEPLOY
     cp target/release/cargo-dinghy cargo-dinghy-$DEPLOY
