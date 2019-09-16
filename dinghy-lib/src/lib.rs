@@ -85,7 +85,7 @@ impl Dinghy {
         }
         #[cfg(target_os = "macos")]
         {
-            thread::sleep(time::Duration::from_millis(100));
+            std::thread::sleep(std::time::Duration::from_millis(100));
             if let Some(man) = IosManager::new(sync::Arc::clone(compiler))? {
                 managers.push(Box::new(man));
             }
