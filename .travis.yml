@@ -9,11 +9,14 @@ matrix:
     osx_image: xcode9.3
     env: DEPLOY=macos
   - os: linux
-    dist: trusty
+    dist: bionic
   - rust: stable
+    dist: bionic
     env: DEPLOY=travis
   - rust: beta
+    dist: bionic
   - rust: nightly
+    dist: bionic
 script: sh .travis.sh
 deploy:
   provider: releases
