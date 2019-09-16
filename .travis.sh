@@ -56,11 +56,11 @@ echo "##"
 
 if [ -n "$DEPLOY" ]
 then
-    if [`uname` = Linux ]
+    if [ `uname` = Linux ]
     then
         export OPENSSL_STATIC=yes
-        export OPENSSL_INCLUDE_DIR=/usr/include/
-        export OPENSSL_LIB_DIR=/usr/local/lib64/
+        export OPENSSL_INCLUDE_DIR=/usr/include
+        export OPENSSL_LIB_DIR=$(dirname `find /usr -name libssl.a`)
         cargo clean
     fi
     cargo build --release -p cargo-dinghy
