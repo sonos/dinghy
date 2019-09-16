@@ -1,11 +1,11 @@
 mod device;
 use std::sync;
-use { Configuration, Device, Platform, PlatformManager, Result };
+use {Configuration, Device, Platform, PlatformManager, Result};
 
 use self::device::SshDevice;
 
 pub struct SshDeviceManager {
-    conf: sync::Arc<Configuration>
+    conf: sync::Arc<Configuration>,
 }
 
 impl SshDeviceManager {
@@ -15,8 +15,10 @@ impl SshDeviceManager {
 }
 
 impl PlatformManager for SshDeviceManager {
-    fn devices(&self) -> Result<Vec<Box<Device>>> {
-        Ok(self.conf.ssh_devices
+    fn devices(&self) -> Result<Vec<Box<dyn Device>>> {
+        Ok(self
+            .conf
+            .ssh_devices
             .iter()
             .map(|(k, conf)| {
                 Box::new(SshDevice {
@@ -26,7 +28,7 @@ impl PlatformManager for SshDeviceManager {
             })
             .collect())
     }
-    fn platforms(&self) -> Result<Vec<Box<Platform>>> {
-        Ok(vec!())
+    fn platforms(&self) -> Result<Vec<Box<dyn Platform>>> {
+        Ok(vec![])
     }
 }

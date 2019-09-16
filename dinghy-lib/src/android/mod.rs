@@ -14,7 +14,7 @@ pub struct AndroidManager {
 }
 
 impl PlatformManager for AndroidManager {
-    fn devices(&self) -> Result<Vec<Box<Device>>> {
+    fn devices(&self) -> Result<Vec<Box<dyn Device>>> {
         let result = process::Command::new(&self.adb).arg("devices").output()?;
         let mut devices = vec![];
         let device_regex = ::regex::Regex::new(r#"^(\S+)\tdevice\r?$"#)?;
@@ -22,12 +22,12 @@ impl PlatformManager for AndroidManager {
             if let Some(caps) = device_regex.captures(line) {
                 let d = AndroidDevice::from_id(self.adb.clone(), &caps[1])?;
                 debug!("Discovered Android device {}", d);
-                devices.push(Box::new(d) as Box<Device>);
+                devices.push(Box::new(d) as Box<dyn Device>);
             }
         }
         Ok(devices)
     }
-    fn platforms(&self) -> Result<Vec<Box<Platform>>> {
+    fn platforms(&self) -> Result<Vec<Box<dyn Platform>>> {
         if let Some(ndk) = ndk()? {
             let default_api_level = "21";
             debug!("Android NDK: {:?}", ndk);
@@ -58,17 +58,23 @@ impl PlatformManager for AndroidManager {
                     ("i686", "i686", "i686", "android"),
                     ("x86_64", "x86_64", "x86_64", "android"),
                 ] {
-                    let mut api_levels : Vec<String> = Vec::new();
-                    for entry in tools.path()
-                        .join(format!("sysroot/usr/lib/{}-linux-{}",binutils_cpu,abi_kind)).read_dir()? {
-                            let entry = entry?;
-                            if entry.file_type()?.is_dir() {
-                                let folder_name = entry.file_name().into_string().unwrap();
-                                match folder_name.parse::<u32>() {
-                                    Ok(_) => api_levels.push(folder_name),
-                                    Err(_) => {}
-                                }
+                    let mut api_levels: Vec<String> = Vec::new();
+                    for entry in tools
+                        .path()
+                        .join(format!(
+                            "sysroot/usr/lib/{}-linux-{}",
+                            binutils_cpu, abi_kind
+                        ))
+                        .read_dir()?
+                    {
+                        let entry = entry?;
+                        if entry.file_type()?.is_dir() {
+                            let folder_name = entry.file_name().into_string().unwrap();
+                            match folder_name.parse::<u32>() {
+                                Ok(_) => api_levels.push(folder_name),
+                                Err(_) => {}
                             }
+                        }
                     }
                     api_levels.sort();
                     let create_platform = |api: &str, suffix: &str| {
@@ -88,16 +94,25 @@ impl PlatformManager for AndroidManager {
                             id,
                             tc,
                         )
-
                     };
                     for api in api_levels.iter() {
-                        platforms.push(create_platform(&api,&format!("-api{}",api))?);
+                        platforms.push(create_platform(&api, &format!("-api{}", api))?);
                     }
                     if !api_levels.is_empty() {
-                        platforms.push(create_platform(api_levels.first().expect("The api level vector shouldn't be empty"),"-min")?);
-                        platforms.push(create_platform(api_levels.last().expect("The api level vector shouldn't be empty"),"-latest")?);
+                        platforms.push(create_platform(
+                            api_levels
+                                .first()
+                                .expect("The api level vector shouldn't be empty"),
+                            "-min",
+                        )?);
+                        platforms.push(create_platform(
+                            api_levels
+                                .last()
+                                .expect("The api level vector shouldn't be empty"),
+                            "-latest",
+                        )?);
                     }
-                    platforms.push(create_platform(default_api_level,"")?);
+                    platforms.push(create_platform(default_api_level, "")?);
                 }
                 return Ok(platforms);
             }
@@ -105,7 +120,6 @@ impl PlatformManager for AndroidManager {
         return Ok(vec![]);
     }
 }
-
 
 impl AndroidManager {
     pub fn probe(compiler: sync::Arc<Compiler>) -> Option<AndroidManager> {

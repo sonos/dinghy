@@ -46,11 +46,8 @@ pub struct am_device_notification {
     unknown3: c_int,
 }
 
-pub type am_device_notification_callback = extern "C" fn(
-    *mut am_device_notification_callback_info,
-    *mut c_void,
-);
-
+pub type am_device_notification_callback =
+    extern "C" fn(*mut am_device_notification_callback_info, *mut c_void);
 
 pub type am_device_mount_callback = extern "C" fn(CFDictionaryRef, *mut c_void);
 #[link(name = "MobileDevice", kind = "framework")]

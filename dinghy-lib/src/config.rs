@@ -1,9 +1,9 @@
 use itertools::Itertools;
 use serde::de::{self, Deserialize};
-use std::io::Read;
-use std::{collections, fs, path};
 use std::fmt;
+use std::io::Read;
 use std::result;
+use std::{collections, fs, path};
 //use walkdir::WalkDir;
 
 use errors::*;
@@ -33,8 +33,8 @@ pub struct DetailedTestDataConfiguration {
 
 impl<'de> de::Deserialize<'de> for TestDataConfiguration {
     fn deserialize<D>(deserializer: D) -> result::Result<Self, D::Error>
-        where
-            D: de::Deserializer<'de>,
+    where
+        D: de::Deserializer<'de>,
     {
         struct TestDataVisitor;
 
@@ -50,8 +50,8 @@ impl<'de> de::Deserialize<'de> for TestDataConfiguration {
             }
 
             fn visit_str<E>(self, s: &str) -> result::Result<Self::Value, E>
-                where
-                    E: de::Error,
+            where
+                E: de::Error,
             {
                 Ok(TestDataConfiguration {
                     copy_git_ignored: false,
@@ -61,8 +61,8 @@ impl<'de> de::Deserialize<'de> for TestDataConfiguration {
             }
 
             fn visit_map<V>(self, map: V) -> result::Result<Self::Value, V::Error>
-                where
-                    V: de::MapAccess<'de>,
+            where
+                V: de::MapAccess<'de>,
             {
                 let mvd = de::value::MapAccessDeserializer::new(map);
                 let detailed = DetailedTestDataConfiguration::deserialize(mvd)?;
@@ -117,10 +117,13 @@ impl PlatformConfiguration {
     }
 
     pub fn env(&self) -> Vec<(String, String)> {
-        self.env.as_ref()
-            .map(|it| it.iter()
-                .map(|(key, value)| (key.to_string(), value.to_string()))
-                .collect_vec())
+        self.env
+            .as_ref()
+            .map(|it| {
+                it.iter()
+                    .map(|(key, value)| (key.to_string(), value.to_string()))
+                    .collect_vec()
+            })
             .unwrap_or(vec![])
     }
 }
@@ -158,7 +161,8 @@ impl Configuration {
             .extend(other.ssh_devices.unwrap_or(collections::BTreeMap::new()));
         self.script_devices
             .extend(other.script_devices.unwrap_or(collections::BTreeMap::new()));
-        for (id, source) in other.test_data.unwrap_or(collections::BTreeMap::new()) { // TODO Remove key
+        for (id, source) in other.test_data.unwrap_or(collections::BTreeMap::new()) {
+            // TODO Remove key
             self.test_data.push(TestData {
                 id: id.to_string(),
                 base: file.to_path_buf(),

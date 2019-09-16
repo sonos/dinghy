@@ -1,11 +1,11 @@
-use errors::*;
-use std::{fs, io, process};
-use std::io::Write;
 use super::{SignatureSettings, SigningIdentity};
+use errors::*;
+use std::io::Write;
+use std::{fs, io, process};
 
 use BuildBundle;
 
-pub fn add_plist_to_app(bundle:&BuildBundle, arch:&str, app_bundle_id:&str) -> Result<()> {
+pub fn add_plist_to_app(bundle: &BuildBundle, arch: &str, app_bundle_id: &str) -> Result<()> {
     let mut plist = fs::File::create(bundle.bundle_dir.join("Info.plist"))?;
     writeln!(plist, r#"<?xml version="1.0" encoding="UTF-8"?>"#)?;
     writeln!(plist, r#"<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">"#)?;
@@ -62,10 +62,7 @@ pub fn add_plist_to_app(bundle:&BuildBundle, arch:&str, app_bundle_id:&str) -> R
 pub fn sign_app(bundle: &BuildBundle, settings: &SignatureSettings) -> Result<()> {
     debug!(
         "Will sign {:?} with team: {} using key: {} and profile: {}",
-        bundle.bundle_dir,
-        settings.identity.team,
-        settings.identity.name,
-        settings.file
+        bundle.bundle_dir, settings.identity.team, settings.identity.name, settings.file
     );
 
     let entitlements = bundle.root_dir.join("entitlements.xcent");
@@ -78,10 +75,7 @@ pub fn sign_app(bundle: &BuildBundle, settings: &SignatureSettings) -> Result<()
     writeln!(plist, r#"</dict></plist>"#)?;
 
     process::Command::new("codesign")
-        .args(&[
-            "-s",
-            &*settings.identity.name,
-            "--entitlements"])
+        .args(&["-s", &*settings.identity.name, "--entitlements"])
         .arg(entitlements)
         .arg(&bundle.bundle_dir)
         .status()?;
@@ -127,7 +121,13 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
             .join("Library/MobileDevice/Provisioning Profiles"),
     )? {
         let file = file?;
-        if file.path().starts_with(".") || file.path().extension().map(|ext| ext.to_string_lossy() != "mobileprovision").unwrap_or(true) {
+        if file.path().starts_with(".")
+            || file
+                .path()
+                .extension()
+                .map(|ext| ext.to_string_lossy() != "mobileprovision")
+                .unwrap_or(true)
+        {
             trace!("skipping profile (?) {:?}", file.path());
             continue;
         }
@@ -158,7 +158,8 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
             debug!("  no device match in profile");
             continue;
         }
-        let name = dict.get("Name")
+        let name = dict
+            .get("Name")
             .ok_or(format!("No name in profile {:?}", file.path()))?;
         let name = name.as_string().ok_or(format!(
             "Name should have been a string in {:?}",
@@ -171,7 +172,8 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
         // TODO: check date in future
         let team = dict.get("TeamIdentifier").ok_or("no TeamIdentifier")?;
         let team = team.as_array().ok_or("TeamIdentifier should be an array")?;
-        let team = team.first()
+        let team = team
+            .first()
             .ok_or("empty TeamIdentifier")?
             .as_string()
             .ok_or("TeamIdentifier should be a String")?
@@ -191,7 +193,8 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
             .join("\n");
         settings.push(SignatureSettings {
             entitlements: entitlements,
-            file: file.path()
+            file: file
+                .path()
                 .to_str()
                 .ok_or("filename should be utf8")?
                 .into(),

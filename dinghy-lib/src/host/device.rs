@@ -3,8 +3,8 @@ use dinghy_build::build_env::set_env;
 use itertools::Itertools;
 use project::Project;
 use std::fmt;
-use std::fmt::{ Debug, Display };
 use std::fmt::Formatter;
+use std::fmt::{Debug, Display};
 use std::sync::Arc;
 use Build;
 use BuildBundle;
@@ -13,13 +13,13 @@ use DeviceCompatibility;
 use Result;
 
 pub struct HostDevice {
-    compiler: Arc<Compiler>
+    compiler: Arc<Compiler>,
 }
 
 impl HostDevice {
     pub fn new(compiler: &Arc<Compiler>) -> Self {
         HostDevice {
-            compiler: compiler.clone()
+            compiler: compiler.clone(),
         }
     }
 
@@ -52,7 +52,13 @@ impl Device for HostDevice {
         Ok(())
     }
 
-    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str]) -> Result<BuildBundle> {
+    fn debug_app(
+        &self,
+        _project: &Project,
+        _build: &Build,
+        _args: &[&str],
+        _envs: &[&str],
+    ) -> Result<BuildBundle> {
         unimplemented!()
     }
 
@@ -64,7 +70,13 @@ impl Device for HostDevice {
         "host device"
     }
 
-    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>> {
+    fn run_app(
+        &self,
+        project: &Project,
+        build: &Build,
+        args: &[&str],
+        envs: &[&str],
+    ) -> Result<Vec<BuildBundle>> {
         for (env_key, env_value) in envs.iter().tuples() {
             set_env(env_key, env_value);
         }

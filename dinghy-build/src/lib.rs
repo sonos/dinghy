@@ -10,7 +10,7 @@
 //! As an optional feature, it offers `with-bindgen`, which helps dealing with
 //! some idiosyncrasies of `bindgen` code generation.
 
-#[cfg(feature="with-bindgen")]
+#[cfg(feature = "with-bindgen")]
 extern crate bindgen;
 #[macro_use]
 extern crate error_chain;
@@ -30,8 +30,8 @@ use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
-use utils::path_to_str;
 use utils::path_between;
+use utils::path_to_str;
 
 error_chain! {
     foreign_links {
@@ -42,7 +42,7 @@ error_chain! {
 }
 
 /// Decorator for the std::process::Command adding a some chainable helpers.
-/// 
+///
 /// Mostly useful for calling `./configure` scripts.
 pub trait CommandExt {
     /// Add this argument to the commands, but only on macos.
@@ -65,16 +65,23 @@ pub trait CommandExt {
 
 impl CommandExt for Command {
     fn arg_for_macos<S: AsRef<OsStr>>(&mut self, arg: S) -> Result<&mut Command> {
-        if env::var("TARGET").map(|target| target.contains("-apple-darwin")).unwrap_or(false) {
+        if env::var("TARGET")
+            .map(|target| target.contains("-apple-darwin"))
+            .unwrap_or(false)
+        {
             self.arg(arg.as_ref());
         }
         Ok(self)
     }
 
     fn configure_prefix<P: AsRef<Path>>(&mut self, prefix_dir: P) -> Result<&mut Command> {
-        self.args(&["--prefix", path_to_str(&path_between(
-            sysroot_path().unwrap_or(PathBuf::from("/")),
-            prefix_dir))?]);
+        self.args(&[
+            "--prefix",
+            path_to_str(&path_between(
+                sysroot_path().unwrap_or(PathBuf::from("/")),
+                prefix_dir,
+            ))?,
+        ]);
         Ok(self)
     }
 
@@ -119,7 +126,7 @@ impl CommandExt for Command {
 ///
 /// Crate a bindgen builder for the target toolchain, with Apple patch and
 /// gcc_system patch.
-#[cfg(feature="with-bindgen")]
+#[cfg(feature = "with-bindgen")]
 pub fn new_bindgen_with_cross_compilation_support() -> Result<bindgen::Builder> {
     Ok(bindgen::Builder::default()
         .clang_arg("--verbose")
@@ -128,7 +135,7 @@ pub fn new_bindgen_with_cross_compilation_support() -> Result<bindgen::Builder> 
         .apple_patch()?)
 }
 
-#[cfg(feature="with-bindgen")]
+#[cfg(feature = "with-bindgen")]
 pub trait BindGenBuilderExt {
     /// Change target arch name `aarch64` to `arm64` for better CLang
     /// compatibility.
@@ -146,7 +153,7 @@ pub trait BindGenBuilderExt {
     fn include_gcc_system_headers(self) -> Result<bindgen::Builder>;
 }
 
-#[cfg(feature="with-bindgen")]
+#[cfg(feature = "with-bindgen")]
 impl BindGenBuilderExt for bindgen::Builder {
     fn apple_patch(self) -> Result<bindgen::Builder> {
         if is_cross_compiling()? {
@@ -157,9 +164,7 @@ impl BindGenBuilderExt for bindgen::Builder {
                 // Darwin-based to put Clang into "Apple mode" as it were. But it does
                 // sort of explain why arm64 works better than aarch64, which is the
                 // preferred name everywhere else.
-                return Ok(self
-                    .clang_arg(format!("-arch"))
-                    .clang_arg(format!("arm64")));
+                return Ok(self.clang_arg(format!("-arch")).clang_arg(format!("arm64")));
             }
         }
         Ok(self)
@@ -178,15 +183,20 @@ impl BindGenBuilderExt for bindgen::Builder {
 
     fn generate_default_binding(self) -> Result<()> {
         let out_path = env::var("OUT_DIR").map(PathBuf::from)?.join("bindings.rs");
-        Ok(self.generate()
+        Ok(self
+            .generate()
             .expect("Unable to generate bindings")
             .write_to_file(out_path)?)
     }
 
     fn header_in_current_dir(self, header_file_name: &str) -> Result<bindgen::Builder> {
-        let header_path = env::current_dir().map(PathBuf::from)?.join(header_file_name);
-        Ok(self.header(header_path.to_str()
-            .ok_or(format!("Not a valid UTF-8 path ({})", header_path.display()))?))
+        let header_path = env::current_dir()
+            .map(PathBuf::from)?
+            .join(header_file_name);
+        Ok(self.header(header_path.to_str().ok_or(format!(
+            "Not a valid UTF-8 path ({})",
+            header_path.display()
+        ))?))
     }
 
     fn include_gcc_system_headers(self) -> Result<bindgen::Builder> {
@@ -199,15 +209,15 @@ impl BindGenBuilderExt for bindgen::Builder {
                 .arg("--print-file-name=include")
                 .output()
                 .chain_err(|| "Couldn't find target GCC executable.")
-                .and_then(|output| if output.status.success() {
-                    Ok(String::from_utf8(output.stdout)?)
-                } else {
-                    bail!("Couldn't determine target GCC include dir.")
+                .and_then(|output| {
+                    if output.status.success() {
+                        Ok(String::from_utf8(output.stdout)?)
+                    } else {
+                        bail!("Couldn't determine target GCC include dir.")
+                    }
                 })?;
 
-            Ok(self
-                .clang_arg("-isystem")
-                .clang_arg(path.trim()))
+            Ok(self.clang_arg("-isystem").clang_arg(path.trim()))
         } else {
             Ok(self)
         }

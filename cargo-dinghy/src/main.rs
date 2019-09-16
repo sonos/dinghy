@@ -10,15 +10,15 @@ extern crate pretty_env_logger;
 
 use clap::ArgMatches;
 use cli::CargoDinghyCli;
-use dinghy_lib::Build;
 use dinghy_lib::compiler::Compiler;
 use dinghy_lib::config::dinghy_config;
-use dinghy_lib::Device;
-use dinghy_lib::Dinghy;
 use dinghy_lib::errors::*;
-use dinghy_lib::Platform;
 use dinghy_lib::project::Project;
 use dinghy_lib::utils::arg_as_string_vec;
+use dinghy_lib::Build;
+use dinghy_lib::Device;
+use dinghy_lib::Dinghy;
+use dinghy_lib::Platform;
 use error_chain::ChainedError;
 use itertools::Itertools;
 use std::env;
@@ -38,12 +38,19 @@ fn main() {
     let matches = CargoDinghyCli::parse(filtered_args);
 
     if env::var("RUST_LOG").is_err() {
-        let dinghy_verbosity = match matches.occurrences_of("VERBOSE") - matches.occurrences_of("QUIET") {
-            0 => "info",
-            1 => "debug",
-            _ => "trace",
-        };
-        env::set_var("RUST_LOG", format!("cargo_dinghy={},dinghy={}", dinghy_verbosity, dinghy_verbosity));
+        let dinghy_verbosity =
+            match matches.occurrences_of("VERBOSE") - matches.occurrences_of("QUIET") {
+                0 => "info",
+                1 => "debug",
+                _ => "trace",
+            };
+        env::set_var(
+            "RUST_LOG",
+            format!(
+                "cargo_dinghy={},dinghy={}",
+                dinghy_verbosity, dinghy_verbosity
+            ),
+        );
     };
     pretty_env_logger::init();
 
@@ -54,10 +61,13 @@ fn main() {
                 std::process::exit(3)
             }
             &ErrorKind::Cargo(ref cargo) => {
-                error!("Cargo error: {}", cargo.to_string().split("\n").next().unwrap_or(""));
+                error!(
+                    "Cargo error: {}",
+                    cargo.to_string().split("\n").next().unwrap_or("")
+                );
                 println!("{}", cargo);
                 std::process::exit(1);
-            },
+            }
             _ => {
                 error!("{}", e.display_chain());
                 std::process::exit(1);
@@ -78,8 +88,11 @@ fn run_command(args: &ArgMatches) -> Result<()> {
     };
 
     let (platform, device) = select_platform_and_device_from_cli(&args, &dinghy)?;
-    info!("Targeting platform '{}' and device '{}'",
-          platform.id(), device.as_ref().map(|it| it.id()).unwrap_or("<none>"));
+    info!(
+        "Targeting platform '{}' and device '{}'",
+        platform.id(),
+        device.as_ref().map(|it| it.id()).unwrap_or("<none>")
+    );
 
     match args.subcommand() {
         ("bench", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
@@ -93,10 +106,12 @@ fn run_command(args: &ArgMatches) -> Result<()> {
     }
 }
 
-fn build(platform: &Arc<Box<Platform>>,
-         project: &Project,
-         args: &ArgMatches,
-         sub_args: &ArgMatches) -> Result<Build> {
+fn build(
+    platform: &Arc<Box<dyn Platform>>,
+    project: &Project,
+    args: &ArgMatches,
+    sub_args: &ArgMatches,
+) -> Result<Build> {
     let build_args = CargoDinghyCli::build_args_from(args);
     let build = platform.build(&project, &build_args)?;
 
@@ -107,9 +122,9 @@ fn build(platform: &Arc<Box<Platform>>,
 }
 
 fn prepare_and_run(
-    device: Option<Arc<Box<Device>>>,
+    device: Option<Arc<Box<dyn Device>>>,
     project: Project,
-    platform: Arc<Box<Platform>>,
+    platform: Arc<Box<dyn Platform>>,
     args: &ArgMatches,
     sub_args: &ArgMatches,
 ) -> Result<()> {
@@ -117,7 +132,7 @@ fn prepare_and_run(
     let build = build(&platform.clone(), &project, args, sub_args)?;
 
     if sub_args.is_present("NO_RUN") {
-        return Ok(())
+        return Ok(());
     }
 
     debug!("Run on {:?}", device);
@@ -143,7 +158,7 @@ fn prepare_and_run(
     Ok(())
 }
 
-fn run_lldb(device: Option<Arc<Box<Device>>>) -> Result<()> {
+fn run_lldb(device: Option<Arc<Box<dyn Device>>>) -> Result<()> {
     let device = device.ok_or("No device found")?;
     let lldb = device.start_remote_lldb()?;
     info!("lldb running at: {}", lldb);
@@ -161,66 +176,117 @@ fn show_all_platforms(dinghy: &Dinghy) -> Result<()> {
     let mut platforms = dinghy.platforms();
     platforms.sort_by(|str1, str2| str1.id().cmp(&str2.id()));
     for pf in platforms.iter() {
-        println!("* {} {}", pf.id(), pf.rustc_triple().map(|s| format!("({})", s)).unwrap_or("".to_string()));
+        println!(
+            "* {} {}",
+            pf.id(),
+            pf.rustc_triple()
+                .map(|s| format!("({})", s))
+                .unwrap_or("".to_string())
+        );
     }
     Ok(())
 }
 
-fn show_all_devices_for_platform(dinghy: &Dinghy, platform: Arc<Box<Platform>>) -> Result<()> {
-    println!("List of available devices for platform '{}':", platform.id());
+fn show_all_devices_for_platform(dinghy: &Dinghy, platform: Arc<Box<dyn Platform>>) -> Result<()> {
+    println!(
+        "List of available devices for platform '{}':",
+        platform.id()
+    );
     show_devices(&dinghy, Some(platform))
 }
 
-fn show_devices(dinghy: &Dinghy, platform: Option<Arc<Box<Platform>>>) -> Result<()> {
-    let devices = dinghy.devices().into_iter()
-        .filter(|device| platform.as_ref().map_or(true, |it| it.is_compatible_with(&***device)))
+fn show_devices(dinghy: &Dinghy, platform: Option<Arc<Box<dyn Platform>>>) -> Result<()> {
+    let devices = dinghy
+        .devices()
+        .into_iter()
+        .filter(|device| {
+            platform
+                .as_ref()
+                .map_or(true, |it| it.is_compatible_with(&***device))
+        })
         .collect::<Vec<_>>();
 
     if devices.is_empty() {
         error!("No matching device found");
         println!("No matching device found");
     } else {
-        for device in devices { println!("{}", device); }
+        for device in devices {
+            println!("{}", device);
+        }
     }
     Ok(())
 }
 
-fn select_platform_and_device_from_cli(matches: &ArgMatches,
-                                       dinghy: &Dinghy) -> Result<(Arc<Box<Platform>>, Option<Arc<Box<Device>>>)> {
+fn select_platform_and_device_from_cli(
+    matches: &ArgMatches,
+    dinghy: &Dinghy,
+) -> Result<(Arc<Box<dyn Platform>>, Option<Arc<Box<dyn Device>>>)> {
     if let Some(platform_name) = matches.value_of("PLATFORM") {
         let platform = dinghy
             .platform_by_name(platform_name)
             .ok_or(format!("No '{}' platform found", platform_name))?;
 
-        let device = dinghy.devices()
+        let device = dinghy
+            .devices()
             .into_iter()
-            .filter(|device| matches.value_of("DEVICE")
-                .map(|filter| format!("{}", device).to_lowercase().contains(&filter.to_lowercase()))
-                .unwrap_or(true))
+            .filter(|device| {
+                matches
+                    .value_of("DEVICE")
+                    .map(|filter| {
+                        format!("{}", device)
+                            .to_lowercase()
+                            .contains(&filter.to_lowercase())
+                    })
+                    .unwrap_or(true)
+            })
             .filter(|it| platform.is_compatible_with(&**it.as_ref()))
             .next();
 
         Ok((platform, device))
     } else if let Some(device_filter) = matches.value_of("DEVICE") {
         let is_banned_auto_platform_id = |id: &str| -> bool {
-            id.contains("auto-android") && (id.contains("min")
-                                    || id.contains("latest")
-                                    || id.contains("api"))
+            id.contains("auto-android")
+                && (id.contains("min") || id.contains("latest") || id.contains("api"))
         };
-        let devices = dinghy.devices()
+        let devices = dinghy
+            .devices()
             .into_iter()
-            .filter(move |it| format!("{:?}", it).to_lowercase().contains(&device_filter.to_lowercase()))
+            .filter(move |it| {
+                format!("{:?}", it)
+                    .to_lowercase()
+                    .contains(&device_filter.to_lowercase())
+            })
             .collect_vec();
         if devices.len() == 0 {
-            Err(format!("No devices found for name hint `{}'", device_filter))?;
+            Err(format!(
+                "No devices found for name hint `{}'",
+                device_filter
+            ))?;
         }
-        devices.into_iter().filter_map(|d| {
-            let pf = dinghy.platforms().iter().filter(|pf| !is_banned_auto_platform_id(&pf.id())).find(|pf| pf.is_compatible_with(&**d)).cloned();
-            debug!("Looking for platform for {}: found {:?}", d.id(), pf.as_ref().map(|p| p.id()));
-            pf.map(|it| (it,Some(d)))
-        })
-        .next()
-        .ok_or(format!("No device and platform combination found for device hint `{}'", device_filter).into())
+        devices
+            .into_iter()
+            .filter_map(|d| {
+                let pf = dinghy
+                    .platforms()
+                    .iter()
+                    .filter(|pf| !is_banned_auto_platform_id(&pf.id()))
+                    .find(|pf| pf.is_compatible_with(&**d))
+                    .cloned();
+                debug!(
+                    "Looking for platform for {}: found {:?}",
+                    d.id(),
+                    pf.as_ref().map(|p| p.id())
+                );
+                pf.map(|it| (it, Some(d)))
+            })
+            .next()
+            .ok_or(
+                format!(
+                    "No device and platform combination found for device hint `{}'",
+                    device_filter
+                )
+                .into(),
+            )
     } else {
         Ok((dinghy.host_platform(), Some(dinghy.host_device())))
     }

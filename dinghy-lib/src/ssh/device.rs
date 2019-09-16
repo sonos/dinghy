@@ -1,19 +1,19 @@
 use config::SshDeviceConfiguration;
-use errors::*;
 use device::make_remote_app;
+use errors::*;
 use platform::regular_platform::RegularPlatform;
 use project::Project;
 use std::fmt;
-use std::fmt::{ Debug, Display };
 use std::fmt::Formatter;
+use std::fmt::{Debug, Display};
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 use utils::path_to_str;
 use Build;
+use BuildBundle;
 use Device;
 use DeviceCompatibility;
-use BuildBundle;
 use Runnable;
 
 pub struct SshDevice {
@@ -22,15 +22,23 @@ pub struct SshDevice {
 }
 
 impl SshDevice {
-    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<(BuildBundle, BuildBundle)> {
+    fn install_app(
+        &self,
+        project: &Project,
+        build: &Build,
+        runnable: &Runnable,
+    ) -> Result<(BuildBundle, BuildBundle)> {
         debug!("make_remote_app {}", runnable.id);
         let build_bundle = make_remote_app(project, build, runnable)?;
         trace!("make_remote_app {} done", runnable.id);
         let remote_bundle = self.to_remote_bundle(&build_bundle)?;
         trace!("Create remote dir: {:?}", remote_bundle.bundle_dir);
 
-        let _ = self.ssh_command()?
-            .arg("mkdir").arg("-p").arg(&remote_bundle.bundle_dir)
+        let _ = self
+            .ssh_command()?
+            .arg("mkdir")
+            .arg("-p")
+            .arg(&remote_bundle.bundle_dir)
             .status();
 
         info!("Install {} to {}", runnable.id, self.id);
@@ -63,7 +71,12 @@ impl SshDevice {
         }
         command
             .arg(&format!("{}/", path_to_str(&from_path.as_ref())?))
-            .arg(&format!("{}@{}:{}/", self.conf.username, self.conf.hostname, path_to_str(&to_path.as_ref())?));
+            .arg(&format!(
+                "{}@{}:{}/",
+                self.conf.username,
+                self.conf.hostname,
+                path_to_str(&to_path.as_ref())?
+            ));
         debug!("Running {:?}", command);
         if !command.status()?.success() {
             bail!("Error syncing ssh directory ({:?})", command)
@@ -73,23 +86,29 @@ impl SshDevice {
     }
 
     fn to_remote_bundle(&self, build_bundle: &BuildBundle) -> Result<BuildBundle> {
-        let remote_prefix = PathBuf::from(self.conf.path.clone()
-            .unwrap_or("/tmp".into()))
-            .join("dinghy");
+        let remote_prefix =
+            PathBuf::from(self.conf.path.clone().unwrap_or("/tmp".into())).join("dinghy");
         build_bundle.replace_prefix_with(remote_prefix)
     }
 }
 
 impl DeviceCompatibility for SshDevice {
     fn is_compatible_with_regular_platform(&self, platform: &RegularPlatform) -> bool {
-        self.conf.platform.as_ref().map_or(false, |it| *it == platform.id)
+        self.conf
+            .platform
+            .as_ref()
+            .map_or(false, |it| *it == platform.id)
     }
 }
 
 impl Device for SshDevice {
     fn clean_app(&self, build_bundle: &BuildBundle) -> Result<()> {
-        let status = self.ssh_command()?
-            .arg(&format!("rm -rf {}", path_to_str(&build_bundle.bundle_exe)?))
+        let status = self
+            .ssh_command()?
+            .arg(&format!(
+                "rm -rf {}",
+                path_to_str(&build_bundle.bundle_exe)?
+            ))
             .status()?;
         if !status.success() {
             Err("test fail.")?
@@ -97,7 +116,13 @@ impl Device for SshDevice {
         Ok(())
     }
 
-    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str]) -> Result<BuildBundle> {
+    fn debug_app(
+        &self,
+        _project: &Project,
+        _build: &Build,
+        _args: &[&str],
+        _envs: &[&str],
+    ) -> Result<BuildBundle> {
         unimplemented!()
     }
 
@@ -109,9 +134,18 @@ impl Device for SshDevice {
         &self.id
     }
 
-    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>> {
+    fn run_app(
+        &self,
+        project: &Project,
+        build: &Build,
+        args: &[&str],
+        envs: &[&str],
+    ) -> Result<Vec<BuildBundle>> {
         let mut build_bundles = vec![];
-        let args:Vec<String> = args.iter().map(|&a| ::shell_escape::escape(a.into()).to_string()).collect();
+        let args: Vec<String> = args
+            .iter()
+            .map(|&a| ::shell_escape::escape(a.into()).to_string())
+            .collect();
         for runnable in &build.runnables {
             info!("Install {:?}", runnable.id);
             let (build_bundle, remote_bundle) = self.install_app(&project, &build, &runnable)?;
@@ -126,11 +160,12 @@ impl Device for SshDevice {
                 args.join(" ")
                 );
             trace!("Ssh command: {}", command);
-            info!("Run {} on {} ({:?})", runnable.id, self.id, build.build_args.compile_mode);
+            info!(
+                "Run {} on {} ({:?})",
+                runnable.id, self.id, build.build_args.compile_mode
+            );
 
-            let status = self.ssh_command()?
-                .arg(&command)
-                .status()?;
+            let status = self.ssh_command()?.arg(&command).status()?;
             if !status.success() {
                 Err("Test failed 🐛")?
             }
@@ -160,4 +195,3 @@ impl Display for SshDevice {
         write!(fmt, "{}", self.conf.hostname)
     }
 }
-

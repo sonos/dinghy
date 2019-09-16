@@ -1,10 +1,10 @@
-use std::{ mem, ptr, sync, thread };
 use libc::c_void;
+use std::{mem, ptr, sync, thread};
 
-use { Compiler, Device, Platform, PlatformManager, Result };
-pub use self::device::{ IosDevice, IosSimDevice };
-pub use self::platform::{ IosPlatform };
+pub use self::device::{IosDevice, IosSimDevice};
 use self::mobiledevice_sys::*;
+pub use self::platform::IosPlatform;
+use {Compiler, Device, Platform, PlatformManager, Result};
 
 mod device;
 mod mobiledevice_sys;
@@ -26,7 +26,6 @@ pub struct SigningIdentity {
     pub name: String,
     pub team: String,
 }
-
 
 pub struct IosManager {
     compiler: sync::Arc<Compiler>,
@@ -65,7 +64,10 @@ impl IosManager {
                 .map(|mut devices| devices.push(IosDevice::new(device).unwrap()));
         }
 
-        Ok(Some(IosManager { devices: devices, compiler }))
+        Ok(Some(IosManager {
+            devices: devices,
+            compiler,
+        }))
     }
 }
 
@@ -109,11 +111,19 @@ impl PlatformManager for IosManager {
     }
 
     fn platforms(&self) -> Result<Vec<Box<Platform>>> {
-        ["armv7", "armv7s", "aarch64", "i386", "x86_64" ].iter().map(|arch| {
-            let id = format!("auto-ios-{}", arch);
-            let rustc_triple = format!("{}-apple-ios", arch);
-            IosPlatform::new(id, &rustc_triple, &self.compiler, ::config::PlatformConfiguration::default()).map(|pf| pf as Box<Platform>)
-        }).collect()
+        ["armv7", "armv7s", "aarch64", "i386", "x86_64"]
+            .iter()
+            .map(|arch| {
+                let id = format!("auto-ios-{}", arch);
+                let rustc_triple = format!("{}-apple-ios", arch);
+                IosPlatform::new(
+                    id,
+                    &rustc_triple,
+                    &self.compiler,
+                    ::config::PlatformConfiguration::default(),
+                )
+                .map(|pf| pf as Box<Platform>)
+            })
+            .collect()
     }
 }
-

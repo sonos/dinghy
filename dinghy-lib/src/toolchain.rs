@@ -1,16 +1,16 @@
 use cargo::util::important_paths::find_root_manifest_for_wd;
-use dinghy_build::build_env::append_path_to_target_env;
 use dinghy_build::build_env::append_path_to_env;
+use dinghy_build::build_env::append_path_to_target_env;
 use dinghy_build::build_env::envify;
 use dinghy_build::build_env::set_env;
 use dinghy_build::build_env::set_target_env;
 use errors::*;
 use itertools::Itertools;
-use std::{env, fs, path};
 use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
+use std::{env, fs, path};
 use walkdir::WalkDir;
 
 #[cfg(not(target_os = "windows"))]
@@ -37,8 +37,17 @@ impl Toolchain {
     }
 
     pub fn setup_linker(&self, id: &str, linker_command: &str) -> Result<()> {
-        let shim = create_shim(project_root()?, &self.rustc_triple, id, "linker", format!("{} {}", linker_command, GLOB_ARGS).as_str())?;
-        set_env(format!("CARGO_TARGET_{}_LINKER", envify(self.rustc_triple.as_str())).as_str(), shim);
+        let shim = create_shim(
+            project_root()?,
+            &self.rustc_triple,
+            id,
+            "linker",
+            format!("{} {}", linker_command, GLOB_ARGS).as_str(),
+        )?;
+        set_env(
+            format!("CARGO_TARGET_{}_LINKER", envify(self.rustc_triple.as_str())).as_str(),
+            shim,
+        );
         Ok(())
     }
 
@@ -78,16 +87,22 @@ impl ToolchainConfig {
     pub fn setup_pkg_config(&self) -> Result<()> {
         self.as_toolchain().setup_pkg_config()?;
 
-        append_path_to_target_env("PKG_CONFIG_LIBDIR",
-                                  Some(&self.rustc_triple),
-                                  WalkDir::new(self.root.to_string_lossy().as_ref())
-                                      .into_iter()
-                                      .filter_map(|e| e.ok()) // Ignore unreadable files, maybe could warn...
-                                      .filter(|e| e.file_name() == "pkgconfig" && e.file_type().is_dir())
-                                      .map(|e| e.path().to_string_lossy().into_owned())
-                                      .join(":"));
+        append_path_to_target_env(
+            "PKG_CONFIG_LIBDIR",
+            Some(&self.rustc_triple),
+            WalkDir::new(self.root.to_string_lossy().as_ref())
+                .into_iter()
+                .filter_map(|e| e.ok()) // Ignore unreadable files, maybe could warn...
+                .filter(|e| e.file_name() == "pkgconfig" && e.file_type().is_dir())
+                .map(|e| e.path().to_string_lossy().into_owned())
+                .join(":"),
+        );
 
-        set_target_env("PKG_CONFIG_SYSROOT_DIR", Some(&self.rustc_triple), &self.sysroot.clone());
+        set_target_env(
+            "PKG_CONFIG_SYSROOT_DIR",
+            Some(&self.rustc_triple),
+            &self.sysroot.clone(),
+        );
         Ok(())
     }
 
@@ -108,7 +123,8 @@ impl ToolchainConfig {
     }
 
     pub fn shim_executables(&self, id: &str) -> Result<()> {
-        let wd_path = ::cargo::util::important_paths::find_root_manifest_for_wd(&env::current_dir()?)?;
+        let wd_path =
+            ::cargo::util::important_paths::find_root_manifest_for_wd(&env::current_dir()?)?;
         let root = wd_path.parent().ok_or("building at / ?")?;
         let shims_path = root.join("target").join(&self.rustc_triple).join(id);
 
@@ -118,22 +134,27 @@ impl ToolchainConfig {
             let exe_path = exe.path();
             let exe_path = exe_path.to_string_lossy();
 
-            let rustified_exe = &exe_file_name.to_string_lossy()
-                .replace(self.binutils_prefix.as_str(),self.rustc_triple.as_str())
+            let rustified_exe = &exe_file_name
+                .to_string_lossy()
+                .replace(self.binutils_prefix.as_str(), self.rustc_triple.as_str())
                 .replace(self.cc_prefix.as_str(), self.rustc_triple.as_str());
             trace!("Shim {} -> {}", exe_path, rustified_exe);
-            create_shim(root,
-                        self.rustc_triple.as_str(),
-                        id,
-                        rustified_exe,
-                        &format!("{} {}", exe_path, GLOB_ARGS))?;
+            create_shim(
+                root,
+                self.rustc_triple.as_str(),
+                id,
+                rustified_exe,
+                &format!("{} {}", exe_path, GLOB_ARGS),
+            )?;
         }
         append_path_to_env("PATH", shims_path.to_string_lossy().as_ref());
         Ok(())
     }
 
     fn as_toolchain(&self) -> Toolchain {
-        Toolchain { rustc_triple: self.rustc_triple.clone() }
+        Toolchain {
+            rustc_triple: self.rustc_triple.clone(),
+        }
     }
 }
 

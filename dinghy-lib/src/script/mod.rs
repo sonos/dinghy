@@ -1,12 +1,12 @@
-use std::{ sync };
-use { Configuration, Device, Platform, PlatformManager, Result };
+use std::sync;
+use {Configuration, Device, Platform, PlatformManager, Result};
 
 mod device;
 
 use self::device::ScriptDevice;
 
 pub struct ScriptDeviceManager {
-    conf: sync::Arc<Configuration>
+    conf: sync::Arc<Configuration>,
 }
 
 impl ScriptDeviceManager {
@@ -16,8 +16,10 @@ impl ScriptDeviceManager {
 }
 
 impl PlatformManager for ScriptDeviceManager {
-    fn devices(&self) -> Result<Vec<Box<Device>>> {
-        Ok(self.conf.script_devices
+    fn devices(&self) -> Result<Vec<Box<dyn Device>>> {
+        Ok(self
+            .conf
+            .script_devices
             .iter()
             .map(|(k, conf)| {
                 Box::new(ScriptDevice {
@@ -27,7 +29,7 @@ impl PlatformManager for ScriptDeviceManager {
             })
             .collect())
     }
-    fn platforms(&self) -> Result<Vec<Box<Platform>>> {
-        Ok(vec!())
+    fn platforms(&self) -> Result<Vec<Box<dyn Platform>>> {
+        Ok(vec![])
     }
 }

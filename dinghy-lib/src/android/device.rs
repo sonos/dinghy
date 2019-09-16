@@ -1,9 +1,9 @@
-use errors::*;
 use device::make_remote_app;
+use errors::*;
 use platform::regular_platform::RegularPlatform;
 use project::Project;
-use std::{ fmt, io, path, process };
 use std::io::Write;
+use std::{fmt, io, path, process};
 use utils::path_to_str;
 use Build;
 use BuildBundle;
@@ -53,34 +53,76 @@ impl AndroidDevice {
         Ok(command)
     }
 
-    fn install_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<(BuildBundle, BuildBundle)> {
+    fn install_app(
+        &self,
+        project: &Project,
+        build: &Build,
+        runnable: &Runnable,
+    ) -> Result<(BuildBundle, BuildBundle)> {
         info!("Install {} to {}", runnable.id, self.id);
-        if !self.adb()?.arg("shell").arg("mkdir").arg("-p").arg(ANDROID_WORK_DIR).status()?.success() {
-            Err(format!("Failure to create dinghy work dir '{:?}' on target android device", ANDROID_WORK_DIR))?;
+        if !self
+            .adb()?
+            .arg("shell")
+            .arg("mkdir")
+            .arg("-p")
+            .arg(ANDROID_WORK_DIR)
+            .status()?
+            .success()
+        {
+            Err(format!(
+                "Failure to create dinghy work dir '{:?}' on target android device",
+                ANDROID_WORK_DIR
+            ))?;
         }
 
         let build_bundle = make_remote_app(project, build, runnable)?;
         let remote_bundle = AndroidDevice::to_remote_bundle(&build_bundle)?;
 
-        self.sync(&build_bundle.bundle_dir, &remote_bundle.bundle_dir.parent()
-            .ok_or(format!("Invalid path {}", remote_bundle.bundle_dir.display()))?)?;
-        self.sync(&build_bundle.lib_dir, &remote_bundle.lib_dir.parent()
-            .ok_or(format!("Invalid path {}", remote_bundle.lib_dir.display()))?)?;
+        self.sync(
+            &build_bundle.bundle_dir,
+            &remote_bundle.bundle_dir.parent().ok_or(format!(
+                "Invalid path {}",
+                remote_bundle.bundle_dir.display()
+            ))?,
+        )?;
+        self.sync(
+            &build_bundle.lib_dir,
+            &remote_bundle
+                .lib_dir
+                .parent()
+                .ok_or(format!("Invalid path {}", remote_bundle.lib_dir.display()))?,
+        )?;
 
         debug!("Chmod target exe {}", remote_bundle.bundle_exe.display());
-        if !self.adb()?.arg("shell").arg("chmod").arg("755").arg(&remote_bundle.bundle_exe).status()?.success() {
+        if !self
+            .adb()?
+            .arg("shell")
+            .arg("chmod")
+            .arg("755")
+            .arg(&remote_bundle.bundle_exe)
+            .status()?
+            .success()
+        {
             Err("Failure in android install")?;
         }
         Ok((build_bundle, remote_bundle))
     }
 
-    fn sync<FP: AsRef<path::Path>, TP: AsRef<path::Path>>(&self, from_path: FP, to_path: TP) -> Result<()> {
+    fn sync<FP: AsRef<path::Path>, TP: AsRef<path::Path>>(
+        &self,
+        from_path: FP,
+        to_path: TP,
+    ) -> Result<()> {
         // Seems overkill...
         // let _ = self.adb()?.arg("shell").arg("rm").arg("-rf").arg(to_path.as_ref()).status()?;
         // Need parent as adb
 
         let mut command = self.adb()?;
-        command.arg("push").arg("--sync").arg(from_path.as_ref()).arg(to_path.as_ref());
+        command
+            .arg("push")
+            .arg("--sync")
+            .arg(from_path.as_ref())
+            .arg(to_path.as_ref());
         if !log_enabled!(::log::Level::Debug) {
             command.stdout(::std::process::Stdio::null());
             command.stderr(::std::process::Stdio::null());
@@ -100,7 +142,8 @@ impl AndroidDevice {
 
 impl DeviceCompatibility for AndroidDevice {
     fn is_compatible_with_regular_platform(&self, platform: &RegularPlatform) -> bool {
-        self.supported_targets.contains(&&*platform.toolchain.binutils_prefix)
+        self.supported_targets
+            .contains(&&*platform.toolchain.binutils_prefix)
     }
 }
 
@@ -108,16 +151,38 @@ impl Device for AndroidDevice {
     fn clean_app(&self, build_bundle: &BuildBundle) -> Result<()> {
         let remote_bundle = AndroidDevice::to_remote_bundle(build_bundle)?;
         debug!("Cleaup device");
-        if !self.adb()?.arg("shell").arg("rm").arg("-rf").arg(&remote_bundle.bundle_dir).status()?.success() {
+        if !self
+            .adb()?
+            .arg("shell")
+            .arg("rm")
+            .arg("-rf")
+            .arg(&remote_bundle.bundle_dir)
+            .status()?
+            .success()
+        {
             Err("Failure in android clean")?;
         }
-        if !self.adb()?.arg("shell").arg("rm").arg("-rf").arg(&remote_bundle.lib_dir).status()?.success() {
+        if !self
+            .adb()?
+            .arg("shell")
+            .arg("rm")
+            .arg("-rf")
+            .arg(&remote_bundle.lib_dir)
+            .status()?
+            .success()
+        {
             Err("Failure in android clean")?;
         }
         Ok(())
     }
 
-    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str]) -> Result<BuildBundle> {
+    fn debug_app(
+        &self,
+        _project: &Project,
+        _build: &Build,
+        _args: &[&str],
+        _envs: &[&str],
+    ) -> Result<BuildBundle> {
         unimplemented!()
     }
 
@@ -129,9 +194,18 @@ impl Device for AndroidDevice {
         "android device"
     }
 
-    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>> {
+    fn run_app(
+        &self,
+        project: &Project,
+        build: &Build,
+        args: &[&str],
+        envs: &[&str],
+    ) -> Result<Vec<BuildBundle>> {
         let mut build_bundles = vec![];
-        let args:Vec<String> = args.iter().map(|&a| ::shell_escape::escape(a.into()).to_string()).collect();
+        let args: Vec<String> = args
+            .iter()
+            .map(|&a| ::shell_escape::escape(a.into()).to_string())
+            .collect();
         for runnable in &build.runnables {
             let (build_bundle, remote_bundle) = self.install_app(&project, &build, &runnable)?;
             let command = format!(
@@ -142,22 +216,33 @@ impl Device for AndroidDevice {
                 path_to_str(&remote_bundle.bundle_exe)?,
                 if build.build_args.compile_mode == ::cargo::core::compiler::CompileMode::Bench { "--bench" } else { "" },
                 args.join(" "));
-            info!("Run {} on {} ({:?})", runnable.id, self.id, build.build_args.compile_mode);
+            info!(
+                "Run {} on {} ({:?})",
+                runnable.id, self.id, build.build_args.compile_mode
+            );
 
-            if !self.adb()?
+            if !self
+                .adb()?
                 .arg("shell")
                 .arg(&command)
                 .output()
                 .chain_err(|| format!("Couldn't run {} using adb.", runnable.exe.display()))
-                .and_then(|output| if output.status.success() {
-                    let _ = io::stdout().write(output.stdout.as_slice());
-                    let _ = io::stderr().write(output.stderr.as_slice());
-                    String::from_utf8(output.stdout).chain_err(|| format!("Couldn't run {} using adb.", runnable.exe.display()))
-                } else {
-                    bail!("Couldn't run {} using adb.", runnable.exe.display())
+                .and_then(|output| {
+                    if output.status.success() {
+                        let _ = io::stdout().write(output.stdout.as_slice());
+                        let _ = io::stderr().write(output.stderr.as_slice());
+                        String::from_utf8(output.stdout).chain_err(|| {
+                            format!("Couldn't run {} using adb.", runnable.exe.display())
+                        })
+                    } else {
+                        bail!("Couldn't run {} using adb.", runnable.exe.display())
+                    }
                 })
                 .map(|output| output.lines().last().unwrap_or("").to_string())
-                .map(|last_line| last_line.contains("FORWARD_RESULT_TO_DINGHY_BECAUSE_ADB_DOES_NOT=0"))? {
+                .map(|last_line| {
+                    last_line.contains("FORWARD_RESULT_TO_DINGHY_BECAUSE_ADB_DOES_NOT=0")
+                })?
+            {
                 Err("Test failed 🐛")?
             }
 
@@ -179,9 +264,12 @@ impl fmt::Display for AndroidDevice {
 
 impl fmt::Debug for AndroidDevice {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        Ok(fmt.write_str(format!("Android {{ \"id\": \"{}\", \"supported_targets\": {:?} }}",
-                                 self.id,
-                                 self.supported_targets).as_str())?)
+        Ok(fmt.write_str(
+            format!(
+                "Android {{ \"id\": \"{}\", \"supported_targets\": {:?} }}",
+                self.id, self.supported_targets
+            )
+            .as_str(),
+        )?)
     }
 }
-

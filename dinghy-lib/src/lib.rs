@@ -1,4 +1,4 @@
-#![type_length_limit="2149570"]
+#![type_length_limit = "2149570"]
 extern crate atty;
 extern crate cargo;
 extern crate clap;
@@ -56,13 +56,13 @@ use ios::IosManager;
 use platform::regular_platform::RegularPlatform;
 use project::Project;
 use std::fmt::Display;
-use std::{path, sync, thread, time};
+use std::{path, sync};
 
 use errors::*;
 
 pub struct Dinghy {
-    devices: Vec<sync::Arc<Box<Device>>>,
-    platforms: Vec<(String, sync::Arc<Box<Platform>>)>,
+    devices: Vec<sync::Arc<Box<dyn Device>>>,
+    platforms: Vec<(String, sync::Arc<Box<dyn Platform>>)>,
 }
 
 impl Dinghy {
@@ -70,7 +70,7 @@ impl Dinghy {
         conf: &sync::Arc<Configuration>,
         compiler: &sync::Arc<Compiler>,
     ) -> Result<Dinghy> {
-        let mut managers:Vec<Box<PlatformManager>> = vec!();
+        let mut managers: Vec<Box<dyn PlatformManager>> = vec![];
         if let Some(man) = host::HostManager::probe(sync::Arc::clone(compiler), conf) {
             managers.push(Box::new(man));
         }
@@ -103,9 +103,11 @@ impl Dinghy {
         }
         for (platform_name, platform_conf) in &conf.platforms {
             if platform_name == "host" {
-                continue
+                continue;
             }
-            let rustc_triple = platform_conf.rustc_triple.as_ref()
+            let rustc_triple = platform_conf
+                .rustc_triple
+                .as_ref()
                 .ok_or_else(|| format!("Platform {} has no rustc_triple", platform_name))?;
             let pf = RegularPlatform::new(
                 compiler,
@@ -125,26 +127,29 @@ impl Dinghy {
         Ok(Dinghy { devices, platforms })
     }
 
-    pub fn devices(&self) -> Vec<sync::Arc<Box<Device>>> {
+    pub fn devices(&self) -> Vec<sync::Arc<Box<dyn Device>>> {
         self.devices.clone()
     }
 
-    pub fn host_device(&self) -> sync::Arc<Box<Device>> {
+    pub fn host_device(&self) -> sync::Arc<Box<dyn Device>> {
         self.devices[0].clone()
     }
 
-    pub fn host_platform(&self) -> sync::Arc<Box<Platform>> {
+    pub fn host_platform(&self) -> sync::Arc<Box<dyn Platform>> {
         self.platforms[0].1.clone()
     }
 
-    pub fn platforms(&self) -> Vec<sync::Arc<Box<Platform>>> {
+    pub fn platforms(&self) -> Vec<sync::Arc<Box<dyn Platform>>> {
         self.platforms
             .iter()
             .map(|&(_, ref platform)| platform.clone())
             .collect()
     }
 
-    pub fn platform_by_name(&self, platform_name_filter: &str) -> Option<sync::Arc<Box<Platform>>> {
+    pub fn platform_by_name(
+        &self,
+        platform_name_filter: &str,
+    ) -> Option<sync::Arc<Box<dyn Platform>>> {
         self.platforms
             .iter()
             .filter(|&&(ref platform_name, _)| platform_name == platform_name_filter)
@@ -199,22 +204,22 @@ pub trait Platform: std::fmt::Debug {
 
     fn id(&self) -> String;
 
-    fn is_compatible_with(&self, device: &Device) -> bool;
+    fn is_compatible_with(&self, device: &dyn Device) -> bool;
 
     fn rustc_triple(&self) -> Option<&str>;
 
     fn strip(&self, build: &Build) -> Result<()>;
 }
 
-impl Display for Platform {
+impl Display for dyn Platform {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(fmt, "{}", self.id())
     }
 }
 
 pub trait PlatformManager {
-    fn devices(&self) -> Result<Vec<Box<Device>>>;
-    fn platforms(&self) -> Result<Vec<Box<Platform>>>;
+    fn devices(&self) -> Result<Vec<Box<dyn Device>>>;
+    fn platforms(&self) -> Result<Vec<Box<dyn Platform>>>;
 }
 
 #[derive(Clone, Debug)]

@@ -1,5 +1,5 @@
-use std::{ sync };
-use { Compiler, Configuration, Device, Platform, PlatformConfiguration, PlatformManager, Result };
+use std::sync;
+use {Compiler, Configuration, Device, Platform, PlatformConfiguration, PlatformManager, Result};
 
 mod device;
 mod platform;
@@ -14,18 +14,26 @@ pub struct HostManager {
 
 impl HostManager {
     pub fn probe(compiler: sync::Arc<Compiler>, conf: &Configuration) -> Option<HostManager> {
-        let host_conf = conf.platforms.get("host")
+        let host_conf = conf
+            .platforms
+            .get("host")
             .map(|it| (*it).clone())
             .unwrap_or(PlatformConfiguration::empty());
-        Some(HostManager { compiler: compiler, host_conf })
+        Some(HostManager {
+            compiler: compiler,
+            host_conf,
+        })
     }
 }
 
 impl PlatformManager for HostManager {
-    fn devices(&self) -> Result<Vec<Box<Device>>> {
+    fn devices(&self) -> Result<Vec<Box<dyn Device>>> {
         Ok(vec![Box::new(HostDevice::new(&self.compiler))])
     }
-    fn platforms(&self) -> Result<Vec<Box<Platform>>> {
-        Ok(vec!(platform::HostPlatform::new(sync::Arc::clone(&self.compiler), self.host_conf.clone())?))
+    fn platforms(&self) -> Result<Vec<Box<dyn Platform>>> {
+        Ok(vec![platform::HostPlatform::new(
+            sync::Arc::clone(&self.compiler),
+            self.host_conf.clone(),
+        )?])
     }
 }

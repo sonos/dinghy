@@ -4,7 +4,7 @@ use dinghy_build::build_env::set_all_env;
 use overlay::Overlayer;
 use platform;
 use project::Project;
-use std::fmt::{ Debug, Formatter };
+use std::fmt::{Debug, Formatter};
 use std::process::Command;
 use std::sync::Arc;
 use Build;
@@ -21,7 +21,10 @@ pub struct HostPlatform {
 }
 
 impl HostPlatform {
-    pub fn new(compiler: Arc<Compiler>, configuration: PlatformConfiguration) -> Result<Box<Platform>> {
+    pub fn new(
+        compiler: Arc<Compiler>,
+        configuration: PlatformConfiguration,
+    ) -> Result<Box<dyn Platform>> {
         Ok(Box::new(HostPlatform {
             compiler: compiler,
             configuration,
@@ -50,7 +53,7 @@ impl Platform for HostPlatform {
         "host".to_string()
     }
 
-    fn is_compatible_with(&self, device: &Device) -> bool {
+    fn is_compatible_with(&self, device: &dyn Device) -> bool {
         device.is_compatible_with_host_platform(self)
     }
 

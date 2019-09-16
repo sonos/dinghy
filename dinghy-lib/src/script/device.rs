@@ -1,6 +1,6 @@
-use std::{ fs, fmt, process };
-use crate::*;
 use crate::config::ScriptDeviceConfiguration;
+use crate::*;
+use std::{fmt, fs, process};
 
 #[derive(Debug)]
 pub struct ScriptDevice {
@@ -19,7 +19,10 @@ impl ScriptDevice {
         if let Some(ref pf) = self.conf.platform {
             cmd.env("DINGHY_PLATFORM", &*pf);
         }
-        cmd.env("DINGHY_COMPILE_MODE", &*format!("{:?}", build.build_args.compile_mode));
+        cmd.env(
+            "DINGHY_COMPILE_MODE",
+            &*format!("{:?}", build.build_args.compile_mode),
+        );
         Ok(cmd)
     }
 }
@@ -29,7 +32,13 @@ impl Device for ScriptDevice {
         Ok(())
     }
 
-    fn debug_app(&self, _project: &Project, _build: &Build, _args: &[&str], _envs: &[&str]) -> Result<BuildBundle> {
+    fn debug_app(
+        &self,
+        _project: &Project,
+        _build: &Build,
+        _args: &[&str],
+        _envs: &[&str],
+    ) -> Result<BuildBundle> {
         unimplemented!()
     }
 
@@ -41,7 +50,13 @@ impl Device for ScriptDevice {
         &self.id
     }
 
-    fn run_app(&self, project: &Project, build: &Build, args: &[&str], envs: &[&str]) -> Result<Vec<BuildBundle>> {
+    fn run_app(
+        &self,
+        project: &Project,
+        build: &Build,
+        args: &[&str],
+        envs: &[&str],
+    ) -> Result<Vec<BuildBundle>> {
         let root_dir = build.target_path.join("dinghy");
         let mut build_bundles = vec![];
         for runnable in &build.runnables {
@@ -51,17 +66,22 @@ impl Device for ScriptDevice {
             trace!("About to start runner script...");
             let test_data_path = project.link_test_data(&runnable, &bundle_path)?;
 
-            let status = self.command(build)?
+            let status = self
+                .command(build)?
                 .arg(&bundle_exe_path)
                 .current_dir(&runnable.source)
                 .env("DINGHY_TEST_DATA_PATH", test_data_path)
                 .args(args)
-                .envs(envs
-                        .iter()
-                        .map(|kv| Ok((
-                            kv.split("=").nth(0).ok_or("Wrong env spec")?,
-                            kv.split("=").nth(1).ok_or("Wrong env spec")?
-                        ))).collect::<Result<Vec<_>>>()?)
+                .envs(
+                    envs.iter()
+                        .map(|kv| {
+                            Ok((
+                                kv.split("=").nth(0).ok_or("Wrong env spec")?,
+                                kv.split("=").nth(1).ok_or("Wrong env spec")?,
+                            ))
+                        })
+                        .collect::<Result<Vec<_>>>()?,
+                )
                 .status()?;
             if !status.success() {
                 Err("Test failed")?
@@ -85,7 +105,10 @@ impl Device for ScriptDevice {
 
 impl DeviceCompatibility for ScriptDevice {
     fn is_compatible_with_regular_platform(&self, platform: &RegularPlatform) -> bool {
-        self.conf.platform.as_ref().map_or(false, |it| *it == platform.id)
+        self.conf
+            .platform
+            .as_ref()
+            .map_or(false, |it| *it == platform.id)
     }
 }
 
@@ -94,4 +117,3 @@ impl Display for ScriptDevice {
         write!(fmt, "{}", self.id)
     }
 }
-

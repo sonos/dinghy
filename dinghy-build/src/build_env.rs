@@ -5,21 +5,20 @@
 //! current rustc target to distinguish a native build environment and one
 //! or several cross-compilation ones.
 //!
-//! For instance, while compiling for Android arm, `cc-rs` looks first at 
+//! For instance, while compiling for Android arm, `cc-rs` looks first at
 //! CC_arm-linux-androideabi, then CC_arm_linux_androideabi, the TARGET_CC
 //! and finally CC.
 //!
 //! This crates implements some of the same logic and also helps generating
-//! these variables names. It also notify all environment lookup "back" to 
+//! these variables names. It also notify all environment lookup "back" to
 //! cargo using `cargo:rerun-if-env-changed` markup.
 
+use super::Result;
+use super::ResultExt;
 use std::env;
 use std::ffi::OsStr;
 use std::ffi::OsString;
 use std::path::PathBuf;
-use super::Result;
-use super::ResultExt;
-
 
 /// Append a value to a PATH-like (`:`-separated) environment variable.
 pub fn append_path_to_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(key: K, value: V) {
@@ -36,7 +35,10 @@ pub fn append_path_to_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(key: K, value: V) {
 /// Append a value to a PATH-like (`:`-separated) environment variable taking
 /// target scoping rules into consideration.
 pub fn append_path_to_target_env<K: AsRef<OsStr>, R: AsRef<str>, V: AsRef<OsStr>>(
-    k: K, rustc_triple: Option<R>, v: V) {
+    k: K,
+    rustc_triple: Option<R>,
+    v: V,
+) {
     append_path_to_env(target_key_from_triple(k, rustc_triple), v.as_ref())
 }
 
@@ -58,7 +60,7 @@ pub fn envify<S: AsRef<str>>(name: S) -> String {
     name.as_ref()
         .chars()
         .map(|c| c.to_ascii_uppercase())
-        .map(|c| { if c == '-' || c == '.' { '_' } else { c } })
+        .map(|c| if c == '-' || c == '.' { '_' } else { c })
         .collect()
 }
 
@@ -71,30 +73,50 @@ pub fn set_all_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(env: &[(K, V)]) {
 
 /// Set one environment variable.
 pub fn set_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(k: K, v: V) {
-    debug!("Setting environment variable {:?}={:?}", k.as_ref(), v.as_ref());
+    debug!(
+        "Setting environment variable {:?}={:?}",
+        k.as_ref(),
+        v.as_ref()
+    );
     env::set_var(k, v);
 }
 
 /// Set one environment variable if not set yet.
 pub fn set_env_ifndef<K: AsRef<OsStr>, V: AsRef<OsStr>>(k: K, v: V) {
     if let Ok(current_env_value) = env::var(k.as_ref()) {
-        debug!("Ignoring value {:?} as environment variable {:?} already defined with value {:?}",
-               k.as_ref(), v.as_ref(), current_env_value);
+        debug!(
+            "Ignoring value {:?} as environment variable {:?} already defined with value {:?}",
+            k.as_ref(),
+            v.as_ref(),
+            current_env_value
+        );
     } else {
-        debug!("Setting environment variable {:?}={:?}", k.as_ref(), v.as_ref());
+        debug!(
+            "Setting environment variable {:?}={:?}",
+            k.as_ref(),
+            v.as_ref()
+        );
         env::set_var(k, v);
     }
 }
 
 /// Set one environment variable with target-scoping rules.
-pub fn set_target_env<K: AsRef<OsStr>, R: AsRef<str>, V: AsRef<OsStr>>(k: K, rustc_triple: Option<R>, v: V) {
+pub fn set_target_env<K: AsRef<OsStr>, R: AsRef<str>, V: AsRef<OsStr>>(
+    k: K,
+    rustc_triple: Option<R>,
+    v: V,
+) {
     set_env(target_key_from_triple(k, rustc_triple), v);
 }
 
 /// Access a required TARGET_SYSROOT variable, suggesting to define it or use
 /// Dinghy.
 pub fn sysroot_path() -> Result<PathBuf> {
-    env::var_os("TARGET_SYSROOT").map(PathBuf::from).chain_err(|| "You must either define a TARGET_SYSROOT or use Dinghy to build your project.")
+    env::var_os("TARGET_SYSROOT")
+        .map(PathBuf::from)
+        .chain_err(|| {
+            "You must either define a TARGET_SYSROOT or use Dinghy to build your project."
+        })
 }
 
 /// Access `var_base` directly, or use targetting rules depending on the build
@@ -112,11 +134,20 @@ pub fn target_env(var_base: &str) -> Result<String> {
 pub fn target_env_from_triple(var_base: &str, triple: &str, is_host: bool) -> Result<String> {
     build_env(&format!("{}_{}", var_base, triple))
         .or_else(|_| build_env(&format!("{}_{}", var_base, triple.replace("-", "_"))))
-        .or_else(|_| build_env(&format!("{}_{}", if is_host { "HOST" } else { "TARGET" }, var_base)))
+        .or_else(|_| {
+            build_env(&format!(
+                "{}_{}",
+                if is_host { "HOST" } else { "TARGET" },
+                var_base
+            ))
+        })
         .or_else(|_| build_env(var_base))
 }
 
-fn target_key_from_triple<K: AsRef<OsStr>, R: AsRef<str>>(k: K, rustc_triple: Option<R>) -> OsString {
+fn target_key_from_triple<K: AsRef<OsStr>, R: AsRef<str>>(
+    k: K,
+    rustc_triple: Option<R>,
+) -> OsString {
     let mut target_key = OsString::new();
     target_key.push(k);
     if let Some(rustc_triple) = rustc_triple {

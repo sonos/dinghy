@@ -4,7 +4,7 @@ use dinghy_build::build_env::set_env;
 use errors::*;
 use overlay::Overlayer;
 use project::Project;
-use std::fmt::{ Debug, Display, Formatter };
+use std::fmt::{Debug, Display, Formatter};
 use std::process;
 use std::sync::Arc;
 use toolchain::Toolchain;
@@ -28,12 +28,17 @@ impl Debug for IosPlatform {
 }
 
 impl IosPlatform {
-    pub fn new(id: String, rustc_triple: &str, compiler: &Arc<Compiler>, configuration: PlatformConfiguration) -> Result<Box<Platform>> {
+    pub fn new(
+        id: String,
+        rustc_triple: &str,
+        compiler: &Arc<Compiler>,
+        configuration: PlatformConfiguration,
+    ) -> Result<Box<Platform>> {
         Ok(Box::new(IosPlatform {
             id,
             sim: rustc_triple.contains("86"),
             toolchain: Toolchain {
-                rustc_triple: rustc_triple.to_string()
+                rustc_triple: rustc_triple.to_string(),
             },
             compiler: Arc::clone(compiler),
             configuration,
@@ -59,8 +64,8 @@ impl Platform for IosPlatform {
         Overlayer::overlay(&self.configuration, self, project, &self.sysroot_path()?)?;
         self.toolchain.setup_cc(self.id().as_str(), "gcc")?;
         set_env("TARGET_SYSROOT", &sysroot);
-        self.toolchain.setup_linker(&self.id(),
-                                    &format!("cc -isysroot {}", sysroot))?;
+        self.toolchain
+            .setup_linker(&self.id(), &format!("cc -isysroot {}", sysroot))?;
         self.toolchain.setup_pkg_config()?;
 
         self.compiler.build(self.rustc_triple(), build_args)
@@ -97,4 +102,3 @@ impl Display for IosPlatform {
         }
     }
 }
-

@@ -1,8 +1,10 @@
+use compiler::Compiler;
+use config::PlatformConfiguration;
 use dinghy_build::build_env::set_all_env;
 use overlay::Overlayer;
 use platform;
 use project::Project;
-use std::fmt::{ Debug, Display, Formatter };
+use std::fmt::{Debug, Display, Formatter};
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -10,8 +12,6 @@ use std::sync::Arc;
 use toolchain::ToolchainConfig;
 use Build;
 use BuildArgs;
-use compiler::Compiler;
-use config::PlatformConfiguration;
 use Device;
 use Platform;
 use Result;
@@ -30,11 +30,13 @@ impl Debug for RegularPlatform {
 }
 
 impl RegularPlatform {
-    pub fn new<P: AsRef<Path>>(compiler: &Arc<Compiler>,
-                               configuration: PlatformConfiguration,
-                               id: String,
-                               rustc_triple: String,
-                               toolchain_path: P) -> Result<Box<Platform>> {
+    pub fn new<P: AsRef<Path>>(
+        compiler: &Arc<Compiler>,
+        configuration: PlatformConfiguration,
+        id: String,
+        rustc_triple: String,
+        toolchain_path: P,
+    ) -> Result<Box<dyn Platform>> {
         if let Some(prefix) = configuration.deb_multiarch.clone() {
             return Ok(Box::new(RegularPlatform {
                 compiler: compiler.clone(),
@@ -49,17 +51,23 @@ impl RegularPlatform {
                     binutils_prefix: prefix.clone(),
                     cc_prefix: prefix.clone(),
                 },
-            }))
+            }));
         }
         let toolchain_path = toolchain_path.as_ref();
         let toolchain_bin_path = toolchain_path.join("bin");
 
         let mut bin: Option<PathBuf> = None;
         let mut prefix: Option<String> = None;
-        for file in toolchain_bin_path.read_dir().map_err(|_| format!("Couldn't find toolchain directory {}", toolchain_path.display()))? {
+        for file in toolchain_bin_path.read_dir().map_err(|_| {
+            format!(
+                "Couldn't find toolchain directory {}",
+                toolchain_path.display()
+            )
+        })? {
             let file = file?;
             if file.file_name().to_string_lossy().ends_with("-gcc")
-                || file.file_name().to_string_lossy().ends_with("-gcc.exe") {
+                || file.file_name().to_string_lossy().ends_with("-gcc.exe")
+            {
                 bin = Some(toolchain_bin_path);
                 prefix = Some(
                     file.file_name()
@@ -75,18 +83,23 @@ impl RegularPlatform {
         let sysroot = find_sysroot(&toolchain_path)?;
 
         let toolchain = ToolchainConfig {
-                bin_dir,
-                rustc_triple,
-                root: toolchain_path.into(),
-                sysroot,
-                cc: "gcc".to_string(),
-                binutils_prefix: tc_triple.clone(),
-                cc_prefix: tc_triple,
-            };
+            bin_dir,
+            rustc_triple,
+            root: toolchain_path.into(),
+            sysroot,
+            cc: "gcc".to_string(),
+            binutils_prefix: tc_triple.clone(),
+            cc_prefix: tc_triple,
+        };
         Self::new_with_tc(compiler.clone(), configuration, id, toolchain)
     }
 
-    pub fn new_with_tc(compiler: Arc<Compiler>, configuration: PlatformConfiguration, id: String, toolchain: ToolchainConfig) -> Result<Box<Platform>> {
+    pub fn new_with_tc(
+        compiler: Arc<Compiler>,
+        configuration: PlatformConfiguration,
+        id: String,
+        toolchain: ToolchainConfig,
+    ) -> Result<Box<dyn Platform>> {
         Ok(Box::new(RegularPlatform {
             compiler,
             configuration,
@@ -105,37 +118,42 @@ impl Display for RegularPlatform {
 impl Platform for RegularPlatform {
     fn build(&self, project: &Project, build_args: &BuildArgs) -> Result<Build> {
         // Cleanup environment
-        set_all_env(&[
-            ("LIBRARY_PATH", ""),
-            ("LD_LIBRARY_PATH", ""),
-        ]);
+        set_all_env(&[("LIBRARY_PATH", ""), ("LD_LIBRARY_PATH", "")]);
         // Set custom env variables specific to the platform
         set_all_env(&self.configuration.env());
 
         Overlayer::overlay(&self.configuration, self, project, &self.toolchain.sysroot)?;
 
-        self.toolchain.setup_cc(&self.id, &self.toolchain.cc_executable(&self.toolchain.cc))?;
+        self.toolchain
+            .setup_cc(&self.id, &self.toolchain.cc_executable(&self.toolchain.cc))?;
 
         if Path::new(&self.toolchain.binutils_executable("ar")).exists() {
-            self.toolchain.setup_tool("AR", &self.toolchain.binutils_executable("ar"))?;
+            self.toolchain
+                .setup_tool("AR", &self.toolchain.binutils_executable("ar"))?;
         }
         if Path::new(&self.toolchain.binutils_executable("as")).exists() {
-            self.toolchain.setup_tool("AS", &self.toolchain.binutils_executable("as"))?;
+            self.toolchain
+                .setup_tool("AS", &self.toolchain.binutils_executable("as"))?;
         }
         if Path::new(&self.toolchain.binutils_executable("c++")).exists() {
-            self.toolchain.setup_tool("CXX", &self.toolchain.cc_executable("c++"))?;
+            self.toolchain
+                .setup_tool("CXX", &self.toolchain.cc_executable("c++"))?;
         }
         if Path::new(&self.toolchain.cc_executable("cpp")).exists() {
-            self.toolchain.setup_tool("CPP", &self.toolchain.cc_executable("cpp"))?;
+            self.toolchain
+                .setup_tool("CPP", &self.toolchain.cc_executable("cpp"))?;
         }
         if Path::new(&self.toolchain.binutils_executable("gfortran")).exists() {
-            self.toolchain.setup_tool("FC", &self.toolchain.binutils_executable("gfortran"))?;
+            self.toolchain
+                .setup_tool("FC", &self.toolchain.binutils_executable("gfortran"))?;
         }
         trace!("Setup linker...");
 
         let mut linker_cmd = self.toolchain.cc_executable(&*self.toolchain.cc);
         linker_cmd.push_str(" ");
-        if build_args.verbose { linker_cmd.push_str("-Wl,--verbose -v") }
+        if build_args.verbose {
+            linker_cmd.push_str("-Wl,--verbose -v")
+        }
         linker_cmd.push_str(&format!(" --sysroot {}", self.toolchain.sysroot.display()));
         for forced_overlay in &build_args.forced_overlays {
             linker_cmd.push_str(" -l");
@@ -159,7 +177,7 @@ impl Platform for RegularPlatform {
         self.id.clone()
     }
 
-    fn is_compatible_with(&self, device: &Device) -> bool {
+    fn is_compatible_with(&self, device: &dyn Device) -> bool {
         device.is_compatible_with_regular_platform(self)
     }
 
@@ -169,7 +187,10 @@ impl Platform for RegularPlatform {
 
     fn strip(&self, build: &Build) -> Result<()> {
         for runnable in &build.runnables {
-            platform::strip_runnable(runnable, Command::new(self.toolchain.binutils_executable("strip")))?;
+            platform::strip_runnable(
+                runnable,
+                Command::new(self.toolchain.binutils_executable("strip")),
+            )?;
         }
         Ok(())
     }
