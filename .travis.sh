@@ -54,6 +54,8 @@ echo "##"
 echo "## latest failure was expected ##"
 echo "##"
 
+if [ -n "$DEPLOY" ]
+then
     if [ `uname` = Linux ]
     then
         export OPENSSL_STATIC=yes
@@ -62,8 +64,6 @@ echo "##"
         cargo clean
     fi
     cargo build --release -p cargo-dinghy
-if [ -n "$DEPLOY" ]
-then
     mkdir -p cargo-dinghy-$DEPLOY
     cp target/release/cargo-dinghy cargo-dinghy-$DEPLOY
     tar vczf cargo-dinghy-$DEPLOY.tgz cargo-dinghy-$DEPLOY
