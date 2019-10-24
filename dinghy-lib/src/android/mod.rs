@@ -188,13 +188,17 @@ fn ndk() -> Result<Option<path::PathBuf>> {
 
 fn ndk_version(ndk: &path::Path) -> Result<String> {
     let sources_prop_file = ndk.join("source.properties");
-    let props = fs::read_to_string(sources_prop_file)?;
+    let props = fs::read_to_string(&sources_prop_file)
+        .map_err(|e| format!(
+            "Android NDK at {:?} does not contains a valid ndk-bundle: opening: {:?}: {:?}",
+            ndk, sources_prop_file, e
+        ))?;
     let revision_line = props
         .split("\n")
         .find(|l| l.starts_with("Pkg.Revision"))
         .ok_or(format!(
-            "Android NDK at {:?} does not contains a valid ndk-bundle: no source.properties",
-            ndk
+            "{:?} does not contain a Pkg.Revision line. Invalid SDK?",
+            sources_prop_file
         ))?;
     Ok(revision_line.split(" ").last().unwrap().to_string())
 }
