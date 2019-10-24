@@ -38,5 +38,5 @@ which = "2.0"
 [target.'cfg(target_os="macos")'.dependencies]
 core-foundation = "0.5"
 core-foundation-sys = "0.5"
-libc = "0.2"
+libc = "=0.2.64" # 0.2.65 can not download from crates
 tempdir = "0.3"
