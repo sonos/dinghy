@@ -1,3 +1,4 @@
+use failure;
 error_chain! {
     foreign_links {
         Io(::std::io::Error);
@@ -15,15 +16,14 @@ error_chain! {
             description("Cannot compile selected packages for the selected platform")
             display("{:?} cannot be compiled for the selected platform (see project's [package.metadata.dinghy] in Cargo.toml)", packages)
         }
-        Cargo(err: ::cargo::CargoError) {
+        Cargo(err: String) {
             description("A cargo error")
             display("{:?}", err)
         }
     }
 }
-
-impl From<::cargo::CargoError> for Error {
-    fn from(err: ::cargo::CargoError) -> Error {
-        Error::from_kind(ErrorKind::Cargo(err))
+impl From<failure::Error> for Error {
+    fn from(err: failure::Error) -> Error {
+        Error::from_kind(ErrorKind::Cargo(err.to_string()))
     }
 }

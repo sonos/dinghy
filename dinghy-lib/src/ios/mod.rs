@@ -72,7 +72,7 @@ impl IosManager {
 }
 
 impl PlatformManager for IosManager {
-    fn devices(&self) -> Result<Vec<Box<Device>>> {
+    fn devices(&self) -> Result<Vec<Box<dyn Device>>> {
         let sims_list = ::std::process::Command::new("xcrun")
             .args(&["simctl", "list", "--json", "devices"])
             .output()?;
@@ -84,7 +84,7 @@ impl PlatformManager for IosManager {
         }
         let sims_list = String::from_utf8(sims_list.stdout)?;
         let sims_list = ::json::parse(&sims_list)?;
-        let mut sims: Vec<Box<Device>> = vec![];
+        let mut sims: Vec<Box<dyn Device>> = vec![];
         for (ref k, ref v) in sims_list["devices"].entries() {
             for ref sim in v.members() {
                 if sim["state"] == "Booted" {
@@ -105,12 +105,12 @@ impl PlatformManager for IosManager {
         let devices = self.devices.lock().map_err(|_| "poisoned lock")?;
         Ok(devices
             .iter()
-            .map(|d| Box::new(d.clone()) as Box<Device>)
+            .map(|d| Box::new(d.clone()) as Box<dyn Device>)
             .chain(sims.into_iter())
             .collect())
     }
 
-    fn platforms(&self) -> Result<Vec<Box<Platform>>> {
+    fn platforms(&self) -> Result<Vec<Box<dyn Platform>>> {
         ["armv7", "armv7s", "aarch64", "i386", "x86_64"]
             .iter()
             .map(|arch| {
@@ -122,7 +122,7 @@ impl PlatformManager for IosManager {
                     &self.compiler,
                     ::config::PlatformConfiguration::default(),
                 )
-                .map(|pf| pf as Box<Platform>)
+                .map(|pf| pf as Box<dyn Platform>)
             })
             .collect()
     }

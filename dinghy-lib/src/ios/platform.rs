@@ -33,7 +33,7 @@ impl IosPlatform {
         rustc_triple: &str,
         compiler: &Arc<Compiler>,
         configuration: PlatformConfiguration,
-    ) -> Result<Box<Platform>> {
+    ) -> Result<Box<dyn Platform>> {
         Ok(Box::new(IosPlatform {
             id,
             sim: rustc_triple.contains("86"),
@@ -75,7 +75,7 @@ impl Platform for IosPlatform {
         self.id.to_string()
     }
 
-    fn is_compatible_with(&self, device: &Device) -> bool {
+    fn is_compatible_with(&self, device: &dyn Device) -> bool {
         device.is_compatible_with_ios_platform(self)
     }
 
