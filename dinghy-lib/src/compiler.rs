@@ -4,6 +4,7 @@ use cargo::core::compiler as CargoCoreCompiler;
 use cargo::core::compiler::Compilation;
 pub use cargo::core::compiler::CompileMode;
 use cargo::core::compiler::MessageFormat;
+use cargo::core::compiler::ProfileKind;
 use cargo::core::Workspace;
 use cargo::ops as CargoOps;
 use cargo::ops::CleanOptions;
@@ -112,15 +113,21 @@ fn create_build_command(
     let lib_only = matches.is_present("LIB");
     let no_default_features = matches.is_present("NO_DEFAULT_FEATURES");
     let packages = arg_as_string_vec(matches, "SPEC");
+
     let release = matches.is_present("RELEASE");
+    let offline = matches.is_present("OFFLINE");
     let verbosity = matches.occurrences_of("VERBOSE") as u32;
     let tests = arg_as_string_vec(matches, "TEST");
     let bearded = matches.is_present("BEARDED");
 
     Box::new(move |rustc_triple: Option<&str>, build_args: &BuildArgs| {
-        let release = build_args.compile_mode == CompileMode::Bench || release;
+        let profile_kind = if release {
+            ProfileKind::Release
+        } else {
+            ProfileKind::Dev
+        };
         let mut config = CompileConfig::default()?;
-        config.configure(verbosity, None, &None, false, false, &None, &[])?;
+        config.configure(verbosity, None, &None, false, false, offline, &None, &[])?;
         let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?, &config)?;
 
         let project_metadata_list = workskpace_metadata(&workspace)?;
@@ -155,7 +162,7 @@ fn create_build_command(
         };
 
         let build_config = CargoCoreCompiler::BuildConfig {
-            release,
+            profile_kind,
             message_format: MessageFormat::Human,
             ..CargoCoreCompiler::BuildConfig::new(
                 &config,
@@ -172,7 +179,7 @@ fn create_build_command(
             all_features,
             no_default_features,
             spec: CompilePackages::from_flags(all, excludes, packages)?,
-            filter: CompileFilter::new(
+            filter: CompileFilter::from_raw_arguments(
                 lib_only,
                 bins.clone(),
                 false,
@@ -203,16 +210,32 @@ fn create_build_command(
 fn create_clean_command(matches: &ArgMatches) -> Box<dyn Fn(Option<&str>) -> Result<()>> {
     let packages = arg_as_string_vec(matches, "SPEC");
     let release = matches.is_present("RELEASE");
+    let offline = matches.is_present("OFFLINE");
     let verbosity = matches.occurrences_of("VERBOSE") as u32;
 
     Box::new(move |rustc_triple: Option<&str>| {
         let mut config = CompileConfig::default()?;
-        config.configure(verbosity, None, &None, false, false, &None, &[])?;
+        config.configure(
+            verbosity,
+            None,
+            &None,
+            false,
+            false,
+            offline,
+            &None,
+            &[],
+            )?;
         let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?, &config)?;
+        let profile_kind = if release {
+            ProfileKind::Release
+        } else {
+            ProfileKind::Dev
+        };
 
         let options = CleanOptions {
             config: &config,
-            release,
+            profile_specified: false,
+            profile_kind,
             spec: packages.clone(),
             target: rustc_triple.map(str::to_string),
             doc: false,
@@ -242,16 +265,17 @@ fn create_run_command(
     let lib_only = matches.is_present("LIB");
     let no_default_features = matches.is_present("NO_DEFAULT_FEATURES");
     let packages = arg_as_string_vec(matches, "SPEC");
+
     let release = matches.is_present("RELEASE");
     let verbosity = matches.occurrences_of("VERBOSE") as u32;
     let tests = arg_as_string_vec(matches, "TEST");
     let bearded = matches.is_present("BEARDED");
+    let offline = matches.is_present("OFFLINE");
 
     Box::new(
         move |rustc_triple: Option<&str>, build_args: &BuildArgs, args: &[&str]| {
-            let release = build_args.compile_mode == CompileMode::Bench || release;
             let mut config = CompileConfig::default()?;
-            config.configure(verbosity, None, &None, false, false, &None, &[])?;
+            config.configure(verbosity, None, &None, false, false, offline, &None, &[])?;
             let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?, &config)?;
 
             let project_metadata_list = workskpace_metadata(&workspace)?;
@@ -264,9 +288,14 @@ fn create_run_command(
             } else {
                 excludes.clone()
             };
+            let profile_kind = if release {
+                ProfileKind::Release
+            } else {
+                ProfileKind::Dev
+            };
 
             let build_config = CargoCoreCompiler::BuildConfig {
-                release,
+                profile_kind,
                 message_format: MessageFormat::Human,
                 ..CargoCoreCompiler::BuildConfig::new(
                     &config,
@@ -283,7 +312,7 @@ fn create_run_command(
                 all_features,
                 no_default_features,
                 spec: CompilePackages::from_flags(all, excludes, packages.clone())?,
-                filter: CompileFilter::new(
+                filter: CompileFilter::from_raw_arguments(
                     lib_only,
                     bins.clone(),
                     false,
@@ -316,10 +345,7 @@ fn create_run_command(
                     if let Some(err) = CargoOps::run_benches(
                         &workspace,
                         &test_options,
-                        args.into_iter()
-                            .map(|it| it.to_string())
-                            .collect_vec()
-                            .as_slice(),
+                        args,
                     )? {
                         bail!("An error occured: {:?}", err);
                     };
@@ -329,7 +355,7 @@ fn create_run_command(
                         &workspace,
                         &test_options.compile_opts,
                         args.into_iter()
-                            .map(|it| it.to_string())
+                            .map(|it| OsString::from(it))
                             .collect_vec()
                             .as_slice(),
                     )? {
@@ -340,10 +366,7 @@ fn create_run_command(
                     if let Some(err) = CargoOps::run_tests(
                         &workspace,
                         &test_options,
-                        args.into_iter()
-                            .map(|it| it.to_string())
-                            .collect_vec()
-                            .as_slice(),
+                        args,
                     )? {
                         bail!("An error occured: {:?}", err);
                     };
@@ -455,7 +478,7 @@ fn to_build(
             runnables: compilation
                 .tests
                 .iter()
-                .map(|&(ref pkg, _, _, ref exe_path)| {
+                .map(|&(ref pkg, _, ref exe_path)| {
                     Ok(Runnable {
                         exe: exe_path.clone(),
                         id: exe_path

@@ -10,6 +10,7 @@ extern crate dinghy_build;
 extern crate dirs;
 #[macro_use]
 extern crate error_chain;
+extern crate failure;
 extern crate filetime;
 extern crate ignore;
 extern crate itertools;
