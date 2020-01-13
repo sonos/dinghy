@@ -21,6 +21,10 @@ pub fn add_plist_to_app(bundle: &BuildBundle, arch: &str, app_bundle_id: &str) -
     )?;
     writeln!(plist, "<key>UIRequiredDeviceCapabilities</key>")?;
     writeln!(plist, "<array><string>{}</string></array>", arch)?;
+    writeln!(plist, "<key>CFBundleVersion</key>")?;
+    writeln!(plist, "<string>{}</string>", arch)?;
+    writeln!(plist, "<key>CFBundleShortVersionString</key>")?;
+    writeln!(plist, "<string>{}</string>", arch)?;
     writeln!(plist, r#"</dict></plist>"#)?;
     /*
     let app_name = app_bundle_id.split(".").last().unwrap();

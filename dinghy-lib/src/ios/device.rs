@@ -245,13 +245,7 @@ impl Device for IosSimDevice {
         let mut build_bundles = vec![];
         for runnable in &build.runnables {
             let build_bundle = self.install_app(&project, &build, &runnable)?;
-            let install_path = String::from_utf8(
-                process::Command::new("xcrun")
-                    .args(&["simctl", "get_app_container", &self.id, "Dinghy"])
-                    .output()?
-                    .stdout,
-            )?;
-            launch_lldb_simulator(&self, &install_path, args, false)?;
+            launch_app(&self, args)?;
             build_bundles.push(build_bundle);
         }
         Ok(build_bundles)
@@ -665,6 +659,22 @@ fn launch_lldb_device<P: AsRef<Path>, P2: AsRef<Path>>(
     } else {
         Err(format!("LLDB returned error code {:?}", stat.code()))?
     }
+}
+
+fn launch_app(
+    dev: &IosSimDevice,
+    app_args: &[&str]
+) -> Result<()> {
+    let mut xcrun_args : Vec<&str> = vec![
+              "simctl",
+              "launch",
+              "--console-pyt",
+              &dev.id,
+              "Dinghy",
+    ];
+    xcrun_args.extend(app_args);
+    process::Command::new("xcrun").args(&xcrun_args).spawn()?.wait()?;
+    Ok(())
 }
 
 fn launch_lldb_simulator(
