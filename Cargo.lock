@@ -418,7 +418,7 @@ dependencies = [
 
 [[package]]
 name = "dinghy-build"
-version = "0.4.19-pre"
+version = "0.4.19"
 dependencies = [
  "bindgen 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "cc 1.0.46 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -435,7 +435,7 @@ dependencies = [
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-foundation 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-foundation-sys 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "dinghy-build 0.4.19-pre",
+ "dinghy-build 0.4.19",
  "dirs 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
