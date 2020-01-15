@@ -12,7 +12,7 @@ cargo install cargo-dinghy
 cargo install cargo-dinghy --force
 ```
 
-### iOS phone 
+### iOS phone
 
 On iOS, things are made complicated by the fact that there is no way to run a
 naked executable on a device: you need to make it an app, and sign it before
@@ -26,7 +26,7 @@ Again, we don't need a paying account.
 ### Creating a signing id
 
 You may skip most of this section if you're already setup to ship code to
-your phone. 
+your phone.
 
 * You'll need an Apple ID. Chances are you already have one, but you can
     an account there: https://appleid.apple.com/account .
@@ -62,7 +62,7 @@ longer living certificates, so you need this less often.
 
 On top of project window, make the target "Dinghy>Your Device", and run the
 project (play button). XCode may ask you to go to your phone settings
-and Trust the certificate. It's in the Preferences > General > 
+and Trust the certificate. It's in the Preferences > General >
 [your dev account name]. It should then start your empty app on the phone.
 
 At this point, we're ready to roll, dinghy should detect XCode and the various
@@ -87,18 +87,21 @@ name are supposed to pass, the one with fail should break.
 
 ### Simulator
 
-The simulator support is broken by the current version of XCode. It is know to
-work with XCode 8 though.
+There's a [known bug with lldb and the ios
+simulator](https://bugs.llvm.org/show_bug.cgi?id=36580) as such, dinghy will
+use lldb to attach to the process on macOS to get the exit status from the
+simulator.  On Catalina (and probably earlier), this means the user will be
+prompted for higher permissions.
 
 ### Debugging tips
 
-If you got lost somewhere, here are a few hints to help you make sense of 
+If you got lost somewhere, here are a few hints to help you make sense of
 what is happening. This is more or less what Dinghy use when fishing for
 your signing identity.
 
 #### `security find-identity -p codesigning`
 
-Shows you the codesigning identities available where you are. You should see 
+Shows you the codesigning identities available where you are. You should see
 one or more identities line, made of a long capitalize hex identifier, followed
 by a "name". The name is very structured: For iOS development , its starts
 with the string "iPhone Developer: ", followed by an email (for an Apple Id
@@ -123,7 +126,7 @@ chosen while creating the project) on one (or more) devices.
 
 These certificates are in `Library/MobileDevice/Provisioning\ Profiles`.
 
-To read them, you'll need to do 
+To read them, you'll need to do
 
 ```
 security cms -D -i  ~/Library/MobileDevice/Provisioning\ Profiles\....mobileprovision
