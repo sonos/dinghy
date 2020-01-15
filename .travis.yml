@@ -6,7 +6,7 @@ matrix:
   - rust: nightly
   include:
   - os: osx
-    osx_image: xcode9.3
+    osx_image: xcode11.2
     env: DEPLOY=macos
   - os: linux
     dist: bionic

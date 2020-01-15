@@ -661,20 +661,101 @@ fn launch_lldb_device<P: AsRef<Path>, P2: AsRef<Path>>(
     }
 }
 
+
 fn launch_app(
     dev: &IosSimDevice,
     app_args: &[&str]
 ) -> Result<()> {
+    use std::io::{Read, Write};
+    let dir = ::tempdir::TempDir::new("mobiledevice-rs-lldb")?;
+    let tmppath = dir.path();
+    let mut install_path = String::from_utf8(
+        process::Command::new("xcrun")
+        .args(&["simctl", "get_app_container", &dev.id, "Dinghy"])
+        .output()?
+        .stdout,
+        )?;
+    install_path.pop();
+    let stdout = Path::new(&install_path).join("stdout").to_string_lossy().into_owned();
+    let stdout_param =
+        &format!("--stdout={}", stdout);
     let mut xcrun_args : Vec<&str> = vec![
-              "simctl",
-              "launch",
-              "--console-pyt",
-              &dev.id,
-              "Dinghy",
+        "simctl",
+        "launch",
+        "-w",
+        stdout_param,
+        &dev.id,
+        "Dinghy",
     ];
     xcrun_args.extend(app_args);
-    process::Command::new("xcrun").args(&xcrun_args).spawn()?.wait()?;
-    Ok(())
+    debug!("Launching app via xcrun using args: {:?}", xcrun_args);
+    let launch_output = process::Command::new("xcrun").args(&xcrun_args).output()?;
+    let launch_output = String::from_utf8_lossy(&launch_output.stdout);
+
+    // Output from the launch command should be "Dinghy: $PID" which is 8 characters.
+    let dinghy_pid = launch_output.split_at(8).1;
+
+    // Attaching to the processes needs to be done in a script, not a commandline parameter or
+    // lldb will say "no simulators found".
+    let lldb_script_filename = tmppath.join("lldb-script");
+    let mut script = fs::File::create(&lldb_script_filename)?;
+    write!(script, "attach {}\n", dinghy_pid)?;
+    //write!(script, "attach --name {}/Dinghy\n", install_path)?;
+    write!(script, "continue\n")?;
+    write!(script, "quit\n")?;
+    let output = process::Command::new("lldb")
+        .arg("")
+        .arg("-s")
+        .arg(lldb_script_filename)
+        .output()?;
+
+    let mut file = std::fs::File::open(stdout)?;
+    let mut test_contents = String::new();
+    file.read_to_string(&mut test_contents)?;
+    println!("{}", test_contents);
+
+    let output : String = String::from_utf8_lossy(&output.stdout).to_string();
+    debug!("LLDB OUTPUT: {}", output);
+    // The output from lldb is something like:
+    //
+    // (lldb) attach 34163
+    // Process 34163 stopped
+    // * thread #1, stop reason = signal SIGSTOP
+    //     frame #0: 0x00000001019cd000 dyld`_dyld_start
+    // dyld`_dyld_start:
+    // ->  0x1019cd000 <+0>: popq   %rdi
+    //     0x1019cd001 <+1>: pushq  $0x0
+    //     0x1019cd003 <+3>: movq   %rsp, %rbp
+    //     0x1019cd006 <+6>: andq   $-0x10, %rsp
+    // Target 0: (Dinghy) stopped.
+    //
+    // Executable module set to .....
+    // Architecture set to: x86_64h-apple-ios-.
+    // (lldb) continue
+    // Process 34163 resuming
+    // Process 34163 exited with status = 101 (0x00000065)
+    //
+    // (lldb) quit
+    //
+    // We need the "exit with status" line which is the 3rd from the last
+    let lines : Vec<&str> = output.lines().rev().collect();
+    let exit_status_line = lines.get(2);
+    if let Some(exit_status_line) = exit_status_line {
+        let words : Vec<&str> = exit_status_line.split_whitespace().rev().collect();
+        if let Some(exit_status) = words.get(1) {
+            let exit_status = exit_status.parse::<u32>()?;
+            if exit_status == 0 {
+                Ok(())
+            } else {
+                panic!("Non-zero exit code from lldb: {}", exit_status);
+            }
+        } else {
+            panic!("Failed to parse lldb exit line for an exit status. {:?}", words);
+        }
+    } else {
+        panic!("Failed to get the exit status line from lldb: {:?}", lines);
+    }
+
 }
 
 fn launch_lldb_simulator(
