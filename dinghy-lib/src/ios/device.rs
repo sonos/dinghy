@@ -692,7 +692,7 @@ fn launch_app(
     let launch_output = process::Command::new("xcrun").args(&xcrun_args).output()?;
     let launch_output = String::from_utf8_lossy(&launch_output.stdout);
 
-    // Output from the launch command should be "Dinghy: $PID" which is 8 characters.
+    // Output from the launch command should be "Dinghy: $PID" which is after the 8th character.
     let dinghy_pid = launch_output.split_at(8).1;
 
     // Attaching to the processes needs to be done in a script, not a commandline parameter or
@@ -700,7 +700,6 @@ fn launch_app(
     let lldb_script_filename = tmppath.join("lldb-script");
     let mut script = fs::File::create(&lldb_script_filename)?;
     write!(script, "attach {}\n", dinghy_pid)?;
-    //write!(script, "attach --name {}/Dinghy\n", install_path)?;
     write!(script, "continue\n")?;
     write!(script, "quit\n")?;
     let output = process::Command::new("lldb")
@@ -716,7 +715,7 @@ fn launch_app(
 
     let output : String = String::from_utf8_lossy(&output.stdout).to_string();
     debug!("LLDB OUTPUT: {}", output);
-    // The output from lldb is something like:
+    // The stdout from lldb is something like:
     //
     // (lldb) attach 34163
     // Process 34163 stopped
