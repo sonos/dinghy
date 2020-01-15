@@ -54,30 +54,33 @@ echo "##"
 echo "## latest failure was expected ##"
 echo "##"
 
-# Test ios-simulator.
-export SIM_ID=$(xcrun simctl create My-iphone7 com.apple.CoreSimulator.SimDeviceType.iPhone-7 com.apple.CoreSimulator.SimRuntime.iOS-13-2)
-xcrun simctl boot $SIM_ID
-# Test from workspace root with project filter
-( \
-    cd test-ws \
-    && cargo clean \
-    && $CARGO_DINGHY -d $SIM_ID test -p test-app pass \
-    && ! $CARGO_DINGHY -d $SIM_ID test -p test-app fails \
-)
-echo "##"
-echo "## latest failure was expected ##"
-echo "##"
+# Test on the ios-simulator.
+if [ "$TRAVIS_OS_NAME" = osx ]; then
+    rustup target add x86_64-apple-ios;
+    export SIM_ID=$(xcrun simctl create My-iphone7 com.apple.CoreSimulator.SimDeviceType.iPhone-7 com.apple.CoreSimulator.SimRuntime.iOS-13-2)
+    xcrun simctl boot $SIM_ID
+    # Test from workspace root with project filter
+    ( \
+        cd test-ws \
+        && cargo clean \
+        && $CARGO_DINGHY -d $SIM_ID test -p test-app pass \
+        && ! $CARGO_DINGHY -d $SIM_ID test -p test-app fails \
+    )
+    echo "##"
+    echo "## latest failure was expected ##"
+    echo "##"
 
-# Test in project subdir
-( \
-    cd test-ws/test-app \
-    && cargo clean \
-    && $CARGO_DINGHY -d $SIM_ID test pass \
-    && ! $CARGO_DINGHY -d $SIM_ID test fails \
-)
-echo "##"
-echo "## latest failure was expected ##"
-echo "##"
+    # Test in project subdir
+    ( \
+        cd test-ws/test-app \
+        && cargo clean \
+        && $CARGO_DINGHY -d $SIM_ID test pass \
+        && ! $CARGO_DINGHY -d $SIM_ID test fails \
+    )
+    echo "##"
+    echo "## latest failure was expected ##"
+    echo "##"
+fi
 
 if [ -n "$DEPLOY" ]
 then

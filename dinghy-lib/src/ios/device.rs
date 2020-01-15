@@ -665,7 +665,7 @@ fn launch_app(
     dev: &IosSimDevice,
     app_args: &[&str]
 ) -> Result<()> {
-    use std::io::{Read, Write};
+    use std::io::Write;
     let dir = ::tempdir::TempDir::new("mobiledevice-rs-lldb")?;
     let tmppath = dir.path();
     let mut install_path = String::from_utf8(
@@ -706,10 +706,7 @@ fn launch_app(
         .arg("-s")
         .arg(lldb_script_filename)
         .output()?;
-
-    let mut file = std::fs::File::open(stdout)?;
-    let mut test_contents = String::new();
-    file.read_to_string(&mut test_contents)?;
+    let test_contents = std::fs::read_to_string(stdout)?;
     println!("{}", test_contents);
 
     let output : String = String::from_utf8_lossy(&output.stdout).to_string();
