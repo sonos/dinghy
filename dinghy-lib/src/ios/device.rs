@@ -661,7 +661,6 @@ fn launch_lldb_device<P: AsRef<Path>, P2: AsRef<Path>>(
     }
 }
 
-
 fn launch_app(
     dev: &IosSimDevice,
     app_args: &[&str]
@@ -754,7 +753,6 @@ fn launch_app(
     } else {
         panic!("Failed to get the exit status line from lldb: {:?}", lines);
     }
-
 }
 
 fn launch_lldb_simulator(
