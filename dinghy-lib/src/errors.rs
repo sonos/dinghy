@@ -3,6 +3,7 @@ error_chain! {
     foreign_links {
         Io(::std::io::Error);
         StringFromUtf8(::std::string::FromUtf8Error);
+        ParseIntError(std::num::ParseIntError);
         PathStripPrefix(::std::path::StripPrefixError);
         Plist(::plist::Error);
         Regex(::regex::Error);
