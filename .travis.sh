@@ -55,7 +55,8 @@ echo "## latest failure was expected ##"
 echo "##"
 
 # Test on the ios-simulator.
-if [ "$TRAVIS_OS_NAME" = osx ]; then
+if [ `uname` = Darwin ]
+then
     rustup target add x86_64-apple-ios;
     export SIM_ID=$(xcrun simctl create My-iphone7 com.apple.CoreSimulator.SimDeviceType.iPhone-7 com.apple.CoreSimulator.SimRuntime.iOS-13-2)
     xcrun simctl boot $SIM_ID
