@@ -2,12 +2,12 @@
 # It is not intended for manual editing.
 [[package]]
 name = "dinghy-test"
-version = "0.4.20-pre"
+version = "0.4.21-pre"
 
 [[package]]
 name = "test-app"
 version = "0.1.0"
 dependencies = [
- "dinghy-test 0.4.20-pre",
+ "dinghy-test 0.4.21-pre",
 ]
 
