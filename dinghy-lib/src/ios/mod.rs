@@ -83,7 +83,8 @@ impl PlatformManager for IosManager {
             return Ok(vec![]);
         }
         let sims_list = String::from_utf8(sims_list.stdout)?;
-        let sims_list = ::json::parse(&sims_list)?;
+        let sims_list = ::json::parse(&sims_list)
+               .map_err(|_| "Could not parse output for: `xcrun simctl list --json devices` as json. Please try to make this command work and retry.")?;
         let mut sims: Vec<Box<dyn Device>> = vec![];
         for (ref k, ref v) in sims_list["devices"].entries() {
             for ref sim in v.members() {
