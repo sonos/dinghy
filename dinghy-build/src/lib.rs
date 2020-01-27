@@ -6,18 +6,14 @@
 //! shared wisdom and conventions across build.rs scripts, cargo, dinghy,
 //! cc-rs, pkg-config-rs, bindgen, and others. It also helps providing
 //! cross-compilation arguments to autotools `./configure` scripts.
-//!
-//! As an optional feature, it offers `with-bindgen`, which helps dealing with
-//! some idiosyncrasies of `bindgen` code generation.
 
-#[cfg(feature = "with-bindgen")]
-extern crate bindgen;
 #[macro_use]
 extern crate error_chain;
 extern crate cc;
 #[macro_use]
 extern crate log;
 
+mod bindgen_macros;
 pub mod build;
 pub mod build_env;
 pub mod utils;
@@ -119,107 +115,5 @@ impl CommandExt for Command {
             }
         }
         Ok(self)
-    }
-}
-
-/// Omnibus helper for bindgen crosscompilation patches.
-///
-/// Crate a bindgen builder for the target toolchain, with Apple patch and
-/// gcc_system patch.
-#[cfg(feature = "with-bindgen")]
-pub fn new_bindgen_with_cross_compilation_support() -> Result<bindgen::Builder> {
-    Ok(bindgen::Builder::default()
-        .clang_arg("--verbose")
-        .detect_toolchain()?
-        .include_gcc_system_headers()?
-        .apple_patch()?)
-}
-
-#[cfg(feature = "with-bindgen")]
-pub trait BindGenBuilderExt {
-    /// Change target arch name `aarch64` to `arm64` for better CLang
-    /// compatibility.
-    fn apple_patch(self) -> Result<bindgen::Builder>;
-
-    fn detect_toolchain(self) -> Result<bindgen::Builder>;
-
-    fn generate_default_binding(self) -> Result<()>;
-
-    fn header_in_current_dir(self, header_file_name: &str) -> Result<bindgen::Builder>;
-
-    /// Ugly hack to include gcc system headers from the target computer inside
-    /// the search path of the CLang compiler that will be used to build
-    /// bindings.
-    fn include_gcc_system_headers(self) -> Result<bindgen::Builder>;
-}
-
-#[cfg(feature = "with-bindgen")]
-impl BindGenBuilderExt for bindgen::Builder {
-    fn apple_patch(self) -> Result<bindgen::Builder> {
-        if is_cross_compiling()? {
-            let target = env::var("TARGET")?;
-            if target.contains("apple") && target.contains("aarch64") {
-                // The official Apple tools use "-arch arm64" instead of specifying
-                // -target directly; -arch only works when the default target is
-                // Darwin-based to put Clang into "Apple mode" as it were. But it does
-                // sort of explain why arm64 works better than aarch64, which is the
-                // preferred name everywhere else.
-                return Ok(self.clang_arg(format!("-arch")).clang_arg(format!("arm64")));
-            }
-        }
-        Ok(self)
-    }
-
-    fn detect_toolchain(self) -> Result<bindgen::Builder> {
-        if is_cross_compiling()? {
-            let target = env::var("TARGET")?;
-            Ok(self
-                .clang_arg(format!("--sysroot={}", path_to_str(&sysroot_path()?)?))
-                .clang_arg(format!("--target={}", target)))
-        } else {
-            Ok(self)
-        }
-    }
-
-    fn generate_default_binding(self) -> Result<()> {
-        let out_path = env::var("OUT_DIR").map(PathBuf::from)?.join("bindings.rs");
-        Ok(self
-            .generate()
-            .expect("Unable to generate bindings")
-            .write_to_file(out_path)?)
-    }
-
-    fn header_in_current_dir(self, header_file_name: &str) -> Result<bindgen::Builder> {
-        let header_path = env::current_dir()
-            .map(PathBuf::from)?
-            .join(header_file_name);
-        Ok(self.header(header_path.to_str().ok_or(format!(
-            "Not a valid UTF-8 path ({})",
-            header_path.display()
-        ))?))
-    }
-
-    fn include_gcc_system_headers(self) -> Result<bindgen::Builder> {
-        if is_cross_compiling()? {
-            // Add a path to the private headers for the target compiler. Borderline,
-            // as we are likely using a gcc header with clang frontend.
-            let path = cc::Build::new()
-                .get_compiler()
-                .to_command()
-                .arg("--print-file-name=include")
-                .output()
-                .chain_err(|| "Couldn't find target GCC executable.")
-                .and_then(|output| {
-                    if output.status.success() {
-                        Ok(String::from_utf8(output.stdout)?)
-                    } else {
-                        bail!("Couldn't determine target GCC include dir.")
-                    }
-                })?;
-
-            Ok(self.clang_arg("-isystem").clang_arg(path.trim()))
-        } else {
-            Ok(self)
-        }
     }
 }
