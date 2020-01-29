@@ -44,9 +44,13 @@ macro_rules! dinghy_bindgen_pre_0_49 {
         fn detect_toolchain(builder: bindgen::Builder) -> Result<bindgen::Builder> {
             if is_cross_compiling()? {
                 let target = env::var("TARGET")?;
-                Ok(builder
-                    .clang_arg(format!("--sysroot={}", path_to_str(&sysroot_path()?)?))
-                    .clang_arg(format!("--target={}", target)))
+                let builder = if let Ok(_) = env::var("TARGET_SYSROOT") {
+                    builder.clang_arg(format!("--sysroot={}", path_to_str(&sysroot_path()?)?))
+                } else {
+                    println!("cargo:warning=No Sysroot detected, assuming the target is baremetal. If you have a sysroot, you must either define a TARGET_SYSROOT or use Dinghy to build your project.");
+                    builder
+                };
+                Ok(builder.clang_arg(format!("--target={}", target)))
             } else {
                 Ok(builder)
             }
