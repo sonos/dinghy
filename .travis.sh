@@ -58,7 +58,8 @@ echo "##"
 if [ `uname` = Darwin ]
 then
     rustup target add x86_64-apple-ios;
-    export SIM_ID=$(xcrun simctl create My-iphone7 com.apple.CoreSimulator.SimDeviceType.iPhone-7 com.apple.CoreSimulator.SimRuntime.iOS-13-2)
+    RUNTIME_ID=$(xcrun simctl list runtimes | grep iOS | cut -d ' ' -f 7)
+    export SIM_ID=$(xcrun simctl create My-iphone7 com.apple.CoreSimulator.SimDeviceType.iPhone-7 $RUNTIME_ID)
     xcrun simctl boot $SIM_ID
     # Test from workspace root with project filter
     ( \
