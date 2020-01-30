@@ -63,7 +63,6 @@ Then you can use again the dinghy-test crate to access your specific test data d
 #[cfg(test)]
 extern crate dinghy_test;
 
-
 #[cfg(test)]
 mod tests {
     #[test]
@@ -75,4 +74,13 @@ mod tests {
 }
 ```
 
+In order to accomodate tests running in "cargo native" and "dinghy mode" you may
+define and use a helper like that in your tests to find the test files:
 
+```rust
+#[cfg(test)]
+fn test_resources() -> std::path::PathBuf {
+    dinghy_test::try_test_file_path("test-resources").unwrap_or("../test-resources".into())
+}
+
+```
