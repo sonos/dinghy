@@ -26,6 +26,13 @@ pub fn make_remote_app_with_name(
         path.ancestors()
             .find(|ancestor_path| ancestor_path.ends_with("sysroot/usr/lib"))
             .is_some()
+            && (!path
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .eq_ignore_ascii_case("libc++_shared.so")
+                && !path.to_str().unwrap().contains("android"))
     }
 
     let project = project.for_runnable(runnable)?;
