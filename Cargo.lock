@@ -187,11 +187,11 @@ dependencies = [
 
 [[package]]
 name = "cargo-dinghy"
-version = "0.4.24-pre"
+version = "0.4.25-pre"
 dependencies = [
  "cargo 0.41.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "dinghy-lib 0.4.24",
+ "dinghy-lib 0.4.25-pre",
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -386,17 +386,7 @@ dependencies = [
 
 [[package]]
 name = "dinghy-build"
-version = "0.4.24"
-dependencies = [
- "cc 1.0.50 (registry+https://github.com/rust-lang/crates.io-index)",
- "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "dinghy-build"
-version = "0.4.24"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+version = "0.4.25-pre"
 dependencies = [
  "cc 1.0.50 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -405,14 +395,14 @@ dependencies = [
 
 [[package]]
 name = "dinghy-lib"
-version = "0.4.24"
+version = "0.4.25-pre"
 dependencies = [
  "atty 0.2.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "cargo 0.41.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.33.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-foundation 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "core-foundation-sys 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "dinghy-build 0.4.24 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dinghy-build 0.4.25-pre",
  "dirs 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -437,7 +427,7 @@ dependencies = [
 
 [[package]]
 name = "dinghy-test"
-version = "0.4.24"
+version = "0.4.25-pre"
 
 [[package]]
 name = "dirs"
@@ -1488,7 +1478,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum crypto-hash 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)" = "8a77162240fd97248d19a564a565eb563a3f592b386e4136fb300909e67dddca"
 "checksum curl 0.4.25 (registry+https://github.com/rust-lang/crates.io-index)" = "06aa71e9208a54def20792d877bc663d6aae0732b9852e612c4a933177c31283"
 "checksum curl-sys 0.4.25 (registry+https://github.com/rust-lang/crates.io-index)" = "0c38ca47d60b86d0cc9d42caa90a0885669c2abc9791f871c81f58cdf39e979b"
-"checksum dinghy-build 0.4.24 (registry+https://github.com/rust-lang/crates.io-index)" = "4423d1c0286ed0f0ba204d7dc2da852f1e7ab678e406f9c5dc05474f32201720"
 "checksum dirs 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)" = "3fd78930633bd1c6e35c4b42b1df7b0cbc6bc191146e512bb3bedf243fcc3901"
 "checksum either 1.5.3 (registry+https://github.com/rust-lang/crates.io-index)" = "bb1f6b1ce1c140482ea30ddd3335fc0024ac7ee112895426e0a629a6c20adfe3"
 "checksum env_logger 0.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "aafcde04e90a5226a6443b7aabdb016ba2f8307c847d524724bd9b346dd1a2d3"
