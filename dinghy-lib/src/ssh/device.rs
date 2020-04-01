@@ -59,8 +59,37 @@ impl SshDevice {
         Ok(command)
     }
 
+    fn sync_rsync(&self, rsync: Option<String>) -> Result<String> {
+        match rsync {
+            Some(rsync) => {
+                let rsync_path = "/tmp/rsync";
+                let mut command = Command::new("scp");
+                command.arg(format!("{}", rsync));
+                command.arg(format!(
+                    "{}@{}:{}",
+                    self.conf.username, self.conf.hostname, rsync_path
+                ));
+                if let Some(port) = self.conf.port {
+                    command.arg("-p").arg(&format!("{}", port));
+                }
+                debug!("Running {:?}", command);
+                if !command.status()?.success() {
+                    bail!("Error copying rsync binary ({:?})", command)
+                }
+                Ok(rsync_path.to_string())
+            }
+            None => Ok("/usr/bin/rsync".to_string()),
+        }
+    }
+
     fn sync<FP: AsRef<Path>, TP: AsRef<Path>>(&self, from_path: FP, to_path: TP) -> Result<()> {
+        let rsync = self.sync_rsync(self.conf.rsync.clone());
+        let rsync = match rsync {
+            Ok(rsync_path) => rsync_path,
+            Err(error) => bail!("Problem with rsync on the target: {:?}", error),
+        };
         let mut command = Command::new("/usr/bin/rsync");
+        command.arg(&format!("--rsync-path={}", rsync));
         command.arg("-a").arg("-v");
         if let Some(port) = self.conf.port {
             command.arg(&*format!("ssh -p {}", port));
