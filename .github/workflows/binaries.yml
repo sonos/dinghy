@@ -1,5 +1,7 @@
 on:
-  release:
+  push:
+    tags: 
+      - 'release_*'
 
 name: Upload Release Assets
 
@@ -21,7 +23,7 @@ jobs:
 
       - name: Extract version tag
         id: version
-        run: echo ::set-output name=value::$(echo ${{ github.ref }} | cut -f 3 -d / | sed "s/^v//" )
+        run: echo ::set-output name=value::$(echo ${{ github.ref }} | cut -f 3 -d / | sed "s/^release_//" )
 
       - name: Build cargo-dinghy
         run: |
