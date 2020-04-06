@@ -4,20 +4,12 @@ on:
     tags:
     - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
 
-name: Upload Release Asset
+name: Create release
 
 jobs:
   release:
-    name: Upload Release Asset
-    strategy:
-      matrix:
-        os: [ ubuntu-latest, macOS-latest ]
-        include:
-          - os: ubuntu-latest
-            name: linux
-          - os: macOS-latest
-            name: macos
-    runs-on: ${{ matrix.os }}
+    name: Create release
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -34,22 +26,4 @@ jobs:
         with:
           tag_name: release_${{ github.ref }}
           release_name: ${{ github.ref }}
-        if: matrix.os == "linux"
 
-      - name: Build cargo-dinghy
-        run: |
-          cargo build --release -p cargo-dinghy
-          mkdir cargo-dinghy-${{ steps.version.outputs.value }}
-          mv target/release/cargo-dinghy cargo-dinghy-${{ steps.version.outputs.value }}
-          tar vczf cargo-dinghy-${{matrix.name}}-${{ steps.version.outputs.value }}.tgz cargo-dinghy-${{ steps.version.outputs.value }}
-
-      - name: Upload Release Asset
-        id: upload-release-asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: cargo-dinghy-${{matrix.name}}-${{ steps.version.outputs.value }}.tgz
-          asset_name: cargo-dinghy-${{matrix.name}}-${{ steps.version.outputs.value }}.tgz
-          asset_content_type: application/x-tar

@@ -1,0 +1,40 @@
+on:
+  release:
+    types: [created]
+
+name: Upload Release Assets
+
+jobs:
+  release:
+    name: Upload Release Assets
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macOS-latest ]
+        include:
+          - os: ubuntu-latest
+            name: linux
+          - os: macOS-latest
+            name: macos
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Extract version tag
+        id: version
+        run: echo ::set-output name=value::$(echo ${{ github.ref }} | cut -f 3 -d / | sed "s/^v//" )
+
+      - name: Build cargo-dinghy
+        run: |
+          cargo build --release -p cargo-dinghy
+          mkdir cargo-dinghy-${{ steps.version.outputs.value }}
+          mv target/release/cargo-dinghy cargo-dinghy-${{ steps.version.outputs.value }}
+          tar vczf cargo-dinghy-${{matrix.name}}-${{ steps.version.outputs.value }}.tgz cargo-dinghy-${{ steps.version.outputs.value }}
+
+      - name: Upload asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: cargo-dinghy-${{matrix.name}}-${{ steps.version.outputs.value }}.tgz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
