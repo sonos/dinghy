@@ -23,7 +23,7 @@ jobs:
 
       - name: Extract version tag
         id: version
-        run: echo ::set-output name=value::$(echo ${{ github.ref }} | cut -f 3 -d / | sed "s/^release_//" )
+        run: echo ::set-output name=value::$(echo ${{ github.ref }} | cut -f 3 -d / | sed "s/^release_v//" )
 
       - name: Build cargo-dinghy
         run: |

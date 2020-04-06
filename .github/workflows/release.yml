@@ -22,5 +22,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN_RELEASE }}
         with:
           tag_name: release_${{ github.ref }}
-          release_name: ${{ github.ref }}
+          release_name: ${{ steps.version.outputs.value }}
 
