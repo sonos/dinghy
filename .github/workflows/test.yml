@@ -1,0 +1,37 @@
+name: Build and test
+
+on:
+  push:
+  schedule:
+    - cron:  '0 5 * * *'
+
+jobs:
+  linux:
+    strategy:
+      matrix:
+        rust: [ 1.39.0, stable, beta, nightly ]
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: cargo test
+      env:
+        RUST_VERSION: ${{matrix.rust}}
+      run: sh .travis.sh
+
+  macos:
+    runs-on: macOS-latest
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: cargo test
+      run: sh .travis.sh
+
+      #  windows:
+      #    runs-on: windows-2019
+      #
+      #    steps:
+      #    - uses: actions/checkout@v1
+      #    - name: cargo test
+      #      run: cargo test --all
