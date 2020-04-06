@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Extract version tag
         id: version
-        run: echo ::set-output name=value::$(echo ${{ github.ref }} | cut -f 3 -d / | sed "s/^cargo-dinghy//" )
+        run: echo ::set-output name=value::$(echo ${{ github.ref }} | cut -f 4 -d /)
 
       - name: Create Release
         id: create_release
