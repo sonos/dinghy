@@ -41,7 +41,7 @@ jobs:
         with:
           body: Release ${{ steps.version.outputs.value }}
           tag_name: ${{ github.ref }}
-          name: v${{ steps.version.outputs.value }}
+          release_name: v${{ steps.version.outputs.value }}
           draft: false
           prerelease: false
 
