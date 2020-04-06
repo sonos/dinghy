@@ -31,7 +31,7 @@ jobs:
           cargo build --release -p cargo-dinghy
           mkdir cargo-dinghy-${{ steps.version.outputs.value }}
           mv target/release/cargo-dinghy cargo-dinghy-${{ steps.version.outputs.value }}
-          tar vczf cargo-dinghy-${{matrix.name}}-$VERSION.tgz cargo-dinghy-$VERSION
+          tar vczf cargo-dinghy-${{matrix.name}}-${{ steps.version.outputs.value }}.tgz cargo-dinghy-${{ steps.version.outputs.value }}
 
       - name: Create Release
         id: create_release
