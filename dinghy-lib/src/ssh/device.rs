@@ -64,6 +64,7 @@ impl SshDevice {
             Some(rsync) => {
                 let rsync_path = "/tmp/rsync";
                 let mut command = Command::new("scp");
+                command.arg("-q");
                 command.arg(format!("{}", rsync));
                 command.arg(format!(
                     "{}@{}:{}",
@@ -83,7 +84,7 @@ impl SshDevice {
     }
 
     fn sync<FP: AsRef<Path>, TP: AsRef<Path>>(&self, from_path: FP, to_path: TP) -> Result<()> {
-        let rsync = self.sync_rsync(self.conf.rsync.clone());
+        let rsync = self.sync_rsync(self.conf.install_adhoc_rsync_local_path.clone());
         let rsync = match rsync {
             Ok(rsync_path) => rsync_path,
             Err(error) => bail!("Problem with rsync on the target: {:?}", error),

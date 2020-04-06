@@ -140,10 +140,10 @@ pub struct SshDeviceConfiguration {
     pub username: String,
     pub port: Option<u16>,
     pub path: Option<String>,
-    pub rsync: Option<String>,
     pub target: Option<String>,
     pub toolchain: Option<String>,
     pub platform: Option<String>,
+    pub install_adhoc_rsync_local_path: Option<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
