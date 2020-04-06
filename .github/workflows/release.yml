@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@v2
       - name: Build cargo-dinghy
         run: |
-          cargo build --release cargo-dinghy
+          cargo build --release -p cargo-dinghy
           mkdir cargo-dinghy-${{ github.ref }}
           mv target/release/cargo-dinghy cargo-dinghy-${{ github.ref }}
           tar vczf cargo-dinghy-linux-${{ github.ref }}}.tgz cargo-dinghy-${{ github.ref }}
