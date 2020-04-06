@@ -40,4 +40,4 @@ then
 fi
 git tag "$CRATE/$VERSION"
 git push --tags
-
+sleep 5
