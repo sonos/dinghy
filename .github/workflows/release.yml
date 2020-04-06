@@ -23,7 +23,11 @@ jobs:
         uses: actions/checkout@v2
 
       - name: version
-        run: echo ::set-output name=value::$(echo ${{ github.ref }} | cut -f 3 -d /)
+        #        run: echo ::set-output name=value::$(echo ${{ github.ref }} | cut -f 3 -d /)
+        run: echo ::set-output name=version::0.0.0
+        outputs:
+          value:
+            description: "The cleaned up version tag"
 
       - name: Build cargo-dinghy
         run: |
