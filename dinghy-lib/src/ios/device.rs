@@ -440,7 +440,7 @@ fn mount_developper_image(dev: *const am_device) -> Result<()> {
             dev,
             CFString::new(image_path.to_str().unwrap()).as_concrete_TypeRef(),
             options.as_concrete_TypeRef(),
-            ::std::mem::transmute(0usize),
+            std::ptr::null(),
             0,
         );
         if r as u32 == 0xe8000076 {

@@ -170,10 +170,6 @@ fn probable_sdk_locs() -> Result<Vec<path::PathBuf>> {
     Ok(v)
 }
 
-fn sdk() -> Result<Option<path::PathBuf>> {
-    Ok(probable_sdk_locs()?.into_iter().next())
-}
-
 fn ndk() -> Result<Option<path::PathBuf>> {
     if let Ok(path) = env::var("ANDROID_NDK_HOME") {
         return Ok(Some(path.into()));
