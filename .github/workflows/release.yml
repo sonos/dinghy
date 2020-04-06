@@ -26,6 +26,9 @@ jobs:
         #        run: echo ::set-output name=value::$(echo ${{ github.ref }} | cut -f 3 -d /)
         run: echo ::set-output name=value::0.0.0
 
+      - name: debug version
+        run: echo ${{ toJson(steps) }}
+
       - name: Build cargo-dinghy
         run: |
           cargo build --release -p cargo-dinghy
