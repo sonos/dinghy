@@ -1,8 +1,7 @@
 on:
   push:
-    # Sequence of patterns matched against refs/tags
     tags:
-    - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+    - 'cargo-dinghy/*'
 
 name: Create release
 
@@ -13,7 +12,7 @@ jobs:
     steps:
       - name: Extract version tag
         id: version
-        run: echo ::set-output name=value::$(echo ${{ github.ref }} | cut -f 3 -d / | sed "s/^v//" )
+        run: echo ::set-output name=value::$(echo ${{ github.ref }} | cut -f 3 -d / | sed "s/^cargo-dinghy//" )
 
       - name: Create Release
         id: create_release
@@ -21,6 +20,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN_RELEASE }}
         with:
-          tag_name: release_${{ github.ref }}
+          tag_name: v${{ github.ref }}
           release_name: ${{ steps.version.outputs.value }}
 
