@@ -24,18 +24,13 @@ jobs:
 
       - name: Extract version tag
         id: version
-        #        run: echo ::set-output name=value::$(echo ${{ github.ref }} | cut -f 3 -d /)
-        run: echo ::set-output name=value::0.0.0
-
-      - name: debug version
-        run: |
-          echo "${{ toJson(steps) }}"
+        run: echo ::set-output name=value::$(echo ${{ github.ref }} | cut -f 3 -d / | sed "s/^v//" )
 
       - name: Build cargo-dinghy
         run: |
           cargo build --release -p cargo-dinghy
-          mkdir cargo-dinghy-${{ steps.version.value }}
-          mv target/release/cargo-dinghy cargo-dinghy-${{ steps.version.value }}
+          mkdir cargo-dinghy-${{ steps.version.outputs.value }}
+          mv target/release/cargo-dinghy cargo-dinghy-${{ steps.version.outputs.value }}
           tar vczf cargo-dinghy-${{matrix.name}}-$VERSION.tgz cargo-dinghy-$VERSION
 
       - name: Create Release
@@ -45,7 +40,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release ${{ steps.version.value }}
+          release_name: Release ${{ steps.version.outputs.value }}
           draft: false
           prerelease: false
 
@@ -56,6 +51,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: cargo-dinghy-${{matrix.name}}-${{ steps.version.value }}.tgz
-          asset_name: cargo-dinghy-${{matrix.name}}-${{ steps.version.value }}.tgz
+          asset_path: cargo-dinghy-${{matrix.name}}-${{ steps.version.outputs.value }}.tgz
+          asset_name: cargo-dinghy-${{matrix.name}}-${{ steps.version.outputs.value }}.tgz
           asset_content_type: application/x-tar
