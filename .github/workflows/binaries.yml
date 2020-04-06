@@ -5,7 +5,7 @@ on:
 name: Upload Release Assets
 
 jobs:
-  release:
+  assets:
     name: Upload Release Assets
     strategy:
       matrix:

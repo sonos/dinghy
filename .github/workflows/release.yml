@@ -11,9 +11,6 @@ jobs:
     name: Create release
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
       - name: Extract version tag
         id: version
         run: echo ::set-output name=value::$(echo ${{ github.ref }} | cut -f 3 -d / | sed "s/^v//" )
