@@ -13,7 +13,7 @@ jobs:
       matrix:
         os: [ ubuntu-latest, macOS-latest ]
         include:
-          - os: ubuntu-lastest
+          - os: ubuntu-latest
             name: linux
           - os: macOS-latest
             name: macos
