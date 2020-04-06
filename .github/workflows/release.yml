@@ -19,7 +19,7 @@ jobs:
         id: create_release
         uses: actions/create-release@latest
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN_RELEASE }}
         with:
           tag_name: release_${{ github.ref }}
           release_name: ${{ github.ref }}
