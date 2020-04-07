@@ -22,7 +22,6 @@ use std::path::PathBuf;
 
 /// Append a value to a PATH-like (`:`-separated) environment variable.
 pub fn append_path_to_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(key: K, value: V) {
-    debug!("Appending {:?} to {:?}", value.as_ref(), key.as_ref());
     let mut formatted_value = OsString::new();
     if let Ok(initial_value) = env::var(key.as_ref()) {
         formatted_value.push(initial_value);
