@@ -20,6 +20,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN_RELEASE }}
         with:
-          tag_name: v${{ steps.version.outputs.value }}
+          tag_name: ${{ steps.version.outputs.value }}
           release_name: ${{ steps.version.outputs.value }}
 
