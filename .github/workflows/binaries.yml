@@ -36,6 +36,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: cargo-dinghy-${{matrix.name}}-${{ steps.version.outputs.value }}.tgz
+          name: ${{ steps.version.outputs.value }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
