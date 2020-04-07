@@ -122,7 +122,7 @@ fn create_build_command(
     let bearded = matches.is_present("BEARDED");
 
     Box::new(move |rustc_triple: Option<&str>, build_args: &BuildArgs| {
-        let profile_kind = if release {
+        let profile_kind = if release || build_args.compile_mode == cargo::util::command_prelude::CompileMode::Bench {
             ProfileKind::Release
         } else {
             ProfileKind::Dev
@@ -587,9 +587,9 @@ fn find_dynamic_libraries(
         .map(strip_annoying_prefix)
         .chain(linker_lib_dirs(&compilation, config)?.into_iter())
         .chain(overlay_lib_dirs(rustc_triple)?.into_iter())
-        .inspect(|path| debug!("Checking library path {}", path.display()))
+        .inspect(|path| trace!("Checking library path {}", path.display()))
         .filter(move |path| !is_system_path(sysroot.as_path(), path).unwrap_or(true))
-        .inspect(|path| debug!("{} is not a system library path", path.display()))
+        .inspect(|path| trace!("{} is not a system library path", path.display()))
         .flat_map(|path| WalkDir::new(path).into_iter())
         .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
         .filter(|path| is_library(path) && is_library_linked_to_project(path))
