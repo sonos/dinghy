@@ -37,7 +37,6 @@ git commit . -m "release $CRATE/$VERSION"
 if [ "$CRATE" = "cargo-dinghy" ]
 then
     git tag "$VERSION"
+    git push --tags
 fi
-git tag "$CRATE/$VERSION"
-git push --tags
 sleep 15
