@@ -41,7 +41,7 @@ pub fn copy_and_sync_file<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Res
 pub fn path_to_str<'a>(path: &'a Path) -> Result<&'a str> {
     Ok(path
         .to_str()
-        .ok_or(format!("Path is invalid '{}'", path.display()))?)
+        .ok_or_else(|| anyhow!("Path is invalid '{}'", path.display()))?)
 }
 
 pub fn normalize_path(path: &Path) -> PathBuf {
@@ -98,7 +98,7 @@ pub fn lib_name_from(file_path: &Path) -> Result<String> {
     let file_name = file_path
         .file_name()
         .and_then(|it| it.to_str())
-        .ok_or(format!(
+        .ok_or_else(|| anyhow!(
             "'{}' doesn't point to a valid lib name",
             file_path.display()
         ))?;
@@ -122,7 +122,7 @@ pub fn file_name_as_str(file_path: &Path) -> Result<&str> {
     Ok(file_path
         .file_name()
         .and_then(|it| it.to_str())
-        .ok_or(format!(
+        .ok_or_else(|| anyhow!(
             "'{}' is not a valid file name",
             file_path.display()
         ))?)

@@ -27,10 +27,7 @@ impl Project {
         let wd_path = ::cargo::util::important_paths::find_root_manifest_for_wd(&current_dir()?)?;
         Ok(wd_path
             .parent()
-            .ok_or(format!(
-                "Couldn't read project directory {}.",
-                wd_path.display()
-            ))?
+            .ok_or_else(|| anyhow!("Couldn't read project directory {}.", wd_path.display()))?
             .to_path_buf())
     }
 
@@ -75,7 +72,7 @@ impl Project {
                 .join(&td.source);
             let target_path = target_path
                 .to_str()
-                .ok_or(format!("Invalid UTF-8 path {}", target_path.display()))?;
+                .ok_or_else(|| anyhow!("Invalid UTF-8 path {}", target_path.display()))?;
 
             test_data_cfg.write_all(td.id.as_bytes())?;
             test_data_cfg.write_all(b":")?;
@@ -163,7 +160,7 @@ pub fn rec_copy_excl<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path> + ::std::
         let target = if path.parent().is_none() && metadata.is_file() {
             fs::create_dir_all(
                 &dst.parent()
-                    .ok_or(format!("Invalid file {}", dst.display()))?,
+                    .ok_or_else(|| anyhow!("Invalid file {}", dst.display()))?,
             )?;
             dst.to_path_buf()
         } else {

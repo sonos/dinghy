@@ -16,6 +16,8 @@ use Device;
 use Platform;
 use Result;
 
+use anyhow::Context;
+
 pub struct RegularPlatform {
     compiler: Arc<Compiler>,
     pub configuration: PlatformConfiguration,
@@ -58,7 +60,7 @@ impl RegularPlatform {
 
         let mut bin: Option<PathBuf> = None;
         let mut prefix: Option<String> = None;
-        for file in toolchain_bin_path.read_dir().map_err(|_| {
+        for file in toolchain_bin_path.read_dir().with_context(|| {
             format!(
                 "Couldn't find toolchain directory {}",
                 toolchain_path.display()
@@ -78,8 +80,10 @@ impl RegularPlatform {
                 break;
             }
         }
-        let bin_dir = bin.ok_or("no bin/*-gcc found in toolchain")?;
-        let tc_triple = prefix.ok_or("no gcc in toolchain")?.to_string();
+        let bin_dir = bin.ok_or_else(|| anyhow!("no bin/*-gcc found in toolchain"))?;
+        let tc_triple = prefix
+            .ok_or_else(|| anyhow!("no gcc in toolchain"))?
+            .to_string();
         let sysroot = find_sysroot(&toolchain_path)?;
 
         let toolchain = ToolchainConfig {
@@ -200,16 +204,18 @@ fn find_sysroot<P: AsRef<Path>>(toolchain_path: P) -> Result<PathBuf> {
     let toolchain = toolchain_path.as_ref();
     let immediate = toolchain.join("sysroot");
     if immediate.is_dir() {
-        let sysroot = immediate.to_str().ok_or("sysroot is not utf-8")?;
+        let sysroot = immediate
+            .to_str()
+            .ok_or_else(|| anyhow!("sysroot is not utf-8"))?;
         return Ok(sysroot.into());
     }
     for subdir in toolchain.read_dir()? {
         let subdir = subdir?;
         let maybe = subdir.path().join("sysroot");
         if maybe.is_dir() {
-            let sysroot = maybe.to_str().ok_or("sysroot is not utf-8")?;
+            let sysroot = maybe.to_str().ok_or_else(|| anyhow!("sysroot is not utf-8"))?;
             return Ok(sysroot.into());
         }
     }
-    Err(format!("no sysroot found in toolchain {:?}", toolchain))?
+    bail!("no sysroot found in toolchain {:?}", toolchain)
 }

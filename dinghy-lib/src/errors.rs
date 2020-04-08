@@ -1,4 +1,7 @@
-use failure;
+pub use anyhow::*;
+
+/*
+
 error_chain! {
     foreign_links {
         Io(::std::io::Error);
@@ -23,8 +26,10 @@ error_chain! {
         }
     }
 }
-impl From<failure::Error> for Error {
+
+impl From<anyhow::Error> for Error {
     fn from(err: failure::Error) -> Error {
         Error::from_kind(ErrorKind::Cargo(err.to_string()))
     }
 }
+*/

@@ -21,12 +21,21 @@ pub struct AndroidDevice {
 
 impl AndroidDevice {
     pub fn from_id(adb: path::PathBuf, id: &str) -> Result<AndroidDevice> {
-        for prop in &[ "ro.product.cpu.abilist", "ro.product.cpu.abi", "ro.product.cpu.abi2" ] {
+        for prop in &[
+            "ro.product.cpu.abilist",
+            "ro.product.cpu.abi",
+            "ro.product.cpu.abi2",
+        ] {
             let getprop_output = process::Command::new(&adb)
                 .args(&["-s", id, "shell", "getprop", prop])
                 .output()?;
-            let mut abilist = String::from_utf8(getprop_output.stdout)?;
-            debug!("Android device {}, getprop {} returned {}", id, prop, abilist.trim());
+            let abilist = String::from_utf8(getprop_output.stdout)?;
+            debug!(
+                "Android device {}, getprop {} returned {}",
+                id,
+                prop,
+                abilist.trim()
+            );
             if abilist.trim().len() > 0 {
                 let supported_targets = abilist
                     .trim()
@@ -74,10 +83,10 @@ impl AndroidDevice {
             .status()?
             .success()
         {
-            Err(format!(
+            bail!(
                 "Failure to create dinghy work dir '{:?}' on target android device",
                 ANDROID_WORK_DIR
-            ))?;
+            )
         }
 
         let build_bundle = make_remote_app(project, build, runnable)?;
@@ -85,17 +94,17 @@ impl AndroidDevice {
 
         self.sync(
             &build_bundle.bundle_dir,
-            &remote_bundle.bundle_dir.parent().ok_or(format!(
-                "Invalid path {}",
-                remote_bundle.bundle_dir.display()
-            ))?,
+            &remote_bundle
+                .bundle_dir
+                .parent()
+                .ok_or_else(|| anyhow!("Invalid path {}", remote_bundle.bundle_dir.display()))?,
         )?;
         self.sync(
             &build_bundle.lib_dir,
             &remote_bundle
                 .lib_dir
                 .parent()
-                .ok_or(format!("Invalid path {}", remote_bundle.lib_dir.display()))?,
+                .ok_or_else(|| anyhow!("Invalid path {}", remote_bundle.lib_dir.display()))?,
         )?;
 
         debug!("Chmod target exe {}", remote_bundle.bundle_exe.display());
@@ -108,7 +117,7 @@ impl AndroidDevice {
             .status()?
             .success()
         {
-            Err("Failure in android install")?;
+            bail!("Failure in android install");
         }
         Ok((build_bundle, remote_bundle))
     }
@@ -149,9 +158,12 @@ impl DeviceCompatibility for AndroidDevice {
     fn is_compatible_with_regular_platform(&self, platform: &RegularPlatform) -> bool {
         if platform.id.starts_with("auto-android") {
             let cpu = platform.id.split("-").nth(2).unwrap();
-            self.supported_targets.iter().any(|target| target.starts_with(cpu))
+            self.supported_targets
+                .iter()
+                .any(|target| target.starts_with(cpu))
         } else {
-            self.supported_targets.contains(&&*platform.toolchain.binutils_prefix)
+            self.supported_targets
+                .contains(&&*platform.toolchain.binutils_prefix)
         }
     }
 }
@@ -169,7 +181,7 @@ impl Device for AndroidDevice {
             .status()?
             .success()
         {
-            Err("Failure in android clean")?;
+            bail!("Failure in android clean")
         }
         if !self
             .adb()?
@@ -180,7 +192,7 @@ impl Device for AndroidDevice {
             .status()?
             .success()
         {
-            Err("Failure in android clean")?;
+            bail!("Failure in android clean")
         }
         Ok(())
     }
@@ -235,12 +247,12 @@ impl Device for AndroidDevice {
                 .arg("shell")
                 .arg(&command)
                 .output()
-                .chain_err(|| format!("Couldn't run {} using adb.", runnable.exe.display()))
+                .with_context(|| format!("Couldn't run {} using adb.", runnable.exe.display()))
                 .and_then(|output| {
                     if output.status.success() {
                         let _ = io::stdout().write(output.stdout.as_slice());
                         let _ = io::stderr().write(output.stderr.as_slice());
-                        String::from_utf8(output.stdout).chain_err(|| {
+                        String::from_utf8(output.stdout).with_context(|| {
                             format!("Couldn't run {} using adb.", runnable.exe.display())
                         })
                     } else {
@@ -252,7 +264,7 @@ impl Device for AndroidDevice {
                     last_line.contains("FORWARD_RESULT_TO_DINGHY_BECAUSE_ADB_DOES_NOT=0")
                 })?
             {
-                Err("Test failed 🐛")?
+                bail!("Test failed 🐛")
             }
 
             build_bundles.push(build_bundle);

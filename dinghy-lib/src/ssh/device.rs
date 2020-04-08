@@ -141,7 +141,7 @@ impl Device for SshDevice {
             ))
             .status()?;
         if !status.success() {
-            Err("test fail.")?
+            bail!("test fail.")
         }
         Ok(())
     }
@@ -197,7 +197,7 @@ impl Device for SshDevice {
 
             let status = self.ssh_command()?.arg(&command).status()?;
             if !status.success() {
-                Err("Test failed 🐛")?
+                bail!("Test failed 🐛")
             }
 
             build_bundles.push(build_bundle);

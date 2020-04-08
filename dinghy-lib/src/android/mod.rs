@@ -6,6 +6,8 @@ use {Compiler, Device, Platform, PlatformManager, Result};
 
 pub use self::device::AndroidDevice;
 
+use anyhow::Context;
+
 mod device;
 
 pub struct AndroidManager {
@@ -35,10 +37,10 @@ impl PlatformManager for AndroidManager {
             let major = version
                 .split(".")
                 .next()
-                .ok_or_else(|| format!("Invalid version found for ndk {:?}", &ndk))?;
+                .ok_or_else(|| anyhow!("Invalid version found for ndk {:?}", &ndk))?;
             let major: usize = major
                 .parse()
-                .map_err(|_| format!("Invalid version found for ndk {:?}", &ndk))?;
+                .with_context(|| format!("Invalid version found for ndk {:?}", &ndk))?;
             debug!(
                 "Android ndk: {:?}, ndk version: {}, major: {}",
                 ndk, version, major
@@ -49,7 +51,7 @@ impl PlatformManager for AndroidManager {
                 let tools = prebuilt
                     .read_dir()?
                     .next()
-                    .ok_or("No tools in toolchain")??;
+                    .ok_or_else(|| anyhow!("No tools in toolchain"))??;
                 let bin = tools.path().join("bin");
                 debug!("Android tools bin: {:?}", bin);
                 for (rustc_cpu, cc_cpu, binutils_cpu, abi_kind) in &[
@@ -185,14 +187,14 @@ fn ndk() -> Result<Option<path::PathBuf>> {
 fn ndk_version(ndk: &path::Path) -> Result<String> {
     let sources_prop_file = ndk.join("source.properties");
     let props = fs::read_to_string(&sources_prop_file)
-        .map_err(|e| format!(
-            "Android NDK at {:?} does not contains a valid ndk-bundle: opening: {:?}: {:?}",
-            ndk, sources_prop_file, e
+        .with_context(|| format!(
+            "Android NDK at {:?} does not contains a valid ndk-bundle: opening: {:?}",
+            ndk, sources_prop_file
         ))?;
     let revision_line = props
         .split("\n")
         .find(|l| l.starts_with("Pkg.Revision"))
-        .ok_or(format!(
+        .with_context(|| format!(
             "{:?} does not contain a Pkg.Revision line. Invalid SDK?",
             sources_prop_file
         ))?;
@@ -223,5 +225,5 @@ fn adb() -> Result<path::PathBuf> {
             return Ok(adb.into());
         }
     }
-    Err("Adb could be found")?
+    bail!("Adb could be found")
 }

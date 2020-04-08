@@ -112,7 +112,7 @@ impl Overlayer {
         Ok(overlay_root_dir
             .as_ref()
             .read_dir()
-            .chain_err(|| {
+            .with_context(|| {
                 format!(
                     "Couldn't read overlay root directory '{}'.",
                     overlay_root_dir.as_ref().display()
@@ -151,7 +151,7 @@ impl Overlayer {
                 )
             }
         }
-        create_dir_all(&self.work_dir).chain_err(|| {
+        create_dir_all(&self.work_dir).with_context(|| {
             format!(
                 "Couldn't create overlay work directory {}.",
                 self.work_dir.display()
@@ -242,7 +242,7 @@ impl Overlayer {
             .filter_map(|e| lib_name_from(e.path()).ok())
             .collect_vec();
 
-        write_pkg_config_file(pc_file.as_path(), overlay.id.as_str(), &lib_list).chain_err(|| {
+        write_pkg_config_file(pc_file.as_path(), overlay.id.as_str(), &lib_list).with_context(|| {
             format!(
                 "Dinghy couldn't generate pkg-config pc file {}",
                 pc_file.as_path().display()
