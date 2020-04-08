@@ -1,12 +1,9 @@
-extern crate cargo;
 #[macro_use]
 extern crate clap;
 extern crate dinghy_lib;
-extern crate error_chain;
-extern crate itertools;
+extern crate env_logger;
 #[macro_use]
 extern crate log;
-extern crate pretty_env_logger;
 
 use clap::ArgMatches;
 use cli::CargoDinghyCli;
@@ -19,14 +16,12 @@ use dinghy_lib::Build;
 use dinghy_lib::Device;
 use dinghy_lib::Dinghy;
 use dinghy_lib::Platform;
-use error_chain::ChainedError;
-use itertools::Itertools;
+use dinghy_lib::itertools::Itertools;
 use std::env;
 use std::env::current_dir;
 use std::sync::Arc;
 use std::thread;
 use std::time;
-use ErrorKind;
 
 mod cli;
 
@@ -52,27 +47,16 @@ fn main() {
             ),
         );
     };
-    pretty_env_logger::init();
+    env_logger::init();
 
     if let Err(e) = run_command(&matches) {
-        match e.kind() {
-            &ErrorKind::PackagesCannotBeCompiledForPlatform(_) => {
-                error!("{}", e.display_chain());
-                std::process::exit(3)
-            }
-            &ErrorKind::Cargo(ref cargo) => {
-                error!(
-                    "Cargo error: {}",
-                    cargo.to_string().split("\n").next().unwrap_or("")
-                );
-                println!("{}", cargo);
-                std::process::exit(1);
-            }
-            _ => {
-                error!("{}", e.display_chain());
-                std::process::exit(1);
-            }
-        };
+        error!("{:?}", e);
+        // positively ugly.
+        if e.to_string().contains("are filtered out on platform") {
+            std::process::exit(3)
+        } else {
+            std::process::exit(1)
+        }
     }
 }
 
@@ -102,7 +86,7 @@ fn run_command(args: &ArgMatches) -> Result<()> {
         ("lldbproxy", Some(_)) => run_lldb(device),
         ("run", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
         ("test", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
-        (sub, _) => Err(format!("Unknown dinghy command '{}'", sub))?,
+        (sub, _) => bail!("Unknown dinghy command '{}'", sub),
     }
 }
 
@@ -136,7 +120,7 @@ fn prepare_and_run(
     }
 
     debug!("Run on {:?}", device);
-    let device = device.ok_or("No device found")?;
+    let device = device.ok_or_else(|| anyhow!("No device found"))?;
     let args = arg_as_string_vec(sub_args, "ARGS");
     let envs = arg_as_string_vec(sub_args, "ENVS");
 
@@ -159,7 +143,7 @@ fn prepare_and_run(
 }
 
 fn run_lldb(device: Option<Arc<Box<dyn Device>>>) -> Result<()> {
-    let device = device.ok_or("No device found")?;
+    let device = device.ok_or_else(|| anyhow!("No device found"))?;
     let lldb = device.start_remote_lldb()?;
     info!("lldb running at: {}", lldb);
     loop {
@@ -222,7 +206,7 @@ fn select_platform_and_device_from_cli(
     if let Some(platform_name) = matches.value_of("PLATFORM") {
         let platform = dinghy
             .platform_by_name(platform_name)
-            .ok_or(format!("No '{}' platform found", platform_name))?;
+            .ok_or_else(|| anyhow!("No '{}' platform found", platform_name))?;
 
         let device = dinghy
             .devices()
@@ -256,10 +240,10 @@ fn select_platform_and_device_from_cli(
             })
             .collect_vec();
         if devices.len() == 0 {
-            Err(format!(
+            bail!(
                 "No devices found for name hint `{}'",
                 device_filter
-            ))?;
+            )
         }
         devices
             .into_iter()
@@ -278,12 +262,11 @@ fn select_platform_and_device_from_cli(
                 pf.map(|it| (it, Some(d)))
             })
             .next()
-            .ok_or(
-                format!(
+            .ok_or_else(||
+                anyhow!(
                     "No device and platform combination found for device hint `{}'",
                     device_filter
                 )
-                .into(),
             )
     } else {
         Ok((dinghy.host_platform(), Some(dinghy.host_device())))

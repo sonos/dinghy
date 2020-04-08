@@ -76,15 +76,19 @@ impl Device for ScriptDevice {
                     envs.iter()
                         .map(|kv| {
                             Ok((
-                                kv.split("=").nth(0).ok_or("Wrong env spec")?,
-                                kv.split("=").nth(1).ok_or("Wrong env spec")?,
+                                kv.split("=")
+                                    .nth(0)
+                                    .ok_or_else(|| anyhow!("Wrong env spec"))?,
+                                kv.split("=")
+                                    .nth(1)
+                                    .ok_or_else(|| anyhow!("Wrong env spec"))?,
                             ))
                         })
                         .collect::<Result<Vec<_>>>()?,
                 )
                 .status()?;
             if !status.success() {
-                Err("Test failed")?
+                bail!("Test failed")
             }
 
             build_bundles.push(BuildBundle {

@@ -125,7 +125,7 @@ impl ToolchainConfig {
     pub fn shim_executables(&self, id: &str) -> Result<()> {
         let wd_path =
             ::cargo::util::important_paths::find_root_manifest_for_wd(&env::current_dir()?)?;
-        let root = wd_path.parent().ok_or("building at / ?")?;
+        let root = wd_path.parent().ok_or_else(|| anyhow!("building at / ?"))?;
         let shims_path = root.join("target").join(&self.rustc_triple).join(id);
 
         for exe in self.bin_dir.read_dir()? {
@@ -184,5 +184,5 @@ fn create_shim<P: AsRef<path::Path>>(
 
 fn project_root() -> Result<PathBuf> {
     let wd_path = find_root_manifest_for_wd(&env::current_dir()?)?;
-    Ok(wd_path.parent().ok_or("building at / ?")?.to_path_buf())
+    Ok(wd_path.parent().ok_or_else(|| anyhow!("building at / ?"))?.to_path_buf())
 }

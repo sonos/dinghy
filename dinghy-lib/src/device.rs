@@ -52,17 +52,17 @@ pub fn make_remote_app_with_name(
 
     debug!("Making bundle {:?}", bundle_path);
     fs::create_dir_all(&bundle_path)
-        .chain_err(|| format!("Couldn't create {}", &bundle_path.display()))?;
+        .with_context(|| format!("Couldn't create {}", &bundle_path.display()))?;
     fs::create_dir_all(&bundle_libs_path)
-        .chain_err(|| format!("Couldn't create {}", &bundle_libs_path.display()))?;
+        .with_context(|| format!("Couldn't create {}", &bundle_libs_path.display()))?;
     fs::create_dir_all(&bundle_target_path)
-        .chain_err(|| format!("Couldn't create {}", &bundle_target_path.display()))?;
+        .with_context(|| format!("Couldn't create {}", &bundle_target_path.display()))?;
 
     debug!(
         "Copying exe {:?} to bundle {:?}",
         &runnable.exe, bundle_exe_path
     );
-    copy_and_sync_file(&runnable.exe, &bundle_exe_path).chain_err(|| {
+    copy_and_sync_file(&runnable.exe, &bundle_exe_path).with_context(|| {
         format!(
             "Couldn't copy {} to {}",
             &runnable.exe.display(),
@@ -75,7 +75,7 @@ pub fn make_remote_app_with_name(
         let target_lib_path = bundle_libs_path.join(
             src_lib_path
                 .file_name()
-                .ok_or(format!("Invalid file name {:?}", src_lib_path.file_name()))?,
+                .ok_or_else(|| anyhow!("Invalid file name {:?}", src_lib_path.file_name()))?,
         );
         if !is_sysroot_library(&src_lib_path) {
             debug!(
@@ -83,7 +83,7 @@ pub fn make_remote_app_with_name(
                 src_lib_path.display(),
                 target_lib_path.display()
             );
-            copy_and_sync_file(&src_lib_path, &target_lib_path).chain_err(|| {
+            copy_and_sync_file(&src_lib_path, &target_lib_path).with_context(|| {
                 format!(
                     "Couldn't copy {} to {}",
                     src_lib_path.display(),
@@ -117,6 +117,6 @@ pub fn make_remote_app_with_name(
         bundle_dir: bundle_path.to_path_buf(),
         bundle_exe: bundle_exe_path.to_path_buf(),
         lib_dir: bundle_libs_path.to_path_buf(),
-        root_dir: root_dir,
+        root_dir,
     })
 }

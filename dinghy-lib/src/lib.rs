@@ -1,6 +1,8 @@
 #![type_length_limit = "2149570"]
+#[macro_use]
+extern crate anyhow;
 extern crate atty;
-extern crate cargo;
+pub extern crate cargo;
 extern crate clap;
 #[cfg(target_os = "macos")]
 extern crate core_foundation;
@@ -8,12 +10,9 @@ extern crate core_foundation;
 extern crate core_foundation_sys;
 extern crate dinghy_build;
 extern crate dirs;
-#[macro_use]
-extern crate error_chain;
-extern crate failure;
 extern crate filetime;
 extern crate ignore;
-extern crate itertools;
+pub extern crate itertools;
 extern crate json;
 #[cfg(target_os = "macos")]
 extern crate libc;
@@ -59,7 +58,7 @@ use project::Project;
 use std::fmt::Display;
 use std::{path, sync};
 
-use errors::*;
+use errors::{ Result };
 
 pub struct Dinghy {
     devices: Vec<sync::Arc<Box<dyn Device>>>,
@@ -109,7 +108,7 @@ impl Dinghy {
             let rustc_triple = platform_conf
                 .rustc_triple
                 .as_ref()
-                .ok_or_else(|| format!("Platform {} has no rustc_triple", platform_name))?;
+                .ok_or_else(|| anyhow!("Platform {} has no rustc_triple", platform_name))?;
             let pf = RegularPlatform::new(
                 compiler,
                 platform_conf.clone(),
@@ -121,7 +120,7 @@ impl Dinghy {
                     .map(|it| path::PathBuf::from(it))
                     .or(dirs::home_dir()
                         .map(|it| it.join(".dinghy").join("toolchain").join(platform_name)))
-                    .ok_or(format!("Toolchain missing for platform {}", platform_name))?,
+                    .ok_or_else(|| anyhow!("Toolchain missing for platform {}", platform_name))?,
             )?;
             platforms.push((pf.id(), sync::Arc::new(pf)));
         }

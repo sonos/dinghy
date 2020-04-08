@@ -4,6 +4,8 @@ use utils::file_name_as_str;
 use Result;
 use Runnable;
 
+use anyhow::Context;
+
 pub mod regular_platform;
 
 pub fn strip_runnable(runnable: &Runnable, mut command: Command) -> Result<()> {
@@ -14,7 +16,7 @@ pub fn strip_runnable(runnable: &Runnable, mut command: Command) -> Result<()> {
         .exe
         .parent()
         .map(|it| it.join(format!("{}-stripped", exe_stripped_name)))
-        .ok_or(format!(
+        .with_context(|| format!(
             "{} is not a valid executable name",
             &runnable.exe.display()
         ))?;

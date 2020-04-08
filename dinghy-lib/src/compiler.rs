@@ -4,7 +4,7 @@ use cargo::core::compiler as CargoCoreCompiler;
 use cargo::core::compiler::Compilation;
 pub use cargo::core::compiler::CompileMode;
 use cargo::core::compiler::MessageFormat;
-use cargo::core::compiler::ProfileKind;
+use cargo::core::InternedString;
 use cargo::core::Workspace;
 use cargo::ops as CargoOps;
 use cargo::ops::CleanOptions;
@@ -37,10 +37,10 @@ use utils::is_library;
 use walkdir::WalkDir;
 use Build;
 use BuildArgs;
-use ErrorKind;
 use Result;
-use ResultExt;
 use Runnable;
+
+use anyhow::Context;
 
 pub struct Compiler {
     build_command: Box<dyn Fn(Option<&str>, &BuildArgs) -> Result<Build>>,
@@ -122,13 +122,25 @@ fn create_build_command(
     let bearded = matches.is_present("BEARDED");
 
     Box::new(move |rustc_triple: Option<&str>, build_args: &BuildArgs| {
-        let profile_kind = if release || build_args.compile_mode == cargo::util::command_prelude::CompileMode::Bench {
-            ProfileKind::Release
+        let requested_profile = if release
+            || build_args.compile_mode == cargo::util::command_prelude::CompileMode::Bench
+        {
+            InternedString::new("release")
         } else {
-            ProfileKind::Dev
+            InternedString::new("debug")
         };
         let mut config = CompileConfig::default()?;
-        config.configure(verbosity, None, &None, false, false, offline, &None, &[])?;
+        config.configure(
+            verbosity,
+            None,
+            None,
+            false,
+            false,
+            offline,
+            &None,
+            &[],
+            &[],
+        )?;
         let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?, &config)?;
 
         let project_metadata_list = workskpace_metadata(&workspace)?;
@@ -152,9 +164,11 @@ fn create_build_command(
                 .collect::<Vec<_>>();
 
             if filtered_packages.is_empty() {
-                return Err(
-                    ErrorKind::PackagesCannotBeCompiledForPlatform(packages.clone()).into(),
-                );
+                bail!(
+                    "packages {:?} are filtered out on platform {:?}",
+                    packages,
+                    rustc_triple
+                )
             } else {
                 (filtered_packages, vec![]) // Exclude not allowed with -p, hence empty vec.
             }
@@ -162,8 +176,17 @@ fn create_build_command(
             (packages.clone(), excludes.clone())
         };
 
+        let requested_kind = if let Some(rustc_triple) = rustc_triple {
+            cargo::core::compiler::CompileKind::Target(cargo::core::compiler::CompileTarget::new(
+                rustc_triple,
+            )?)
+        } else {
+            cargo::core::compiler::CompileKind::Host
+        };
+
         let build_config = CargoCoreCompiler::BuildConfig {
-            profile_kind,
+            requested_kind,
+            requested_profile,
             message_format: MessageFormat::Human,
             ..CargoCoreCompiler::BuildConfig::new(
                 &config,
@@ -196,6 +219,7 @@ fn create_build_command(
             target_rustc_args: None,
             export_dir: None,
             local_rustdoc_args: None,
+            rustdoc_document_private_items: false,
         };
 
         if bearded {
@@ -219,24 +243,25 @@ fn create_clean_command(matches: &ArgMatches) -> Box<dyn Fn(Option<&str>) -> Res
         config.configure(
             verbosity,
             None,
-            &None,
+            None,
             false,
             false,
             offline,
             &None,
             &[],
-            )?;
+            &[],
+        )?;
         let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?, &config)?;
-        let profile_kind = if release {
-            ProfileKind::Release
+        let requested_profile = if release {
+            InternedString::new("release")
         } else {
-            ProfileKind::Dev
+            InternedString::new("debug")
         };
 
         let options = CleanOptions {
             config: &config,
+            requested_profile,
             profile_specified: false,
-            profile_kind,
             spec: packages.clone(),
             target: rustc_triple.map(str::to_string),
             doc: false,
@@ -275,8 +300,25 @@ fn create_run_command(
 
     Box::new(
         move |rustc_triple: Option<&str>, build_args: &BuildArgs, args: &[&str]| {
+            let requested_kind = if let Some(rustc_triple) = rustc_triple {
+                cargo::core::compiler::CompileKind::Target(
+                    cargo::core::compiler::CompileTarget::new(rustc_triple)?,
+                )
+            } else {
+                cargo::core::compiler::CompileKind::Host
+            };
             let mut config = CompileConfig::default()?;
-            config.configure(verbosity, None, &None, false, false, offline, &None, &[])?;
+            config.configure(
+                verbosity,
+                None,
+                None,
+                false,
+                false,
+                offline,
+                &None,
+                &[],
+                &[],
+            )?;
             let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?, &config)?;
 
             let project_metadata_list = workskpace_metadata(&workspace)?;
@@ -289,15 +331,12 @@ fn create_run_command(
             } else {
                 excludes.clone()
             };
-            let profile_kind = if release {
-                ProfileKind::Release
-            } else {
-                ProfileKind::Dev
-            };
+            let requested_profile = InternedString::new(if release { "release" } else { "debug" });
 
             let build_config = CargoCoreCompiler::BuildConfig {
-                profile_kind,
                 message_format: MessageFormat::Human,
+                requested_kind,
+                requested_profile,
                 ..CargoCoreCompiler::BuildConfig::new(
                     &config,
                     jobs,
@@ -330,6 +369,7 @@ fn create_run_command(
                 target_rustc_args: None,
                 export_dir: None,
                 local_rustdoc_args: None,
+                rustdoc_document_private_items: false,
             };
 
             let test_options = TestOptions {
@@ -343,11 +383,7 @@ fn create_run_command(
             }
             match build_args.compile_mode {
                 CompileMode::Bench => {
-                    if let Some(err) = CargoOps::run_benches(
-                        &workspace,
-                        &test_options,
-                        args,
-                    )? {
+                    if let Some(err) = CargoOps::run_benches(&workspace, &test_options, args)? {
                         bail!("An error occured: {:?}", err);
                     };
                 }
@@ -364,11 +400,7 @@ fn create_run_command(
                     };
                 }
                 CompileMode::Test => {
-                    if let Some(err) = CargoOps::run_tests(
-                        &workspace,
-                        &test_options,
-                        args,
-                    )? {
+                    if let Some(err) = CargoOps::run_tests(&workspace, &test_options, args)? {
                         bail!("An error occured: {:?}", err);
                     };
                 }
@@ -416,7 +448,7 @@ fn copy_dependencies_to_target(build: &Build) -> Result<()> {
         let target_lib_path = build.target_path.join(
             src_lib_path
                 .file_name()
-                .ok_or(format!("Invalid file name {:?}", src_lib_path.file_name()))?,
+                .ok_or_else(|| anyhow!("Invalid file name {:?}", src_lib_path.file_name()))?,
         );
 
         debug!(
@@ -424,7 +456,7 @@ fn copy_dependencies_to_target(build: &Build) -> Result<()> {
             src_lib_path.display(),
             target_lib_path.display()
         );
-        copy_and_sync_file(&src_lib_path, &target_lib_path).chain_err(|| {
+        copy_and_sync_file(&src_lib_path, &target_lib_path).with_context(|| {
             format!(
                 "Couldn't copy {} to {}",
                 src_lib_path.display(),
@@ -458,9 +490,13 @@ fn to_build(
                         exe: exe_path.clone(),
                         id: exe_path
                             .file_name()
-                            .ok_or(format!("Invalid executable file '{}'", &exe_path.display()))?
+                            .ok_or_else(|| {
+                                anyhow!("Invalid executable file '{}'", &exe_path.display())
+                            })?
                             .to_str()
-                            .ok_or(format!("Invalid executable file '{}'", &exe_path.display()))?
+                            .ok_or_else(|| {
+                                anyhow!("Invalid executable file '{}'", &exe_path.display())
+                            })?
                             .to_string(),
                         source: PathBuf::from("."),
                     })
@@ -485,9 +521,13 @@ fn to_build(
                         exe: exe_path.clone(),
                         id: exe_path
                             .file_name()
-                            .ok_or(format!("Invalid executable file '{}'", &exe_path.display()))?
+                            .ok_or_else(|| {
+                                anyhow!("Invalid executable file '{}'", &exe_path.display())
+                            })?
                             .to_str()
-                            .ok_or(format!("Invalid executable file '{}'", &exe_path.display()))?
+                            .ok_or_else(|| {
+                                anyhow!("Invalid executable file '{}'", &exe_path.display())
+                            })?
                             .to_string(),
                         source: pkg.root().to_path_buf(),
                     })
@@ -536,7 +576,7 @@ fn find_dynamic_libraries(
                 Command::new(&linker)
                     .arg("-print-sysroot")
                     .output()
-                    .chain_err(|| {
+                    .with_context(|| {
                         format!(
                             "Error while checking libraries using linker {}",
                             linker.display()
@@ -686,7 +726,7 @@ pub fn linker_lib_dirs(compilation: &Compilation, config: &CompileConfig) -> Res
         Command::new(&linker)
             .arg("-print-search-dirs")
             .output()
-            .chain_err(|| {
+            .with_context(|| {
                 format!(
                     "Error while checking libraries using linker {}",
                     linker.display()
@@ -740,12 +780,12 @@ fn project_metadata<P: AsRef<Path>>(path: P) -> Result<Option<ProjectMetadata>> 
     }
 
     let toml = File::open(&path.as_ref())
-        .chain_err(|| format!("Couldn't open {}", path.as_ref().display()))
+        .with_context(|| format!("Couldn't open {}", path.as_ref().display()))
         .and_then(read_file_to_string)
         .and_then(|toml_content| {
             toml_content
                 .parse::<toml::Value>()
-                .chain_err(|| format!("Couldn'parse {}", path.as_ref().display()))
+                .with_context(|| format!("Couldn'parse {}", path.as_ref().display()))
         })?;
 
     let project_id = toml
