@@ -96,7 +96,7 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
     for line in String::from_utf8(find_identities.stdout)?.split("\n") {
         if let Some(caps) = identity_regex.captures(&line) {
             let name: String = caps[2].into();
-            if !name.starts_with("iPhone Developer: ") {
+            if !name.starts_with("iPhone Developer: ") && !name.starts_with("Apple Development:") {
                 continue;
             }
             let subject = process::Command::new("sh")

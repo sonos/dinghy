@@ -324,6 +324,10 @@ fn mk_result(rv: i32) -> Result<()> {
         bail!(
             "error: 0xe8000022, kAMDInvalidServiceError. (This one is relatively hard to diagnose. Try erasing the Dinghy app from the phone, rebooting the device, the computer, check for ios and xcode updates.)",
         )
+    } else if rv as u32 == 0xe800007f {
+        bail!(
+            "error: e800007f, The device OS version is too low."
+        )
     } else if rv != 0 {
         bail!("error: {:x}", rv)
     } else {
@@ -409,6 +413,7 @@ fn platform_support_path(platform: &str, os_version: &str) -> Result<PathBuf> {
             .into_string()
             .map_err(|e| anyhow!("Could not parse {:?}", e))?;
         if last.starts_with(&two_token_version) {
+            debug!("Picked {:?}", last);
             return Ok(prefix.join(directory.path()));
         }
     }
@@ -426,6 +431,7 @@ fn mount_developper_image(dev: *const am_device) -> Result<()> {
         let _session = ensure_session(dev);
         let ds_path = device_support_path(dev)?;
         let image_path = ds_path.join("DeveloperDiskImage.dmg");
+        debug!("Developper image path: {:?}", image_path);
         let sig_image_path = ds_path.join("DeveloperDiskImage.dmg.signature");
         let mut sig: Vec<u8> = vec![];
         fs::File::open(sig_image_path)?.read_to_end(&mut sig)?;
@@ -450,7 +456,7 @@ fn mount_developper_image(dev: *const am_device) -> Result<()> {
             0,
         );
         if r as u32 == 0xe8000076 {
-            // already mounted, that's fine.
+            debug!("Error, already mounted, going on");
             return Ok(());
         }
         mk_result(r)?;
