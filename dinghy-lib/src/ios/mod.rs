@@ -11,6 +11,8 @@ mod mobiledevice_sys;
 mod platform;
 mod xcode;
 
+use anyhow::Context;
+
 #[derive(Debug, Clone)]
 pub struct SignatureSettings {
     pub identity: SigningIdentity,
@@ -84,7 +86,7 @@ impl PlatformManager for IosManager {
         }
         let sims_list = String::from_utf8(sims_list.stdout)?;
         let sims_list = ::json::parse(&sims_list)
-               .map_err(|_| "Could not parse output for: `xcrun simctl list --json devices` as json. Please try to make this command work and retry.")?;
+               .with_context(|| "Could not parse output for: `xcrun simctl list --json devices` as json. Please try to make this command work and retry.")?;
         let mut sims: Vec<Box<dyn Device>> = vec![];
         for (ref k, ref v) in sims_list["devices"].entries() {
             for ref sim in v.members() {
@@ -92,18 +94,18 @@ impl PlatformManager for IosManager {
                     sims.push(Box::new(IosSimDevice {
                         name: sim["name"]
                             .as_str()
-                            .ok_or("unexpected simulator list format (missing name)")?
+                            .ok_or_else(|| anyhow!("unexpected simulator list format (missing name)"))?
                             .to_string(),
                         id: sim["udid"]
                             .as_str()
-                            .ok_or("unexpected simulator list format (missing udid)")?
+                            .ok_or_else(|| anyhow!("unexpected simulator list format (missing udid)"))?
                             .to_string(),
                         os: k.split(" ").last().unwrap().to_string(),
                     }))
                 }
             }
         }
-        let devices = self.devices.lock().map_err(|_| "poisoned lock")?;
+        let devices = self.devices.lock().map_err(|_| anyhow!("poisoned lock"))?;
         Ok(devices
             .iter()
             .map(|d| Box::new(d.clone()) as Box<dyn Device>)

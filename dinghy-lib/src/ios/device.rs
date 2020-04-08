@@ -1,7 +1,7 @@
 use super::mobiledevice_sys::*;
 use super::xcode;
 use core_foundation::array::CFArray;
-use core_foundation::base::{CFType, CFTypeRef, TCFType};
+use core_foundation::base::{CFType, CFTypeRef, ItemRef, TCFType};
 use core_foundation::boolean::CFBoolean;
 use core_foundation::data::CFData;
 use core_foundation::dictionary::{CFDictionary, CFDictionaryRef};
@@ -54,7 +54,7 @@ impl IosDevice {
         let _session = ensure_session(ptr)?;
         let name = match device_read_value(ptr, "DeviceName")? {
             Some(Value::String(s)) => s,
-            x => Err(format!("DeviceName should have been a string, was {:?}", x))?,
+            x => bail!("DeviceName should have been a string, was {:?}", x),
         };
         let cpu = match device_read_value(ptr, "CPUArchitecture")? {
             Some(Value::String(ref v)) if v == "arm64" => "aarch64",
@@ -63,7 +63,7 @@ impl IosDevice {
         let id = if let Value::String(id) = rustify(unsafe { AMDeviceCopyDeviceIdentifier(ptr) })? {
             id
         } else {
-            Err("unexpected id format")?
+            bail!("unexpected id format")
         };
         Ok(IosDevice {
             ptr: ptr,
@@ -82,8 +82,12 @@ impl IosDevice {
     ) -> Result<BuildBundle> {
         let signing = xcode::look_for_signature_settings(&self.id)?
             .pop()
-            .ok_or("no signing identity found")?;
-        let app_id = signing.name.split(" ").last().ok_or("no app id ?")?;
+            .ok_or_else(|| anyhow!("no signing identity found"))?;
+        let app_id = signing
+            .name
+            .split(" ")
+            .last()
+            .ok_or_else(|| anyhow!("no app id ?"))?;
 
         let build_bundle = make_ios_app(project, build, runnable, &app_id)?;
 
@@ -119,7 +123,7 @@ impl Device for IosDevice {
             .runnables
             .iter()
             .next()
-            .ok_or("No executable compiled")?;
+            .ok_or_else(|| anyhow!("No executable compiled"))?;
         let build_bundle = self.install_app(project, build, runnable)?;
         let lldb_proxy = self.start_remote_lldb()?;
         run_remote(self.ptr, &lldb_proxy, &build_bundle.bundle_dir, args, true)?;
@@ -180,17 +184,17 @@ impl IosSimDevice {
                 build_bundle
                     .bundle_dir
                     .to_str()
-                    .ok_or("conversion to string")?,
+                    .ok_or_else(|| anyhow!("conversion to string"))?,
             ])
             .status()?;
         if stat.success() {
             Ok(build_bundle)
         } else {
-            Err(format!(
+            bail!(
                 "Failed to install {} for {}",
                 runnable.exe.display(),
                 self.id
-            ))?
+            )
         }
     }
 
@@ -215,7 +219,7 @@ impl Device for IosSimDevice {
             .runnables
             .iter()
             .next()
-            .ok_or("No executable compiled")?;
+            .ok_or_else(|| anyhow!("No executable compiled"))?;
         let build_bundle = self.install_app(project, build, runnable)?;
         let install_path = String::from_utf8(
             process::Command::new("xcrun")
@@ -309,19 +313,19 @@ enum Value {
 
 fn mk_result(rv: i32) -> Result<()> {
     if rv as u32 == 0xe80000e2 {
-        Err(format!("error: Device is locked. ({:x})", rv))?
+        bail!("error: Device is locked. ({:x})", rv)
     } else if rv as u32 == 0xe8000087 {
-        Err("error: 0xe8000087, Architecture mismatch")?
+        bail!("error: 0xe8000087, Architecture mismatch")
     } else if rv as u32 == 0xe8008015 {
-        Err("error: 0xe8008015, A valid provisioning profile for this executable was not found.")?
+        bail!("error: 0xe8008015, A valid provisioning profile for this executable was not found.")
     } else if rv as u32 == 0xe8008016 {
-        Err("error: 0xe8008016, The executable was signed with invalid entitlements.")?
+        bail!("error: 0xe8008016, The executable was signed with invalid entitlements.")
     } else if rv as u32 == 0xe8008022 {
-        Err(
+        bail!(
             "error: 0xe8000022, kAMDInvalidServiceError. (This one is relatively hard to diagnose. Try erasing the Dinghy app from the phone, rebooting the device, the computer, check for ios and xcode updates.)",
-        )?
+        )
     } else if rv != 0 {
-        Err(format!("error: {:x}", rv))?
+        bail!("error: {:x}", rv)
     } else {
         Ok(())
     }
@@ -349,7 +353,7 @@ fn rustify(raw: CFTypeRef) -> Result<Value> {
             return Ok(Value::Boolean(raw == mem::transmute(kCFBooleanTrue)));
         }
         cftype.show();
-        Err("unknown value")?
+        bail!("unknown value")
     }
 }
 
@@ -371,14 +375,15 @@ fn xcode_dev_path() -> Result<PathBuf> {
 }
 
 fn device_support_path(dev: *const am_device) -> Result<PathBuf> {
-    let os_version = device_read_value(dev, "ProductVersion")?.ok_or("Could not get OS version")?;
+    let os_version = device_read_value(dev, "ProductVersion")?
+        .ok_or_else(|| anyhow!("Could not get OS version"))?;
     if let Value::String(v) = os_version {
         platform_support_path("iPhoneOS.platform", &v)
     } else {
-        Err(format!(
+        bail!(
             "expected ProductVersion to be a String, found {:?}",
             os_version
-        ))?
+        )
     }
 }
 
@@ -402,16 +407,17 @@ fn platform_support_path(platform: &str, os_version: &str) -> Result<PathBuf> {
         let last = directory
             .file_name()
             .into_string()
-            .map_err(|d| format!("Could not parse {:?}", d))?;
+            .map_err(|e| anyhow!("Could not parse {:?}", e))?;
         if last.starts_with(&two_token_version) {
             return Ok(prefix.join(directory.path()));
         }
     }
-    Err(format!(
+    bail!(
         "No device support directory for iOS version {} in {:?}. Time for an XCode \
          update?",
-        two_token_version, prefix
-    ))?
+        two_token_version,
+        prefix
+    )
 }
 
 fn mount_developper_image(dev: *const am_device) -> Result<()> {
@@ -462,10 +468,18 @@ fn make_ios_app(
     let build_bundle = make_remote_app_with_name(project, build, runnable, Some("Dinghy.app"))?;
     project::rec_copy(&runnable.exe, build_bundle.bundle_dir.join("Dinghy"), false)?;
     let magic = process::Command::new("file")
-        .arg(runnable.exe.to_str().ok_or("path conversion to string")?)
+        .arg(
+            runnable
+                .exe
+                .to_str()
+                .ok_or_else(|| anyhow!("path conversion to string: {:?}", runnable.exe))?,
+        )
         .output()?;
     let magic = String::from_utf8(magic.stdout)?;
-    let target = magic.split(" ").last().ok_or("empty magic")?;
+    let target = magic
+        .split(" ")
+        .last()
+        .ok_or_else(|| anyhow!("empty magic"))?;
     xcode::add_plist_to_app(&build_bundle, target, app_id)?;
     Ok(build_bundle)
 }
@@ -476,7 +490,7 @@ fn ensure_session(dev: *const am_device) -> Result<Session> {
     unsafe {
         mk_result(AMDeviceConnect(dev))?;
         if AMDeviceIsPaired(dev) == 0 {
-            Err("lost pairing")?
+            bail!("lost pairing")
         };
         mk_result(AMDeviceValidatePairing(dev))?;
         mk_result(AMDeviceStartSession(dev))?;
@@ -510,7 +524,10 @@ impl Drop for Session {
 pub fn install_app<P: AsRef<Path>>(dev: *const am_device, app: P) -> Result<()> {
     unsafe {
         let _session = ensure_session(dev)?;
-        let path = app.as_ref().to_str().ok_or("failure to convert")?;
+        let path = app
+            .as_ref()
+            .to_str()
+            .ok_or_else(|| anyhow!("failure to convert {:?}", app.as_ref()))?;
         let url =
             ::core_foundation::url::CFURL::from_file_system_path(CFString::new(path), 0, true);
         let options = [(
@@ -609,7 +626,7 @@ fn launch_lldb_device<P: AsRef<Path>, P2: AsRef<Path>>(
     let lldb_script_filename = tmppath.join("lldb-script");
     let sysroot = device_support_path(dev)?
         .to_str()
-        .ok_or("could not read sysroot")?
+        .ok_or_else(|| anyhow!("could not read sysroot"))?
         .to_owned();
     {
         let python_lldb_support = tmppath.join("helpers.py");
@@ -619,7 +636,10 @@ fn launch_lldb_device<P: AsRef<Path>, P2: AsRef<Path>>(
         writeln!(
             script,
             "target create {}",
-            local.as_ref().to_str().ok_or("untranslatable path")?
+            local
+                .as_ref()
+                .to_str()
+                .ok_or_else(|| anyhow!("untranslatable path"))?
         )?;
         writeln!(script, "script pass")?;
 
@@ -657,35 +677,27 @@ fn launch_lldb_device<P: AsRef<Path>, P2: AsRef<Path>>(
     if stat.success() {
         Ok(())
     } else {
-        Err(format!("LLDB returned error code {:?}", stat.code()))?
+        bail!("LLDB returned error code {:?}", stat.code())
     }
 }
 
-fn launch_app(
-    dev: &IosSimDevice,
-    app_args: &[&str]
-) -> Result<()> {
+fn launch_app(dev: &IosSimDevice, app_args: &[&str]) -> Result<()> {
     use std::io::Write;
     let dir = ::tempdir::TempDir::new("mobiledevice-rs-lldb")?;
     let tmppath = dir.path();
     let mut install_path = String::from_utf8(
         process::Command::new("xcrun")
-        .args(&["simctl", "get_app_container", &dev.id, "Dinghy"])
-        .output()?
-        .stdout,
-        )?;
+            .args(&["simctl", "get_app_container", &dev.id, "Dinghy"])
+            .output()?
+            .stdout,
+    )?;
     install_path.pop();
-    let stdout = Path::new(&install_path).join("stdout").to_string_lossy().into_owned();
-    let stdout_param =
-        &format!("--stdout={}", stdout);
-    let mut xcrun_args : Vec<&str> = vec![
-        "simctl",
-        "launch",
-        "-w",
-        stdout_param,
-        &dev.id,
-        "Dinghy",
-    ];
+    let stdout = Path::new(&install_path)
+        .join("stdout")
+        .to_string_lossy()
+        .into_owned();
+    let stdout_param = &format!("--stdout={}", stdout);
+    let mut xcrun_args: Vec<&str> = vec!["simctl", "launch", "-w", stdout_param, &dev.id, "Dinghy"];
     xcrun_args.extend(app_args);
     debug!("Launching app via xcrun using args: {:?}", xcrun_args);
     let launch_output = process::Command::new("xcrun").args(&xcrun_args).output()?;
@@ -709,7 +721,7 @@ fn launch_app(
     let test_contents = std::fs::read_to_string(stdout)?;
     println!("{}", test_contents);
 
-    let output : String = String::from_utf8_lossy(&output.stdout).to_string();
+    let output: String = String::from_utf8_lossy(&output.stdout).to_string();
     debug!("LLDB OUTPUT: {}", output);
     // The stdout from lldb is something like:
     //
@@ -733,10 +745,10 @@ fn launch_app(
     // (lldb) quit
     //
     // We need the "exit with status" line which is the 3rd from the last
-    let lines : Vec<&str> = output.lines().rev().collect();
+    let lines: Vec<&str> = output.lines().rev().collect();
     let exit_status_line = lines.get(2);
     if let Some(exit_status_line) = exit_status_line {
-        let words : Vec<&str> = exit_status_line.split_whitespace().rev().collect();
+        let words: Vec<&str> = exit_status_line.split_whitespace().rev().collect();
         if let Some(exit_status) = words.get(1) {
             let exit_status = exit_status.parse::<u32>()?;
             if exit_status == 0 {
@@ -745,7 +757,10 @@ fn launch_app(
                 panic!("Non-zero exit code from lldb: {}", exit_status);
             }
         } else {
-            panic!("Failed to parse lldb exit line for an exit status. {:?}", words);
+            panic!(
+                "Failed to parse lldb exit line for an exit status. {:?}",
+                words
+            );
         }
     } else {
         panic!("Failed to get the exit status line from lldb: {:?}", lines);
@@ -795,7 +810,7 @@ fn launch_lldb_simulator(
     if stat.success() {
         Ok(())
     } else {
-        Err(format!("LLDB returned error code {:?}", stat.code()))?
+        bail!("LLDB returned error code {:?}", stat.code())
     }
 }
 
@@ -827,23 +842,19 @@ pub fn run_remote<P: AsRef<Path>>(
         mk_result(AMDeviceLookupApplications(
             dev,
             options.as_concrete_TypeRef(),
-            ::std::mem::transmute(&apps),
+            apps,
         ))?;
     }
-    let apps: CFDictionary = unsafe { TCFType::wrap_under_get_rule(apps) };
-    let app_info: CFDictionary = unsafe {
-        TCFType::wrap_under_get_rule(::std::mem::transmute(apps.get(::std::mem::transmute(
-            CFString::new(bundle_id).as_concrete_TypeRef(),
-        ))))
-    };
-    let remote: String = if let Ok(Value::String(remote)) = unsafe {
-        rustify(app_info.get(::std::mem::transmute(
-            CFString::from_static_string("Path").as_concrete_TypeRef(),
-        )))
-    } {
+    let apps: CFDictionary<CFString, CFDictionary<CFString, CFTypeRef>> =
+        unsafe { TCFType::wrap_under_get_rule(apps) };
+    let app_info: ItemRef<CFDictionary<CFString, CFTypeRef>> =
+        apps.get(CFString::new(bundle_id).as_concrete_TypeRef());
+    let remote: String = if let Ok(Value::String(remote)) =
+        rustify(*app_info.get(CFString::from_static_string("Path")))
+    {
         remote
     } else {
-        Err("Invalid info")?
+        bail!("Invalid info")
     };
     launch_lldb_device(dev, lldb_proxy, app_path, remote, args, debugger)?;
     Ok(())

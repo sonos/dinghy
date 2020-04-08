@@ -143,10 +143,10 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
             .arg(file.path())
             .output()?;
         let plist = plist::Value::from_reader(io::Cursor::new(&decoded.stdout))
-            .map_err(|e| format!("While trying to read profile {:?}, {:?}", file.path(), e))?;
+            .with_context(|| format!("While trying to read profile {:?}", file.path()))?;
         let dict = plist
             .as_dictionary()
-            .ok_or("plist root should be a dictionary")?;
+            .ok_or_else(|| anyhow!("plist root should be a dictionary"))?;
         let devices = if let Some(d) = dict.get("ProvisionedDevices") {
             d
         } else {
@@ -156,7 +156,7 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
         let devices = if let Some(ds) = devices.as_array() {
             ds
         } else {
-            Err("ProvisionedDevices expected to be array")?
+            bail!("ProvisionedDevices expected to be array")
         };
         if !devices.contains(&plist::Value::String(device_id.into())) {
             debug!("  no device match in profile");
@@ -164,8 +164,8 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
         }
         let name = dict
             .get("Name")
-            .ok_or(format!("No name in profile {:?}", file.path()))?;
-        let name = name.as_string().ok_or(format!(
+            .ok_or_else(|| anyhow!(format!("No name in profile {:?}", file.path())))?;
+        let name = name.as_string().ok_or_else(|| anyhow!(
             "Name should have been a string in {:?}",
             file.path()
         ))?;
@@ -174,13 +174,13 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
             continue;
         }
         // TODO: check date in future
-        let team = dict.get("TeamIdentifier").ok_or("no TeamIdentifier")?;
-        let team = team.as_array().ok_or("TeamIdentifier should be an array")?;
+        let team = dict.get("TeamIdentifier").ok_or_else(|| anyhow!("no TeamIdentifier"))?;
+        let team = team.as_array().ok_or_else(|| anyhow!("TeamIdentifier should be an array"))?;
         let team = team
             .first()
-            .ok_or("empty TeamIdentifier")?
+            .ok_or_else(|| anyhow!("empty TeamIdentifier"))?
             .as_string()
-            .ok_or("TeamIdentifier should be a String")?
+            .ok_or_else(|| anyhow!("TeamIdentifier should be a String"))?
             .to_string();
         let identity = identities.iter().find(|i| i.team == team);
         if identity.is_none() {
@@ -200,7 +200,7 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
             file: file
                 .path()
                 .to_str()
-                .ok_or("filename should be utf8")?
+                .ok_or_else(|| anyhow!("filename should be utf8"))?
                 .into(),
             name: if name.ends_with(" *") {
                 "org.zoy.kali.Dinghy".into()
