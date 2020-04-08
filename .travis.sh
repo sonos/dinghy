@@ -10,8 +10,8 @@ then
     export OPENSSL_LIB_DIR=`brew --prefix openssl`/lib
 fi
 
-cargo build --verbose
-cargo test --verbose
+cargo build
+cargo test
 
 # Test original cargo build
 ( \
