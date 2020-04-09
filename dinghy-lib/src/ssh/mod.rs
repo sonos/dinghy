@@ -1,6 +1,6 @@
 mod device;
-use std::sync;
 use crate::{Configuration, Device, Platform, PlatformManager, Result};
+use std::sync;
 
 use self::device::SshDevice;
 

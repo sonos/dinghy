@@ -94,11 +94,15 @@ impl PlatformManager for IosManager {
                     sims.push(Box::new(IosSimDevice {
                         name: sim["name"]
                             .as_str()
-                            .ok_or_else(|| anyhow!("unexpected simulator list format (missing name)"))?
+                            .ok_or_else(|| {
+                                anyhow!("unexpected simulator list format (missing name)")
+                            })?
                             .to_string(),
                         id: sim["udid"]
                             .as_str()
-                            .ok_or_else(|| anyhow!("unexpected simulator list format (missing udid)"))?
+                            .ok_or_else(|| {
+                                anyhow!("unexpected simulator list format (missing udid)")
+                            })?
                             .to_string(),
                         os: k.split(" ").last().unwrap().to_string(),
                     }))

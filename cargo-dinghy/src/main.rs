@@ -5,18 +5,18 @@ extern crate env_logger;
 #[macro_use]
 extern crate log;
 
-use clap::ArgMatches;
 use crate::cli::CargoDinghyCli;
+use clap::ArgMatches;
 use dinghy_lib::compiler::Compiler;
 use dinghy_lib::config::dinghy_config;
 use dinghy_lib::errors::*;
+use dinghy_lib::itertools::Itertools;
 use dinghy_lib::project::Project;
 use dinghy_lib::utils::arg_as_string_vec;
 use dinghy_lib::Build;
 use dinghy_lib::Device;
 use dinghy_lib::Dinghy;
 use dinghy_lib::Platform;
-use dinghy_lib::itertools::Itertools;
 use std::env;
 use std::env::current_dir;
 use std::sync::Arc;
@@ -172,7 +172,10 @@ fn show_all_devices(dinghy: &Dinghy) -> Result<()> {
 }
 
 fn show_all_devices_for_platform(dinghy: &Dinghy, platform: Arc<Box<dyn Platform>>) -> Result<()> {
-    println!("List of available devices for platform '{}':", platform.id());
+    println!(
+        "List of available devices for platform '{}':",
+        platform.id()
+    );
     show_devices(&dinghy, Some(platform))
 }
 
@@ -192,7 +195,12 @@ fn show_devices(dinghy: &Dinghy, platform: Option<Arc<Box<dyn Platform>>>) -> Re
         println!("No matching device found");
     } else {
         for device in devices {
-            let pf:Vec<_> = dinghy.platforms().iter().filter(|pf| pf.is_compatible_with(&**device)).cloned().collect();
+            let pf: Vec<_> = dinghy
+                .platforms()
+                .iter()
+                .filter(|pf| pf.is_compatible_with(&**device))
+                .cloned()
+                .collect();
             println!("{}: {:?}", device, pf);
         }
     }
@@ -240,10 +248,7 @@ fn select_platform_and_device_from_cli(
             })
             .collect_vec();
         if devices.len() == 0 {
-            bail!(
-                "No devices found for name hint `{}'",
-                device_filter
-            )
+            bail!("No devices found for name hint `{}'", device_filter)
         }
         devices
             .into_iter()
@@ -262,12 +267,12 @@ fn select_platform_and_device_from_cli(
                 pf.map(|it| (it, Some(d)))
             })
             .next()
-            .ok_or_else(||
+            .ok_or_else(|| {
                 anyhow!(
                     "No device and platform combination found for device hint `{}'",
                     device_filter
                 )
-            )
+            })
     } else {
         Ok((dinghy.host_platform(), Some(dinghy.host_device())))
     }

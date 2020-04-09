@@ -8,7 +8,10 @@ use crate::BuildBundle;
 pub fn add_plist_to_app(bundle: &BuildBundle, arch: &str, app_bundle_id: &str) -> Result<()> {
     let mut plist = fs::File::create(bundle.bundle_dir.join("Info.plist"))?;
     writeln!(plist, r#"<?xml version="1.0" encoding="UTF-8"?>"#)?;
-    writeln!(plist, r#"<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">"#)?;
+    writeln!(
+        plist,
+        r#"<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">"#
+    )?;
     writeln!(plist, r#"<plist version="1.0"><dict>"#)?;
     writeln!(
         plist,
@@ -73,7 +76,10 @@ pub fn sign_app(bundle: &BuildBundle, settings: &SignatureSettings) -> Result<()
     debug!("entitlements file: {}", entitlements.to_str().unwrap_or(""));
     let mut plist = fs::File::create(&entitlements)?;
     writeln!(plist, r#"<?xml version="1.0" encoding="UTF-8"?>"#)?;
-    writeln!(plist, r#"<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">"#)?;
+    writeln!(
+        plist,
+        r#"<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">"#
+    )?;
     writeln!(plist, r#"<plist version="1.0"><dict>"#)?;
     writeln!(plist, "{}", settings.entitlements)?;
     writeln!(plist, r#"</dict></plist>"#)?;
@@ -165,17 +171,20 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
         let name = dict
             .get("Name")
             .ok_or_else(|| anyhow!(format!("No name in profile {:?}", file.path())))?;
-        let name = name.as_string().ok_or_else(|| anyhow!(
-            "Name should have been a string in {:?}",
-            file.path()
-        ))?;
+        let name = name
+            .as_string()
+            .ok_or_else(|| anyhow!("Name should have been a string in {:?}", file.path()))?;
         if !name.ends_with("Dinghy") && !name.ends_with(" *") {
             debug!("  app in profile does not match ({})", name);
             continue;
         }
         // TODO: check date in future
-        let team = dict.get("TeamIdentifier").ok_or_else(|| anyhow!("no TeamIdentifier"))?;
-        let team = team.as_array().ok_or_else(|| anyhow!("TeamIdentifier should be an array"))?;
+        let team = dict
+            .get("TeamIdentifier")
+            .ok_or_else(|| anyhow!("no TeamIdentifier"))?;
+        let team = team
+            .as_array()
+            .ok_or_else(|| anyhow!("TeamIdentifier should be an array"))?;
         let team = team
             .first()
             .ok_or_else(|| anyhow!("empty TeamIdentifier"))?

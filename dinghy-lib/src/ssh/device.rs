@@ -3,18 +3,18 @@ use crate::device::make_remote_app;
 use crate::errors::*;
 use crate::platform::regular_platform::RegularPlatform;
 use crate::project::Project;
-use std::fmt;
-use std::fmt::Formatter;
-use std::fmt::{Debug, Display};
-use std::path::Path;
-use std::path::PathBuf;
-use std::process::Command;
 use crate::utils::path_to_str;
 use crate::Build;
 use crate::BuildBundle;
 use crate::Device;
 use crate::DeviceCompatibility;
 use crate::Runnable;
+use std::fmt;
+use std::fmt::Formatter;
+use std::fmt::{Debug, Display};
+use std::path::Path;
+use std::path::PathBuf;
+use std::process::Command;
 
 pub struct SshDevice {
     pub id: String,

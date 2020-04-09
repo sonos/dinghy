@@ -1,5 +1,5 @@
-use clap::ArgMatches;
 use crate::errors::Result;
+use clap::ArgMatches;
 use filetime::set_file_times;
 use filetime::FileTime;
 use std::fs;
@@ -98,10 +98,12 @@ pub fn lib_name_from(file_path: &Path) -> Result<String> {
     let file_name = file_path
         .file_name()
         .and_then(|it| it.to_str())
-        .ok_or_else(|| anyhow!(
-            "'{}' doesn't point to a valid lib name",
-            file_path.display()
-        ))?;
+        .ok_or_else(|| {
+            anyhow!(
+                "'{}' doesn't point to a valid lib name",
+                file_path.display()
+            )
+        })?;
 
     let (start_index, end_index) = file_name
         .find(".so")
@@ -122,8 +124,5 @@ pub fn file_name_as_str(file_path: &Path) -> Result<&str> {
     Ok(file_path
         .file_name()
         .and_then(|it| it.to_str())
-        .ok_or_else(|| anyhow!(
-            "'{}' is not a valid file name",
-            file_path.display()
-        ))?)
+        .ok_or_else(|| anyhow!("'{}' is not a valid file name", file_path.display()))?)
 }

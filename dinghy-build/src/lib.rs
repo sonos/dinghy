@@ -21,13 +21,13 @@ pub mod utils;
 use crate::build::is_cross_compiling;
 use crate::build_env::sysroot_path;
 use crate::build_env::target_env;
+use crate::utils::path_between;
+use crate::utils::path_to_str;
 use std::env;
 use std::ffi::OsStr;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
-use crate::utils::path_between;
-use crate::utils::path_to_str;
 
 error_chain! {
     foreign_links {

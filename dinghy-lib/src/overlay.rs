@@ -1,24 +1,24 @@
 use crate::config::PlatformConfiguration;
+use crate::errors::*;
+use crate::project::Project;
+use crate::utils::contains_file_with_ext;
+use crate::utils::destructure_path;
+use crate::utils::file_has_ext;
+use crate::utils::lib_name_from;
+use crate::Platform;
 use dinghy_build::build_env::append_path_to_target_env;
 use dinghy_build::build_env::envify;
 use dinghy_build::build_env::set_env_ifndef;
 use dinghy_build::utils::path_between;
 use dirs::home_dir;
-use crate::errors::*;
 use itertools::Itertools;
-use crate::project::Project;
 use std::fs::create_dir_all;
 use std::fs::remove_dir_all;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
-use crate::utils::contains_file_with_ext;
-use crate::utils::destructure_path;
-use crate::utils::file_has_ext;
-use crate::utils::lib_name_from;
 use walkdir::WalkDir;
-use crate::Platform;
 
 #[derive(Clone, Debug)]
 pub enum OverlayScope {
@@ -242,11 +242,13 @@ impl Overlayer {
             .filter_map(|e| lib_name_from(e.path()).ok())
             .collect_vec();
 
-        write_pkg_config_file(pc_file.as_path(), overlay.id.as_str(), &lib_list).with_context(|| {
-            format!(
-                "Dinghy couldn't generate pkg-config pc file {}",
-                pc_file.as_path().display()
-            )
-        })
+        write_pkg_config_file(pc_file.as_path(), overlay.id.as_str(), &lib_list).with_context(
+            || {
+                format!(
+                    "Dinghy couldn't generate pkg-config pc file {}",
+                    pc_file.as_path().display()
+                )
+            },
+        )
     }
 }

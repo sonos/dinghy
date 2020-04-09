@@ -1,5 +1,12 @@
 extern crate cargo;
 
+use crate::utils::arg_as_string_vec;
+use crate::utils::copy_and_sync_file;
+use crate::utils::is_library;
+use crate::Build;
+use crate::BuildArgs;
+use crate::Result;
+use crate::Runnable;
 use cargo::core::compiler as CargoCoreCompiler;
 use cargo::core::compiler::Compilation;
 pub use cargo::core::compiler::CompileMode;
@@ -31,14 +38,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 use toml;
-use crate::utils::arg_as_string_vec;
-use crate::utils::copy_and_sync_file;
-use crate::utils::is_library;
 use walkdir::WalkDir;
-use crate::Build;
-use crate::BuildArgs;
-use crate::Result;
-use crate::Runnable;
 
 use anyhow::Context;
 
