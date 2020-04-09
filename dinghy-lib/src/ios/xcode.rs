@@ -1,9 +1,9 @@
 use super::{SignatureSettings, SigningIdentity};
-use errors::*;
+use crate::errors::*;
 use std::io::Write;
 use std::{fs, io, process};
 
-use BuildBundle;
+use crate::BuildBundle;
 
 pub fn add_plist_to_app(bundle: &BuildBundle, arch: &str, app_bundle_id: &str) -> Result<()> {
     let mut plist = fs::File::create(bundle.bundle_dir.join("Info.plist"))?;

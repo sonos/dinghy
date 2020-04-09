@@ -1,8 +1,8 @@
-use config::PlatformConfiguration;
-use platform::regular_platform::RegularPlatform;
+use crate::config::PlatformConfiguration;
+use crate::platform::regular_platform::RegularPlatform;
 use std::{env, fs, path, process, sync};
-use toolchain::ToolchainConfig;
-use {Compiler, Device, Platform, PlatformManager, Result};
+use crate::toolchain::ToolchainConfig;
+use crate::{Compiler, Device, Platform, PlatformManager, Result};
 
 pub use self::device::AndroidDevice;
 

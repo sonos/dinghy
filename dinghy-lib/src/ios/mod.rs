@@ -4,7 +4,7 @@ use std::{mem, ptr, sync, thread};
 pub use self::device::{IosDevice, IosSimDevice};
 use self::mobiledevice_sys::*;
 pub use self::platform::IosPlatform;
-use {Compiler, Device, Platform, PlatformManager, Result};
+use crate::{Compiler, Device, Platform, PlatformManager, Result};
 
 mod device;
 mod mobiledevice_sys;
@@ -123,7 +123,7 @@ impl PlatformManager for IosManager {
                     id,
                     &rustc_triple,
                     &self.compiler,
-                    ::config::PlatformConfiguration::default(),
+                    crate::config::PlatformConfiguration::default(),
                 )
                 .map(|pf| pf as Box<dyn Platform>)
             })

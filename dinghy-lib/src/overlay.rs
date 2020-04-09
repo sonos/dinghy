@@ -1,24 +1,24 @@
-use config::PlatformConfiguration;
+use crate::config::PlatformConfiguration;
 use dinghy_build::build_env::append_path_to_target_env;
 use dinghy_build::build_env::envify;
 use dinghy_build::build_env::set_env_ifndef;
 use dinghy_build::utils::path_between;
 use dirs::home_dir;
-use errors::*;
+use crate::errors::*;
 use itertools::Itertools;
-use project::Project;
+use crate::project::Project;
 use std::fs::create_dir_all;
 use std::fs::remove_dir_all;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
-use utils::contains_file_with_ext;
-use utils::destructure_path;
-use utils::file_has_ext;
-use utils::lib_name_from;
+use crate::utils::contains_file_with_ext;
+use crate::utils::destructure_path;
+use crate::utils::file_has_ext;
+use crate::utils::lib_name_from;
 use walkdir::WalkDir;
-use Platform;
+use crate::Platform;
 
 #[derive(Clone, Debug)]
 pub enum OverlayScope {

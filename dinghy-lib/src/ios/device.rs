@@ -8,11 +8,11 @@ use core_foundation::dictionary::{CFDictionary, CFDictionaryRef};
 use core_foundation::number::CFNumber;
 use core_foundation::string::CFString;
 use core_foundation_sys::number::kCFBooleanTrue;
-use device::make_remote_app_with_name;
-use errors::*;
-use ios::IosPlatform;
+use crate::device::make_remote_app_with_name;
+use crate::errors::*;
+use crate::ios::IosPlatform;
 use libc::*;
-use project::Project;
+use crate::project::Project;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
@@ -25,11 +25,11 @@ use std::process;
 use std::ptr;
 use std::thread;
 use std::time::Duration;
-use Build;
-use BuildBundle;
-use Device;
-use DeviceCompatibility;
-use Runnable;
+use crate::Build;
+use crate::BuildBundle;
+use crate::Device;
+use crate::DeviceCompatibility;
+use crate::Runnable;
 
 #[derive(Clone, Debug)]
 pub struct IosDevice {
@@ -426,7 +426,7 @@ fn platform_support_path(platform: &str, os_version: &str) -> Result<PathBuf> {
     )
 }
 
-extern "C" fn mount_callback(dict: CFDictionaryRef, arg: *mut libc::c_void) {}
+extern "C" fn mount_callback(_dict: CFDictionaryRef, _arg: *mut libc::c_void) {}
 
 fn mount_developper_image(dev: *const am_device) -> Result<()> {
     unsafe {
@@ -472,7 +472,7 @@ fn make_ios_app(
     runnable: &Runnable,
     app_id: &str,
 ) -> Result<BuildBundle> {
-    use project;
+    use crate::project;
     let build_bundle = make_remote_app_with_name(project, build, runnable, Some("Dinghy.app"))?;
     project::rec_copy(&runnable.exe, build_bundle.bundle_dir.join("Dinghy"), false)?;
     let magic = process::Command::new("file")

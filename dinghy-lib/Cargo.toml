@@ -12,6 +12,7 @@ keywords = [
 build="build.rs"
 categories = [ "development-tools::cargo-plugins", "development-tools::testing" , "development-tools::profiling" ]
 readme = "../README.md"
+edition = "2018"
 
 [dependencies]
 anyhow = "1"

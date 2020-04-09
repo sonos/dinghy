@@ -11,6 +11,7 @@ keywords = [
 ]
 categories = [ "development-tools::cargo-plugins", "development-tools::testing" , "development-tools::profiling" ]
 readme = "../README.md"
+edition = "2018"
 
 [badges]
 travis-ci = { repository = "snipsco/dinghy" }

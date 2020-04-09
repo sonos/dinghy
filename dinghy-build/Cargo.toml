@@ -10,6 +10,7 @@ keywords = [
     "tests", "mobile", "ios", "android", "cargo"
 ]
 categories = [ "development-tools::cargo-plugins", "development-tools::testing" , "development-tools::profiling" ]
+edition = "2018"
 
 [dependencies]
 error-chain = { version = "0.12.0", default-features = false }
