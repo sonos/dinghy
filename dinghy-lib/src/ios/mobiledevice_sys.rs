@@ -80,6 +80,15 @@ extern "C" {
         cbarg: c_int,
     ) -> c_int;
 
+    pub fn AMDeviceSecureStartService(
+        device: *const am_device,
+        service_name: CFStringRef,
+        uncknown: *mut c_uint,
+        handle: *mut *const c_void,
+    ) -> c_int;
+
+    pub fn AMDServiceConnectionGetSocket(handle: *const c_void) -> c_int;
+
     pub fn AMDeviceStartService(
         device: *const am_device,
         service_name: CFStringRef,
