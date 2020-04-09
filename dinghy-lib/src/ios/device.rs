@@ -160,8 +160,9 @@ impl Device for IosDevice {
         let fd = start_remote_debug_server(self.ptr)?;
         debug!("start local lldb proxy");
         let proxy = start_lldb_proxy(fd)?;
-        debug!("start lldb");
-        Ok(format!("localhost:{}", proxy))
+        let url = format!("localhost:{}", proxy);
+        debug!("started lldb proxy {}", url);
+        Ok(url)
     }
 }
 
@@ -325,9 +326,9 @@ fn mk_result(rv: i32) -> Result<()> {
             "error: 0xe8000022, kAMDInvalidServiceError. (This one is relatively hard to diagnose. Try erasing the Dinghy app from the phone, rebooting the device, the computer, check for ios and xcode updates.)",
         )
     } else if rv as u32 == 0xe800007f {
-        bail!(
-            "error: e800007f, The device OS version is too low."
-        )
+        bail!("error: e800007f, The device OS version is too low.")
+    } else if rv as u32 == 0xe8000007 {
+        bail!("error: e8000007: Invalid argument.")
     } else if rv != 0 {
         bail!("error: {:x}", rv)
     } else {
@@ -425,16 +426,16 @@ fn platform_support_path(platform: &str, os_version: &str) -> Result<PathBuf> {
     )
 }
 
+extern "C" fn mount_callback(dict: CFDictionaryRef, arg: *mut libc::c_void) {}
+
 fn mount_developper_image(dev: *const am_device) -> Result<()> {
-    use std::io::Read;
     unsafe {
         let _session = ensure_session(dev);
         let ds_path = device_support_path(dev)?;
         let image_path = ds_path.join("DeveloperDiskImage.dmg");
         debug!("Developper image path: {:?}", image_path);
         let sig_image_path = ds_path.join("DeveloperDiskImage.dmg.signature");
-        let mut sig: Vec<u8> = vec![];
-        fs::File::open(sig_image_path)?.read_to_end(&mut sig)?;
+        let sig = fs::read(sig_image_path)?;
         let sig = CFData::from_buffer(&sig);
 
         let options = [
@@ -452,9 +453,10 @@ fn mount_developper_image(dev: *const am_device) -> Result<()> {
             dev,
             CFString::new(image_path.to_str().unwrap()).as_concrete_TypeRef(),
             options.as_concrete_TypeRef(),
-            std::mem::transmute(std::ptr::null::<()>()),
+            mount_callback,
             0,
         );
+        debug!("AMDeviceMountImage returns: {:x}", r);
         if r as u32 == 0xe8000076 {
             debug!("Error, already mounted, going on");
             return Ok(());
@@ -567,14 +569,16 @@ fn start_remote_debug_server(dev: *const am_device) -> Result<c_int> {
         mount_developper_image(dev)?;
         debug!("start debugserver on phone");
         let _session = ensure_session(dev)?;
-        let mut fd: c_int = 0;
-        mk_result(AMDeviceStartService(
+        let mut handle: *const c_void = std::ptr::null();
+        mk_result(AMDeviceSecureStartService(
             dev,
             CFString::from_static_string("com.apple.debugserver").as_concrete_TypeRef(),
-            &mut fd,
-            ptr::null(),
+            ptr::null_mut(),
+            &mut handle,
         ))?;
         debug!("debug server running");
+
+        let fd = AMDServiceConnectionGetSocket(handle);
         Ok(fd)
     }
 }
@@ -838,8 +842,8 @@ pub fn run_remote<P: AsRef<Path>>(
     let options = [(
         CFString::from_static_string("ReturnAttributes"),
         CFArray::from_CFTypes(&[
-            CFString::from_static_string("CFBundleIdentifier").as_CFType(),
-            CFString::from_static_string("Path").as_CFType(),
+            CFString::from_static_string("CFBundleIdentifier"),
+            CFString::from_static_string("Path"),
         ]),
     )];
     let options = CFDictionary::from_CFType_pairs(&options);
@@ -848,7 +852,7 @@ pub fn run_remote<P: AsRef<Path>>(
         mk_result(AMDeviceLookupApplications(
             dev,
             options.as_concrete_TypeRef(),
-            apps,
+            std::mem::transmute(&apps),
         ))?;
     }
     let apps: CFDictionary<CFString, CFDictionary<CFString, CFTypeRef>> =
