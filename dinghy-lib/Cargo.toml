@@ -17,7 +17,7 @@ edition = "2018"
 [dependencies]
 anyhow = "1"
 dinghy-build = { path = "../dinghy-build" }
-dirs = "1.0.4"
+dirs = "2"
 failure = "0.1.6"
 filetime = "0.2"
 log = "0.4"
