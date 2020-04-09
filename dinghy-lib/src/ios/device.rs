@@ -1,5 +1,14 @@
 use super::mobiledevice_sys::*;
 use super::xcode;
+use crate::device::make_remote_app_with_name;
+use crate::errors::*;
+use crate::ios::IosPlatform;
+use crate::project::Project;
+use crate::Build;
+use crate::BuildBundle;
+use crate::Device;
+use crate::DeviceCompatibility;
+use crate::Runnable;
 use core_foundation::array::CFArray;
 use core_foundation::base::{CFType, CFTypeRef, ItemRef, TCFType};
 use core_foundation::boolean::CFBoolean;
@@ -8,11 +17,7 @@ use core_foundation::dictionary::{CFDictionary, CFDictionaryRef};
 use core_foundation::number::CFNumber;
 use core_foundation::string::CFString;
 use core_foundation_sys::number::kCFBooleanTrue;
-use crate::device::make_remote_app_with_name;
-use crate::errors::*;
-use crate::ios::IosPlatform;
 use libc::*;
-use crate::project::Project;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
@@ -25,11 +30,6 @@ use std::process;
 use std::ptr;
 use std::thread;
 use std::time::Duration;
-use crate::Build;
-use crate::BuildBundle;
-use crate::Device;
-use crate::DeviceCompatibility;
-use crate::Runnable;
 
 #[derive(Clone, Debug)]
 pub struct IosDevice {

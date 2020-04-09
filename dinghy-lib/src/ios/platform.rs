@@ -1,17 +1,17 @@
 use crate::compiler::Compiler;
 use crate::config::PlatformConfiguration;
-use dinghy_build::build_env::set_env;
 use crate::errors::*;
 use crate::overlay::Overlayer;
 use crate::project::Project;
-use std::fmt::{Debug, Display, Formatter};
-use std::process;
-use std::sync::Arc;
 use crate::toolchain::Toolchain;
 use crate::Build;
 use crate::BuildArgs;
 use crate::Device;
 use crate::Platform;
+use dinghy_build::build_env::set_env;
+use std::fmt::{Debug, Display, Formatter};
+use std::process;
+use std::sync::Arc;
 
 pub struct IosPlatform {
     id: String,

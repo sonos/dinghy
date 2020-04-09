@@ -58,7 +58,7 @@ use crate::project::Project;
 use std::fmt::Display;
 use std::{path, sync};
 
-use crate::errors::{ Result };
+use crate::errors::Result;
 
 pub struct Dinghy {
     devices: Vec<sync::Arc<Box<dyn Device>>>,
@@ -250,18 +250,24 @@ impl BuildBundle {
     fn replace_prefix_with<P: AsRef<path::Path>>(&self, path: P) -> Result<Self> {
         Ok(BuildBundle {
             id: self.id.clone(),
-            bundle_dir: utils::normalize_path(&path
-                .as_ref()
-                .to_path_buf()
-                .join(self.bundle_dir.strip_prefix(&self.root_dir)?)),
-            bundle_exe: utils::normalize_path(&path
-                .as_ref()
-                .to_path_buf()
-                .join(self.bundle_exe.strip_prefix(&self.root_dir)?)),
-            lib_dir: utils::normalize_path(&path
-                .as_ref()
-                .to_path_buf()
-                .join(self.lib_dir.strip_prefix(&self.root_dir)?)),
+            bundle_dir: utils::normalize_path(
+                &path
+                    .as_ref()
+                    .to_path_buf()
+                    .join(self.bundle_dir.strip_prefix(&self.root_dir)?),
+            ),
+            bundle_exe: utils::normalize_path(
+                &path
+                    .as_ref()
+                    .to_path_buf()
+                    .join(self.bundle_exe.strip_prefix(&self.root_dir)?),
+            ),
+            lib_dir: utils::normalize_path(
+                &path
+                    .as_ref()
+                    .to_path_buf()
+                    .join(self.lib_dir.strip_prefix(&self.root_dir)?),
+            ),
             root_dir: path.as_ref().to_path_buf(),
         })
     }

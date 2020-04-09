@@ -1,20 +1,20 @@
 use crate::compiler::Compiler;
 use crate::config::PlatformConfiguration;
-use dinghy_build::build_env::set_all_env;
 use crate::overlay::Overlayer;
 use crate::platform;
 use crate::project::Project;
-use std::fmt::{Debug, Display, Formatter};
-use std::path::Path;
-use std::path::PathBuf;
-use std::process::Command;
-use std::sync::Arc;
 use crate::toolchain::ToolchainConfig;
 use crate::Build;
 use crate::BuildArgs;
 use crate::Device;
 use crate::Platform;
 use crate::Result;
+use dinghy_build::build_env::set_all_env;
+use std::fmt::{Debug, Display, Formatter};
+use std::path::Path;
+use std::path::PathBuf;
+use std::process::Command;
+use std::sync::Arc;
 
 use anyhow::Context;
 
@@ -213,7 +213,9 @@ fn find_sysroot<P: AsRef<Path>>(toolchain_path: P) -> Result<PathBuf> {
         let subdir = subdir?;
         let maybe = subdir.path().join("sysroot");
         if maybe.is_dir() {
-            let sysroot = maybe.to_str().ok_or_else(|| anyhow!("sysroot is not utf-8"))?;
+            let sysroot = maybe
+                .to_str()
+                .ok_or_else(|| anyhow!("sysroot is not utf-8"))?;
             return Ok(sysroot.into());
         }
     }

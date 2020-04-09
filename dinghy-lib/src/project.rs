@@ -1,5 +1,9 @@
 use crate::config::dinghy_config;
 use crate::config::Configuration;
+use crate::utils::copy_and_sync_file;
+use crate::Platform;
+use crate::Result;
+use crate::Runnable;
 use ignore::WalkBuilder;
 use std::env::current_dir;
 use std::fs;
@@ -8,10 +12,6 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
-use crate::utils::copy_and_sync_file;
-use crate::Platform;
-use crate::Result;
-use crate::Runnable;
 
 #[derive(Debug)]
 pub struct Project {

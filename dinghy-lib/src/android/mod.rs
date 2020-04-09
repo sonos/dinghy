@@ -1,8 +1,8 @@
 use crate::config::PlatformConfiguration;
 use crate::platform::regular_platform::RegularPlatform;
-use std::{env, fs, path, process, sync};
 use crate::toolchain::ToolchainConfig;
 use crate::{Compiler, Device, Platform, PlatformManager, Result};
+use std::{env, fs, path, process, sync};
 
 pub use self::device::AndroidDevice;
 
@@ -23,7 +23,10 @@ impl PlatformManager for AndroidManager {
         for line in String::from_utf8(result.stdout)?.split("\n").skip(1) {
             if let Some(caps) = device_regex.captures(line) {
                 let d = AndroidDevice::from_id(self.adb.clone(), &caps[1])?;
-                debug!("Discovered Android device {} ({:?})", d, d.supported_targets);
+                debug!(
+                    "Discovered Android device {} ({:?})",
+                    d, d.supported_targets
+                );
                 devices.push(Box::new(d) as Box<dyn Device>);
             }
         }
@@ -186,18 +189,21 @@ fn ndk() -> Result<Option<path::PathBuf>> {
 
 fn ndk_version(ndk: &path::Path) -> Result<String> {
     let sources_prop_file = ndk.join("source.properties");
-    let props = fs::read_to_string(&sources_prop_file)
-        .with_context(|| format!(
+    let props = fs::read_to_string(&sources_prop_file).with_context(|| {
+        format!(
             "Android NDK at {:?} does not contains a valid ndk-bundle: opening: {:?}",
             ndk, sources_prop_file
-        ))?;
+        )
+    })?;
     let revision_line = props
         .split("\n")
         .find(|l| l.starts_with("Pkg.Revision"))
-        .with_context(|| format!(
-            "{:?} does not contain a Pkg.Revision line. Invalid SDK?",
-            sources_prop_file
-        ))?;
+        .with_context(|| {
+            format!(
+                "{:?} does not contain a Pkg.Revision line. Invalid SDK?",
+                sources_prop_file
+            )
+        })?;
     Ok(revision_line.split(" ").last().unwrap().to_string())
 }
 

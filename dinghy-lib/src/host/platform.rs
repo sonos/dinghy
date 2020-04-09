@@ -1,17 +1,17 @@
 use crate::compiler::Compiler;
 use crate::config::PlatformConfiguration;
-use dinghy_build::build_env::set_all_env;
 use crate::overlay::Overlayer;
 use crate::platform;
 use crate::project::Project;
-use std::fmt::{Debug, Formatter};
-use std::process::Command;
-use std::sync::Arc;
 use crate::Build;
 use crate::BuildArgs;
 use crate::Device;
 use crate::Platform;
 use crate::Result;
+use dinghy_build::build_env::set_all_env;
+use std::fmt::{Debug, Formatter};
+use std::process::Command;
+use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct HostPlatform {

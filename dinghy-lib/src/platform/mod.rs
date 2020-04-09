@@ -1,8 +1,8 @@
-use std::fs;
-use std::process::Command;
 use crate::utils::file_name_as_str;
 use crate::Result;
 use crate::Runnable;
+use std::fs;
+use std::process::Command;
 
 use anyhow::Context;
 
@@ -16,10 +16,7 @@ pub fn strip_runnable(runnable: &Runnable, mut command: Command) -> Result<()> {
         .exe
         .parent()
         .map(|it| it.join(format!("{}-stripped", exe_stripped_name)))
-        .with_context(|| format!(
-            "{} is not a valid executable name",
-            &runnable.exe.display()
-        ))?;
+        .with_context(|| format!("{} is not a valid executable name", &runnable.exe.display()))?;
 
     // Backup old runnable
     fs::copy(&runnable.exe, &stripped_runnable.exe)?;
