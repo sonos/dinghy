@@ -1,5 +1,5 @@
 use std::sync;
-use {Configuration, Device, Platform, PlatformManager, Result};
+use crate::{Configuration, Device, Platform, PlatformManager, Result};
 
 mod device;
 

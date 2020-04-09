@@ -46,19 +46,19 @@ mod ssh;
 mod toolchain;
 pub mod utils;
 
-pub use compiler::Compiler;
-pub use config::Configuration;
+pub use crate::compiler::Compiler;
+pub use crate::config::Configuration;
 
-use compiler::CompileMode;
-use config::PlatformConfiguration;
+use crate::compiler::CompileMode;
+use crate::config::PlatformConfiguration;
 #[cfg(target_os = "macos")]
-use ios::IosManager;
-use platform::regular_platform::RegularPlatform;
-use project::Project;
+use crate::ios::IosManager;
+use crate::platform::regular_platform::RegularPlatform;
+use crate::project::Project;
 use std::fmt::Display;
 use std::{path, sync};
 
-use errors::{ Result };
+use crate::errors::{ Result };
 
 pub struct Dinghy {
     devices: Vec<sync::Arc<Box<dyn Device>>>,

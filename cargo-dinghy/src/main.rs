@@ -6,7 +6,7 @@ extern crate env_logger;
 extern crate log;
 
 use clap::ArgMatches;
-use cli::CargoDinghyCli;
+use crate::cli::CargoDinghyCli;
 use dinghy_lib::compiler::Compiler;
 use dinghy_lib::config::dinghy_config;
 use dinghy_lib::errors::*;

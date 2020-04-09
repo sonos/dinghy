@@ -1,16 +1,16 @@
-use compiler::Compiler;
+use crate::compiler::Compiler;
 use dinghy_build::build_env::set_env;
 use itertools::Itertools;
-use project::Project;
+use crate::project::Project;
 use std::fmt;
 use std::fmt::Formatter;
 use std::fmt::{Debug, Display};
 use std::sync::Arc;
-use Build;
-use BuildBundle;
-use Device;
-use DeviceCompatibility;
-use Result;
+use crate::Build;
+use crate::BuildBundle;
+use crate::Device;
+use crate::DeviceCompatibility;
+use crate::Result;
 
 pub struct HostDevice {
     compiler: Arc<Compiler>,

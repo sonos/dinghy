@@ -1,17 +1,17 @@
-use compiler::Compiler;
-use config::PlatformConfiguration;
+use crate::compiler::Compiler;
+use crate::config::PlatformConfiguration;
 use dinghy_build::build_env::set_env;
-use errors::*;
-use overlay::Overlayer;
-use project::Project;
+use crate::errors::*;
+use crate::overlay::Overlayer;
+use crate::project::Project;
 use std::fmt::{Debug, Display, Formatter};
 use std::process;
 use std::sync::Arc;
-use toolchain::Toolchain;
-use Build;
-use BuildArgs;
-use Device;
-use Platform;
+use crate::toolchain::Toolchain;
+use crate::Build;
+use crate::BuildArgs;
+use crate::Device;
+use crate::Platform;
 
 pub struct IosPlatform {
     id: String,
@@ -87,7 +87,7 @@ impl Platform for IosPlatform {
         for runnable in &build.runnables {
             let mut command = ::std::process::Command::new("xcrun");
             command.arg("strip");
-            ::platform::strip_runnable(runnable, command)?;
+            crate::platform::strip_runnable(runnable, command)?;
         }
         Ok(())
     }

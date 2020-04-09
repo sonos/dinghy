@@ -6,7 +6,7 @@ use std::result;
 use std::{collections, fs, path};
 //use walkdir::WalkDir;
 
-use errors::*;
+use crate::errors::*;
 
 #[derive(Clone, Debug)]
 pub struct TestData {

@@ -1,12 +1,12 @@
-use errors::*;
-use project;
-use project::Project;
+use crate::errors::*;
+use crate::project;
+use crate::project::Project;
 use std::fs;
 use std::path::Path;
-use utils::copy_and_sync_file;
-use Build;
-use BuildBundle;
-use Runnable;
+use crate::utils::copy_and_sync_file;
+use crate::Build;
+use crate::BuildBundle;
+use crate::Runnable;
 
 pub fn make_remote_app(
     project: &Project,

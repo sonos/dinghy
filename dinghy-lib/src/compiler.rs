@@ -31,14 +31,14 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 use toml;
-use utils::arg_as_string_vec;
-use utils::copy_and_sync_file;
-use utils::is_library;
+use crate::utils::arg_as_string_vec;
+use crate::utils::copy_and_sync_file;
+use crate::utils::is_library;
 use walkdir::WalkDir;
-use Build;
-use BuildArgs;
-use Result;
-use Runnable;
+use crate::Build;
+use crate::BuildArgs;
+use crate::Result;
+use crate::Runnable;
 
 use anyhow::Context;
 

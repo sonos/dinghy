@@ -1,15 +1,15 @@
-use device::make_remote_app;
-use errors::*;
-use platform::regular_platform::RegularPlatform;
-use project::Project;
+use crate::device::make_remote_app;
+use crate::errors::*;
+use crate::platform::regular_platform::RegularPlatform;
+use crate::project::Project;
 use std::io::Write;
 use std::{fmt, io, path, process};
-use utils::path_to_str;
-use Build;
-use BuildBundle;
-use Device;
-use DeviceCompatibility;
-use Runnable;
+use crate::utils::path_to_str;
+use crate::Build;
+use crate::BuildBundle;
+use crate::Device;
+use crate::DeviceCompatibility;
+use crate::Runnable;
 
 static ANDROID_WORK_DIR: &str = "/data/local/tmp/dinghy";
 
