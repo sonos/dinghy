@@ -15,6 +15,7 @@ use std::fmt::{Debug, Display};
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
+use crate::host::HostPlatform;
 
 pub struct SshDevice {
     pub id: String,
@@ -128,6 +129,13 @@ impl DeviceCompatibility for SshDevice {
             .platform
             .as_ref()
             .map_or(false, |it| *it == platform.id)
+    }
+
+    fn is_compatible_with_host_platform(&self, platform: &HostPlatform) -> bool {
+        self.conf
+            .platform
+            .as_ref()
+            .map_or(true, |it| *it == platform.id)
     }
 }
 
