@@ -87,16 +87,18 @@ impl ToolchainConfig {
     pub fn setup_pkg_config(&self) -> Result<()> {
         self.as_toolchain().setup_pkg_config()?;
 
-        append_path_to_target_env(
-            "PKG_CONFIG_LIBDIR",
-            Some(&self.rustc_triple),
-            WalkDir::new(self.root.to_string_lossy().as_ref())
-                .into_iter()
-                .filter_map(|e| e.ok()) // Ignore unreadable files, maybe could warn...
-                .filter(|e| e.file_name() == "pkgconfig" && e.file_type().is_dir())
-                .map(|e| e.path().to_string_lossy().into_owned())
-                .join(":"),
-        );
+        if self.root.parent().is_some() {
+            append_path_to_target_env(
+                "PKG_CONFIG_LIBDIR",
+                Some(&self.rustc_triple),
+                WalkDir::new(self.root.to_string_lossy().as_ref())
+                    .into_iter()
+                    .filter_map(|e| e.ok()) // Ignore unreadable files, maybe could warn...
+                    .filter(|e| e.file_name() == "pkgconfig" && e.file_type().is_dir())
+                    .map(|e| e.path().to_string_lossy().into_owned())
+                    .join(":"),
+            );
+        }
 
         set_target_env(
             "PKG_CONFIG_SYSROOT_DIR",
