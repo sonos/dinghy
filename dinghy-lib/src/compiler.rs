@@ -69,9 +69,10 @@ impl Compiler {
         &self,
         rustc_triple: Option<&str>,
         build_args: &BuildArgs,
-        args: &[&str],
+        args: &[impl AsRef<str>],
     ) -> Result<()> {
-        (self.run_command)(rustc_triple, build_args, args)
+        let args = args.iter().map(AsRef::as_ref).collect::<Vec<_>>();
+        (self.run_command)(rustc_triple, build_args, &*args)
     }
 }
 
