@@ -180,23 +180,33 @@ impl Device for SshDevice {
         envs: &[&str],
     ) -> Result<Vec<BuildBundle>> {
         let mut build_bundles = vec![];
+        let remote_shell_vars_as_context = |a: &str| -> Option<std::borrow::Cow<str>> {
+            self.conf.remote_shell_vars.get(a).map(|s| s.into())
+        };
         let args: Vec<String> = args
             .iter()
-            .map(|&a| ::shell_escape::escape(a.into()).to_string())
+            .map(|&a| {
+                shellexpand::full_with_context_no_errors(
+                    a,
+                    || remote_shell_vars_as_context("HOME").map(|s| PathBuf::from(&*s)),
+                    remote_shell_vars_as_context,
+                )
+            })
+            .map(|a| ::shell_escape::escape(a).to_string())
             .collect();
         for runnable in &build.runnables {
             info!("Install {:?}", runnable.id);
             let (build_bundle, remote_bundle) = self.install_app(&project, &build, &runnable)?;
             debug!("Installed {:?}", runnable.id);
             let command = format!(
-                "cd '{}' ; {} RUST_BACKTRACE=1 DINGHY=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {} {}",
-                path_to_str(&remote_bundle.bundle_dir)?,
-                envs.join(" "),
-                path_to_str(&remote_bundle.lib_dir)?,
-                path_to_str(&remote_bundle.bundle_exe)?,
-                if build.build_args.compile_mode == ::cargo::core::compiler::CompileMode::Bench { "--bench" } else { "" },
-                args.join(" ")
-                );
+                        "cd '{}' ; {} RUST_BACKTRACE=1 DINGHY=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {} {}",
+                        path_to_str(&remote_bundle.bundle_dir)?,
+                        envs.join(" "),
+                        path_to_str(&remote_bundle.lib_dir)?,
+                        path_to_str(&remote_bundle.bundle_exe)?,
+                        if build.build_args.compile_mode == ::cargo::core::compiler::CompileMode::Bench { "--bench" } else { "" },
+                        args.join(" ")
+                        );
             trace!("Ssh command: {}", command);
             info!(
                 "Run {} on {} ({:?})",
@@ -221,10 +231,10 @@ impl Device for SshDevice {
 impl Debug for SshDevice {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         Ok(fmt.write_str(format!("Ssh {{ \"id\": \"{}\", \"hostname\": \"{}\", \"username\": \"{}\", \"port\": \"{}\" }}",
-                                 self.id,
-                                 self.conf.hostname,
-                                 self.conf.username,
-                                 self.conf.port.as_ref().map_or("none".to_string(), |it| it.to_string())).as_str())?)
+                                     self.id,
+                                     self.conf.hostname,
+                                     self.conf.username,
+                                     self.conf.port.as_ref().map_or("none".to_string(), |it| it.to_string())).as_str())?)
     }
 }
 

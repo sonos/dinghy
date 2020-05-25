@@ -143,6 +143,8 @@ pub struct SshDeviceConfiguration {
     pub target: Option<String>,
     pub toolchain: Option<String>,
     pub platform: Option<String>,
+    #[serde(default)]
+    pub remote_shell_vars: collections::HashMap<String, String>,
     pub install_adhoc_rsync_local_path: Option<String>,
 }
 

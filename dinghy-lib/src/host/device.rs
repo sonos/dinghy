@@ -81,7 +81,12 @@ impl Device for HostDevice {
             set_env(env_key, env_value);
         }
         let build_bundles = self.install_all_apps(project, build)?;
-        self.compiler.run(None, &build.build_args, args)?;
+        let args = args
+            .iter()
+            .map(|arg| Ok(shellexpand::full(arg)?.to_string()))
+            .collect::<Result<Vec<_>>>()?;
+        debug!("Arguments expanded to: {:?}", args);
+        self.compiler.run(None, &build.build_args, &*args)?;
         Ok(build_bundles)
     }
 
