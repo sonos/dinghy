@@ -46,6 +46,7 @@ impl AndroidDevice {
                             "armeabi-v7a" => "armv7-linux-androideabi",
                             "armeabi" => "arm-linux-androideabi",
                             "x86" => "i686-linux-android",
+                            "x86_64" => "x86_64-linux-android",
                             _ => return None,
                         })
                     })
