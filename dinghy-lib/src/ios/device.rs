@@ -315,6 +315,8 @@ enum Value {
 fn mk_result(rv: i32) -> Result<()> {
     if rv as u32 == 0xe80000e2 {
         bail!("error: Device is locked. ({:x})", rv)
+    } else if rv as u32 == 0xe80000be {
+        bail!("error: 0xe80000be, kAMDMismatchedApplicationIdentifierEntitlementError: This application's application-identifier entitlement does not match that of the installed application. These values must match for an upgrade to be allowed. Help: check that the xcode project you created has \"Dinghy\" as Project Name, and make the prefix (Organisation identifier) something reasonably unique.")
     } else if rv as u32 == 0xe8000087 {
         bail!("error: 0xe8000087, Architecture mismatch")
     } else if rv as u32 == 0xe8008015 {
