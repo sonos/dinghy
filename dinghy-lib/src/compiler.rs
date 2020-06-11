@@ -142,7 +142,12 @@ fn create_build_command(
             &[],
             &[],
         )?;
-        let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?, &config)?;
+        let root_manifest = find_root_manifest_for_wd(&current_dir()?)?;
+        if current_dir()? == root_manifest.parent().unwrap() && features.len() > 0 {
+            bail!("cargo does not support --features flag when building from root of workspace")
+        }
+        let workspace = Workspace::new(&root_manifest, &config)?;
+
 
         let project_metadata_list = workskpace_metadata(&workspace)?;
         let filtered_projects = exclude_by_target_triple(
