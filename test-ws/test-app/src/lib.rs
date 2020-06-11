@@ -35,8 +35,7 @@ mod tests {
             let license = if let Err(_) = ::std::env::var("NOT_BUILT_WITH_DINGHY") {
                 test_file_path("dinghy_license")
             } else {
-                try_test_file_path("dinghy_license")
-                    .unwrap_or(path::PathBuf::from("../../LICENSE"))
+                try_test_file_path("dinghy_license").unwrap_or(path::PathBuf::from("../../LICENSE"))
             };
             println!("Found path: {:?}", license);
             assert!(
@@ -54,6 +53,13 @@ mod tests {
         #[test]
         fn it_fails() {
             panic!("Failing as expected");
+        }
+    }
+
+    mod feature {
+        #[test]
+        fn has_feature() {
+            assert!(cfg!(feature = "my-feature"))
         }
     }
 }
