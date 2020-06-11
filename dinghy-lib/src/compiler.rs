@@ -105,10 +105,8 @@ fn create_build_command(
     let bins = arg_as_string_vec(matches, "BIN");
     let features: Vec<String> = matches
         .value_of("FEATURES")
-        .unwrap_or("")
-        .split(" ")
-        .map(|s| s.into())
-        .collect();
+        .map(|f| f.split(" ").map(|s| s.into()).collect())
+        .unwrap_or(vec![]);
     let examples = arg_as_string_vec(matches, "EXAMPLE");
     let excludes = arg_as_string_vec(matches, "EXCLUDE");
     let jobs = matches.value_of("JOBS").map(|v| v.parse::<u32>().unwrap());
@@ -147,7 +145,6 @@ fn create_build_command(
             bail!("cargo does not support --features flag when building from root of workspace")
         }
         let workspace = Workspace::new(&root_manifest, &config)?;
-
 
         let project_metadata_list = workskpace_metadata(&workspace)?;
         let filtered_projects = exclude_by_target_triple(
