@@ -4,5 +4,8 @@ version = "0.1.0"
 authors = ["Mathieu Poumeyrol <kali@zoy.org>"]
 edition = "2018"
 
+[features]
+my-feature = []
+
 [dev-dependencies]
 dinghy-test = { path = "../../dinghy-test" }
