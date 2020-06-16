@@ -1,6 +1,6 @@
 # Dinghy
 
-[![Build Status](https://travis-ci.org/snipsco/dinghy.svg?branch=master)](https://travis-ci.org/snipsco/dinghy)
+[![Build Status](https://travis-ci.org/snipsco/dinghy.svg?branch=main)](https://travis-ci.org/snipsco/dinghy)
 
 ## What ?
 
