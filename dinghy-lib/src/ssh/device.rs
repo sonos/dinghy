@@ -66,14 +66,14 @@ impl SshDevice {
                 let rsync_path = "/tmp/rsync";
                 let mut command = Command::new("scp");
                 command.arg("-q");
+                if let Some(port) = self.conf.port {
+                    command.arg("-P").arg(&format!("{}", port));
+                }
                 command.arg(format!("{}", rsync));
                 command.arg(format!(
                     "{}@{}:{}",
                     self.conf.username, self.conf.hostname, rsync_path
                 ));
-                if let Some(port) = self.conf.port {
-                    command.arg("-p").arg(&format!("{}", port));
-                }
                 debug!("Running {:?}", command);
                 if !command.status()?.success() {
                     bail!("Error copying rsync binary ({:?})", command)
