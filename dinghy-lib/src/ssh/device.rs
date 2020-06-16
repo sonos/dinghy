@@ -50,13 +50,13 @@ impl SshDevice {
 
     fn ssh_command(&self) -> Result<Command> {
         let mut command = Command::new("ssh");
-        command.arg(format!("{}@{}", self.conf.username, self.conf.hostname));
         if let Some(port) = self.conf.port {
             command.arg("-p").arg(&format!("{}", port));
         }
         if atty::is(atty::Stream::Stdout) {
             command.arg("-t").arg("-o").arg("LogLevel=QUIET");
         }
+        command.arg(format!("{}@{}", self.conf.username, self.conf.hostname));
         Ok(command)
     }
 
