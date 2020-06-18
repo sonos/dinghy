@@ -94,7 +94,7 @@ impl SshDevice {
         command.arg(&format!("--rsync-path={}", rsync));
         command.arg("-a").arg("-v");
         if let Some(port) = self.conf.port {
-            command.arg(&*format!("ssh -p {}", port));
+            command.arg("-e").arg(&*format!("ssh -p {}", port));
         };
         if !log_enabled!(::log::Level::Debug) {
             command.stdout(::std::process::Stdio::null());
