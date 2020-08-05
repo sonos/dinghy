@@ -15,7 +15,7 @@ def set_remote_path(debugger, command, result, internal_dict):
 def start(debugger, command, result, internal_dict):
     error = lldb.SBError()
     info = lldb.SBLaunchInfo(shlex.split(command))
-    info.SetEnvironmentEntries(["METAL_DEVICE_WRAPPER_TYPE=1", "METAL_DEBUG_ERROR_MODE=0"], True)
+    info.SetEnvironmentEntries(["ENV_VAR_PLACEHOLDER"], True)
     proc = lldb.target.Launch(info, error)
     lockedstr = ': Locked'
     if proc.GetState() != lldb.eStateExited:
