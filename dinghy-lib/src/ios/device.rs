@@ -117,7 +117,7 @@ impl Device for IosDevice {
         project: &Project,
         build: &Build,
         args: &[&str],
-        _envs: &[&str],
+        envs: &[&str],
     ) -> Result<BuildBundle> {
         let runnable = build
             .runnables
@@ -126,7 +126,7 @@ impl Device for IosDevice {
             .ok_or_else(|| anyhow!("No executable compiled"))?;
         let build_bundle = self.install_app(project, build, runnable)?;
         let lldb_proxy = self.start_remote_lldb()?;
-        run_remote(self.ptr, &lldb_proxy, &build_bundle.bundle_dir, args, true)?;
+        run_remote(self.ptr, &lldb_proxy, &build_bundle.bundle_dir, args, envs, true)?;
         Ok(build_bundle)
     }
 
@@ -143,13 +143,13 @@ impl Device for IosDevice {
         project: &Project,
         build: &Build,
         args: &[&str],
-        _envs: &[&str],
+        envs: &[&str],
     ) -> Result<Vec<BuildBundle>> {
         let mut build_bundles = vec![];
         for runnable in &build.runnables {
             let build_bundle = self.install_app(&project, &build, &runnable)?;
             let lldb_proxy = self.start_remote_lldb()?;
-            run_remote(self.ptr, &lldb_proxy, &build_bundle.bundle_dir, args, false)?;
+            run_remote(self.ptr, &lldb_proxy, &build_bundle.bundle_dir, args, envs, false)?;
             build_bundles.push(build_bundle)
         }
         Ok(build_bundles)
@@ -214,7 +214,7 @@ impl Device for IosSimDevice {
         project: &Project,
         build: &Build,
         args: &[&str],
-        _envs: &[&str],
+        envs: &[&str],
     ) -> Result<BuildBundle> {
         let runnable = build
             .runnables
@@ -228,7 +228,7 @@ impl Device for IosSimDevice {
                 .output()?
                 .stdout,
         )?;
-        launch_lldb_simulator(&self, &install_path, args, true)?;
+        launch_lldb_simulator(&self, &install_path, args, envs, true)?;
         Ok(build_bundle)
     }
 
@@ -245,12 +245,12 @@ impl Device for IosSimDevice {
         project: &Project,
         build: &Build,
         args: &[&str],
-        _envs: &[&str],
+        envs: &[&str],
     ) -> Result<Vec<BuildBundle>> {
         let mut build_bundles = vec![];
         for runnable in &build.runnables {
             let build_bundle = self.install_app(&project, &build, &runnable)?;
-            launch_app(&self, args)?;
+            launch_app(&self, args, envs)?;
             build_bundles.push(build_bundle);
         }
         Ok(build_bundles)
@@ -628,8 +628,10 @@ fn launch_lldb_device<P: AsRef<Path>, P2: AsRef<Path>>(
     local: P,
     remote: P2,
     args: &[&str],
+    envs: &[&str],
     debugger: bool,
 ) -> Result<()> {
+    dbg!(&envs);
     use std::io::Write;
     use std::process::Command;
     let _session = ensure_session(dev);
@@ -642,7 +644,10 @@ fn launch_lldb_device<P: AsRef<Path>, P2: AsRef<Path>>(
         .to_owned();
     {
         let python_lldb_support = tmppath.join("helpers.py");
-        fs::File::create(&python_lldb_support)?.write_all(include_bytes!("helpers.py"))?;
+        let helper_py = include_str!("helpers.py");
+        let helper_py = helper_py.replace("ENV_VAR_PLACEHOLDER", &envs.join("\", \""));
+        dbg!(&helper_py);
+        fs::File::create(&python_lldb_support)?.write_fmt(format_args!("{}", &helper_py ))?;
         let mut script = fs::File::create(&lldb_script_filename)?;
         writeln!(script, "platform select remote-ios --sysroot '{}'", sysroot)?;
         writeln!(
@@ -693,7 +698,7 @@ fn launch_lldb_device<P: AsRef<Path>, P2: AsRef<Path>>(
     }
 }
 
-fn launch_app(dev: &IosSimDevice, app_args: &[&str]) -> Result<()> {
+fn launch_app(dev: &IosSimDevice, app_args: &[&str], _envs: &[&str]) -> Result<()> {
     use std::io::Write;
     let dir = ::tempdir::TempDir::new("mobiledevice-rs-lldb")?;
     let tmppath = dir.path();
@@ -783,6 +788,7 @@ fn launch_lldb_simulator(
     dev: &IosSimDevice,
     installed: &str,
     args: &[&str],
+    _envs: &[&str],
     debugger: bool,
 ) -> Result<()> {
     use std::io::Write;
@@ -831,6 +837,7 @@ pub fn run_remote<P: AsRef<Path>>(
     lldb_proxy: &str,
     app_path: P,
     args: &[&str],
+    envs: &[&str],
     debugger: bool,
 ) -> Result<()> {
     let _session = ensure_session(dev)?;
@@ -868,7 +875,7 @@ pub fn run_remote<P: AsRef<Path>>(
     } else {
         bail!("Invalid info")
     };
-    launch_lldb_device(dev, lldb_proxy, app_path, remote, args, debugger)?;
+    launch_lldb_device(dev, lldb_proxy, app_path, remote, args, envs, debugger)?;
     Ok(())
 }
 
