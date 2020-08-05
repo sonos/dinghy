@@ -800,7 +800,7 @@ fn launch_lldb_simulator(
     dev: &IosSimDevice,
     installed: &str,
     args: &[&str],
-    _envs: &[&str],
+    envs: &[&str],
     debugger: bool,
 ) -> Result<()> {
     use std::io::Write;
