@@ -14,7 +14,9 @@ def set_remote_path(debugger, command, result, internal_dict):
 
 def start(debugger, command, result, internal_dict):
     error = lldb.SBError()
-    proc = lldb.target.Launch(lldb.SBLaunchInfo(shlex.split(command)), error)
+    info = lldb.SBLaunchInfo(shlex.split(command))
+    info.SetEnvironmentEntries(["METAL_DEVICE_WRAPPER_TYPE=1", "METAL_DEBUG_ERROR_MODE=0"], True)
+    proc = lldb.target.Launch(info, error)
     lockedstr = ': Locked'
     if proc.GetState() != lldb.eStateExited:
         print("process left in lldb state: %s"%(debugger.StateAsCString(proc.GetState())))
@@ -22,7 +24,7 @@ def start(debugger, command, result, internal_dict):
         print('\nDevice Locked\n')
         os._exit(254)
     elif proc.GetState() == lldb.eStateStopped:
-        thread = proc.GetSelectedThread();
+        thread = proc.GetSelectedThread()
         print(thread)
         for frame in thread:
             print("  %s"%(frame))
