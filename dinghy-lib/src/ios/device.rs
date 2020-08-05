@@ -57,8 +57,8 @@ impl IosDevice {
             x => bail!("DeviceName should have been a string, was {:?}", x),
         };
         let cpu = match device_read_value(ptr, "CPUArchitecture")? {
-            Some(Value::String(ref v)) if v == "arm64" => "aarch64",
-            _ => "armv7",
+            Some(Value::String(ref v)) if v == "arm64" || v == "arm64e" => "aarch64",
+            v => "armv7",
         };
         let id = if let Value::String(id) = rustify(unsafe { AMDeviceCopyDeviceIdentifier(ptr) })? {
             id
