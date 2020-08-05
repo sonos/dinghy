@@ -810,7 +810,9 @@ fn launch_lldb_simulator(
     let lldb_script_filename = tmppath.join("lldb-script");
     {
         let python_lldb_support = tmppath.join("helpers.py");
-        fs::File::create(&python_lldb_support)?.write_all(include_bytes!("helpers.py"))?;
+        let helper_py = include_str!("helpers.py");
+        let helper_py = helper_py.replace("ENV_VAR_PLACEHOLDER", &envs.join("\", \""));
+        fs::File::create(&python_lldb_support)?.write_fmt(format_args!("{}", &helper_py))?;
         let mut script = fs::File::create(&lldb_script_filename)?;
         writeln!(script, "platform select ios-simulator")?;
         writeln!(script, "target create {}", installed)?;
