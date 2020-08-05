@@ -1,6 +1,7 @@
 use crate::config::SshDeviceConfiguration;
 use crate::device::make_remote_app;
 use crate::errors::*;
+use crate::host::HostPlatform;
 use crate::platform::regular_platform::RegularPlatform;
 use crate::project::Project;
 use crate::utils::path_to_str;
@@ -15,7 +16,6 @@ use std::fmt::{Debug, Display};
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
-use crate::host::HostPlatform;
 
 pub struct SshDevice {
     pub id: String,
