@@ -1,6 +1,6 @@
 [package]
 name = "dinghy-lib"
-version = "0.4.39-pre"
+version = "0.4.39"
 authors = ["Mathieu Poumeyrol <mathieu.poumeyrol@snips.ai>"]
 license = "MIT/Apache-2.0"
 description = "Cross-compilation made easier - see main crate cargo-dinghy"
@@ -16,7 +16,7 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1"
-dinghy-build = { path = "../dinghy-build" }
+dinghy-build = "0.4.39"
 dirs = "2"
 failure = "0.1.6"
 filetime = "0.2"
