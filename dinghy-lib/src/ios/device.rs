@@ -58,7 +58,7 @@ impl IosDevice {
         };
         let cpu = match device_read_value(ptr, "CPUArchitecture")? {
             Some(Value::String(ref v)) if v == "arm64" || v == "arm64e" => "aarch64",
-            v => "armv7",
+            _ => "armv7",
         };
         let id = if let Value::String(id) = rustify(unsafe { AMDeviceCopyDeviceIdentifier(ptr) })? {
             id
@@ -126,7 +126,14 @@ impl Device for IosDevice {
             .ok_or_else(|| anyhow!("No executable compiled"))?;
         let build_bundle = self.install_app(project, build, runnable)?;
         let lldb_proxy = self.start_remote_lldb()?;
-        run_remote(self.ptr, &lldb_proxy, &build_bundle.bundle_dir, args, envs, true)?;
+        run_remote(
+            self.ptr,
+            &lldb_proxy,
+            &build_bundle.bundle_dir,
+            args,
+            envs,
+            true,
+        )?;
         Ok(build_bundle)
     }
 
@@ -149,7 +156,14 @@ impl Device for IosDevice {
         for runnable in &build.runnables {
             let build_bundle = self.install_app(&project, &build, &runnable)?;
             let lldb_proxy = self.start_remote_lldb()?;
-            run_remote(self.ptr, &lldb_proxy, &build_bundle.bundle_dir, args, envs, false)?;
+            run_remote(
+                self.ptr,
+                &lldb_proxy,
+                &build_bundle.bundle_dir,
+                args,
+                envs,
+                false,
+            )?;
             build_bundles.push(build_bundle)
         }
         Ok(build_bundles)
@@ -631,7 +645,6 @@ fn launch_lldb_device<P: AsRef<Path>, P2: AsRef<Path>>(
     envs: &[&str],
     debugger: bool,
 ) -> Result<()> {
-    dbg!(&envs);
     use std::io::Write;
     use std::process::Command;
     let _session = ensure_session(dev);
@@ -646,8 +659,7 @@ fn launch_lldb_device<P: AsRef<Path>, P2: AsRef<Path>>(
         let python_lldb_support = tmppath.join("helpers.py");
         let helper_py = include_str!("helpers.py");
         let helper_py = helper_py.replace("ENV_VAR_PLACEHOLDER", &envs.join("\", \""));
-        dbg!(&helper_py);
-        fs::File::create(&python_lldb_support)?.write_fmt(format_args!("{}", &helper_py ))?;
+        fs::File::create(&python_lldb_support)?.write_fmt(format_args!("{}", &helper_py))?;
         let mut script = fs::File::create(&lldb_script_filename)?;
         writeln!(script, "platform select remote-ios --sysroot '{}'", sysroot)?;
         writeln!(
