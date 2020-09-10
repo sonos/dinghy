@@ -184,6 +184,7 @@ fn ndk() -> Result<Option<path::PathBuf>> {
             return Ok(Some(sdk.join("ndk-bundle")));
         }
     }
+    debug!("Android NDK not found");
     Ok(None)
 }
 
