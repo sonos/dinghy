@@ -1,6 +1,6 @@
 [package]
 name = "cargo-dinghy"
-version = "0.4.40-pre"
+version = "0.4.40"
 authors = ["Mathieu Poumeyrol <mathieu.poumeyrol@snips.ai>"]
 license = "MIT/Apache-2.0"
 description = "Cross-compilation made easier"
@@ -17,7 +17,7 @@ edition = "2018"
 travis-ci = { repository = "snipsco/dinghy" }
 
 [dependencies]
-dinghy-lib = { path = "../dinghy-lib" }
+dinghy-lib = "0.4.40"
 error-chain = "0.12"
 log = "0.4"
 clap = "2.32"
