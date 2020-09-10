@@ -183,6 +183,9 @@ fn ndk() -> Result<Option<path::PathBuf>> {
         if sdk.join("ndk-bundle/source.properties").is_file() {
             return Ok(Some(sdk.join("ndk-bundle")));
         }
+        if let Some(ndk) = find_non_legacy_ndk(&sdk)? {
+            return Ok(Some(ndk));
+        }
     }
     debug!("Android NDK not found");
     Ok(None)
@@ -233,4 +236,65 @@ fn adb() -> Result<path::PathBuf> {
         }
     }
     bail!("Adb could be found")
+}
+
+fn find_non_legacy_ndk(sdk: &path::Path) -> Result<Option<path::PathBuf>> {
+    let ndk_root = sdk.join("ndk");
+    if !ndk_root.is_dir() {
+        return Ok(None);
+    }
+    let ndk = ndk_root
+        .read_dir()
+        .with_context(|| format!("Cannot open NDK directory at {}", ndk_root.display()))?
+        .filter_map(Result::ok)
+        .filter_map(|directory| {
+            directory
+                .path()
+                .file_name()
+                .and_then(|name| {
+                    let name = name.to_string_lossy();
+                    // Filter out directory if we fail to parse directory name to semver
+                    semver::Version::parse(&name).ok()
+                })
+                .map(|version| (directory, version))
+        })
+        .max_by(|left, right| {
+            let left_version: &semver::Version = &left.1;
+            let right_version: &semver::Version = &right.1;
+            left_version.cmp(right_version)
+        })
+        .map(|tuple| tuple.0.path());
+    Ok(ndk)
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_find_non_legacy_ndk() {
+        let sdk_dir = tempfile::tempdir().unwrap();
+        let sdk = sdk_dir.path();
+        let ndk_root = sdk.join("ndk");
+        let ndk_versions = ["21.1.123456", "21.3.6528147", "20.1.5948944"];
+        for version in &ndk_versions {
+            let path = ndk_root.join(version);
+            fs::create_dir_all(path).unwrap();
+        }
+
+        let ndk = find_non_legacy_ndk(sdk).unwrap();
+
+        let expected = ndk_root.join("21.3.6528147");
+        assert_eq!(Some(expected), ndk);
+    }
+
+    #[test]
+    fn test_find_non_legacy_ndk_on_non_existing_directory() {
+        let sdk = tempfile::tempdir().unwrap();
+
+        let ndk = find_non_legacy_ndk(sdk.path()).unwrap();
+
+        assert_eq!(None, ndk);
+    }
 }
