@@ -616,7 +616,7 @@ fn find_dynamic_libraries(
         path.file_name()
             .and_then(|file_name| file_name.to_str())
             .map(|file_name| {
-                file_name != "libstdc++.so"
+                file_name != "libstdc++.so" && file_name != "libdl.so"
                     || !rustc_triple
                         .map(|it| it.contains("android"))
                         .unwrap_or(false)
