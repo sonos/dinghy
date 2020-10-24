@@ -4,7 +4,7 @@
 ![MIT/Apache 2](https://img.shields.io/crates/l/dinghy)
 ![Build and test](https://github.com/snipsco/dinghy/workflows/Build%20and%20test/badge.svg)
 
-## What ?
+## What?
 
 Dinghy is a `cargo` extension to bring cargo workflow to cross-compilation situations.
 
@@ -28,7 +28,7 @@ smartphones, and a Raspberry Pi.
 
 Phew. It works.
 
-## How 
+## How?
 
 Once dinghy knows about your toolchains and devices, you will be able to run 
 tests and benches from a simple cargo command **in any cargo project**, most of
@@ -45,24 +45,24 @@ By default, without `-d`, Dinghy will make a native build, just like `cargo` wou
 
 ## Getting started
 
-Depending on what is your targets and your workstation, setting
-up Dinghy can be more or less easy. 
+Depending on your targets and your workstation, the ease of setting
+up Dinghy can vary. 
 
 * [Android](docs/android.md) is relatively easy, specifically if you already are
-a mobile developper
+a mobile developer.
 * [iOS](docs/ios.md) setup has a lot of steps, but at least Apple provides everything
-you will need. Once again, if you are an iOS developper, most of the heavy lifting has
-been already done. And if you are not, be aware that you won't have anything to pay.
-* [other remore ssh-accessible devices](docs/ssh.md) easiest from dinghy point of view,
-but you willbe on your own to obtain the toolchain for your device architecture and
-operating system. If your device is a RaspberryPi running raspbian, we can help :)
+you will need. Once again, if you are an iOS developer, most of the heavy lifting has
+been already done. And if you are not, be aware that you won't have to pay anything.
+* [other remote ssh-accessible devices](docs/ssh.md) are the easiest from dinghy point of view,
+but you will be on your own to obtain the toolchain for your device architecture and
+operating system. If your device is a Raspberry Pi running raspbian, we can help. :)
 
 ## Advanced topics and features
 
 * Some projects need [resources files](docs/files.md) for running their tests or benches. Dinghy
-tries its best to make it work in as many project/target configuration as
-possible but some projects needs a bit of help.
-* In some bigger projects, you may need to [filter](docs/filter.md) you projects members depending
+tries its best to make it work in as many project/target configurations as
+possible but some projects need a bit of help.
+* In some bigger projects, you may need to [filter](docs/filter.md) your project's members depending
 on the platform you want to test.
 * Passing [environment](docs/vars.md) variables to your executable may sometimes be useful.
 * Dinghy offers an [overlay](docs/overlay.md) system to "add" stuff to your toolchain 
