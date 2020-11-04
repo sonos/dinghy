@@ -109,7 +109,7 @@ impl SshDevice {
                 path_to_str(&to_path.as_ref())?
             ));
         debug!("Running {:?}", command);
-        if !command.status()?.success() {
+        if !command.status().with_context(||format!("failed to run '{:?}'", command))?.success() {
             bail!("Error syncing ssh directory ({:?})", command)
         } else {
             Ok(())
