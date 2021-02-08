@@ -13,6 +13,8 @@ jobs:
         os: [ ubuntu-latest, macOS-latest ]
         include:
           - os: ubuntu-latest
+            name: linux-musl
+          - os: ubuntu-latest
             name: linux
           - os: macOS-latest
             name: macos
@@ -27,9 +29,16 @@ jobs:
 
       - name: Build cargo-dinghy
         run: |
-          cargo build --release -p cargo-dinghy
-          mkdir cargo-dinghy-${{ steps.version.outputs.value }}
-          mv target/release/cargo-dinghy cargo-dinghy-${{ steps.version.outputs.value }}
+          ZIPDIR=cargo-dinghy-${{ steps.version.outputs.value }}
+          mkdir $ZIPDIR
+          if [ ${{matrix.name}} == "linux-musl" ]
+          then
+            cargo build --release -p cargo-dinghy
+            mv target/release/cargo-dinghy $ZIPDIR
+          else
+            ./musl_build.sh
+            mv cargo-dinghy $ZIPDIR
+          fi
           tar vczf cargo-dinghy-${{matrix.name}}-${{ steps.version.outputs.value }}.tgz cargo-dinghy-${{ steps.version.outputs.value }}
 
       - name: Upload asset
