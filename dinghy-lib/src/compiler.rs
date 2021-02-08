@@ -361,26 +361,22 @@ fn create_run_command(
             }
             match build_args.compile_mode {
                 CompileMode::Bench => {
-                    if let Some(err) = ops::run_benches(&workspace, &test_options, args)? {
-                        bail!("An error occured: {:?}", err);
-                    };
+                    ops::run_benches(&workspace, &test_options, args)?;
                 }
                 CompileMode::Build => {
-                    if let Err(err) = ops::run(
+                    ops::run(
                         &workspace,
                         &test_options.compile_opts,
                         args.into_iter()
                             .map(|it| OsString::from(it))
                             .collect_vec()
                             .as_slice(),
-                    ) {
-                        bail!("An error occured: {:?}", err);
-                    };
+                    )?;
                 }
                 CompileMode::Test => {
-                    if let Err(err) = ops::run_tests(&workspace, &test_options, args) {
-                        bail!("An error occured: {:?}", err);
-                    };
+                    if let Some(err) = ops::run_tests(&workspace, &test_options, args)? {
+                        Err(err)?;
+                    }
                 }
                 otherwise => {
                     bail!("Invalid run option {:?}", otherwise);
@@ -497,7 +493,7 @@ fn to_build(
             runnables: compilation
                 .tests
                 .iter()
-                .map(|&(_, ref exe_path)| {
+                .map(|&(ref u, ref exe_path)| {
                     Ok(Runnable {
                         exe: exe_path.clone(),
                         id: exe_path
@@ -510,7 +506,7 @@ fn to_build(
                                 anyhow!("Invalid executable file '{}'", &exe_path.display())
                             })?
                             .to_string(),
-                        source: PathBuf::from("."),
+                        source: u.pkg.package_id().source_id().url().to_file_path().unwrap(),
                     })
                 })
                 .collect::<Result<Vec<_>>>()?,
