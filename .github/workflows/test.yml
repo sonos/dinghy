@@ -38,6 +38,7 @@ jobs:
 
   linux-musl:
     runs-on: ubuntu-latest
+    steps:
     - uses: actions/checkout@v1
     - name: cargo test
       run: ./musl_build.sh
