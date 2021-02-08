@@ -386,7 +386,7 @@ dependencies = [
 
 [[package]]
 name = "dinghy-build"
-version = "0.4.42-pre"
+version = "0.4.42"
 dependencies = [
  "cc",
  "error-chain",
