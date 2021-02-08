@@ -9,18 +9,19 @@ use crate::Result;
 use crate::Runnable;
 use cargo::core::compiler as CargoCoreCompiler;
 use cargo::core::compiler::Compilation;
+use cargo::core::compiler::CompileKind;
 pub use cargo::core::compiler::CompileMode;
 use cargo::core::compiler::MessageFormat;
-use cargo::core::InternedString;
 use cargo::core::Workspace;
-use cargo::ops as CargoOps;
+use cargo::ops;
 use cargo::ops::CleanOptions;
 use cargo::ops::CompileFilter;
 use cargo::ops::CompileOptions;
 use cargo::ops::Packages as CompilePackages;
 use cargo::ops::TestOptions;
-use cargo::util::config::Config as CompileConfig;
+use cargo::util::config::Config;
 use cargo::util::important_paths::find_root_manifest_for_wd;
+use cargo::util::interning::InternedString;
 use clap::ArgMatches;
 use dinghy_build::build_env::target_env_from_triple;
 use itertools::Itertools;
@@ -49,12 +50,12 @@ pub struct Compiler {
 }
 
 impl Compiler {
-    pub fn from_args(matches: &ArgMatches) -> Self {
-        Compiler {
-            build_command: create_build_command(matches),
-            clean_command: create_clean_command(matches),
-            run_command: create_run_command(matches),
-        }
+    pub fn from_args(matches: &ArgMatches) -> Result<Self> {
+        Ok(Compiler {
+            build_command: create_build_command(matches)?,
+            clean_command: create_clean_command(matches)?,
+            run_command: create_run_command(matches)?,
+        })
     }
 
     pub fn build(&self, rustc_triple: Option<&str>, build_args: &BuildArgs) -> Result<Build> {
@@ -96,9 +97,46 @@ impl ProjectMetadata {
     }
 }
 
+fn config(matches: &ArgMatches) -> Result<Config> {
+    let offline = matches.is_present("OFFLINE");
+    let verbosity = matches.occurrences_of("VERBOSE") as u32;
+    let mut config = Config::default()?;
+    config.configure(
+        verbosity,
+        false,
+        None,
+        false,
+        false,
+        offline,
+        &None,
+        &[],
+        &[],
+    )?;
+    Ok(config)
+}
+
+fn kind_and_target(rustc_triple: Option<&str>) -> Result<(CompileKind, String)> {
+    if let Some(rustc_triple) = rustc_triple {
+        Ok((
+            CompileKind::Target(cargo::core::compiler::CompileTarget::new(rustc_triple)?),
+            rustc_triple.to_string(),
+        ))
+    } else {
+        Ok((CompileKind::Host, std::env!("TARGET").to_string()))
+    }
+}
+
+fn profile(release: bool, build_args: &BuildArgs) -> InternedString {
+    if release || build_args.compile_mode == cargo::util::command_prelude::CompileMode::Bench {
+        InternedString::new("release")
+    } else {
+        InternedString::new("debug")
+    }
+}
+
 fn create_build_command(
     matches: &ArgMatches,
-) -> Box<dyn Fn(Option<&str>, &BuildArgs) -> Result<Build>> {
+) -> Result<Box<dyn Fn(Option<&str>, &BuildArgs) -> Result<Build>>> {
     let all = matches.is_present("ALL");
     let all_features = matches.is_present("ALL_FEATURES");
     let benches = arg_as_string_vec(matches, "BENCH");
@@ -115,31 +153,13 @@ fn create_build_command(
     let packages = arg_as_string_vec(matches, "SPEC");
 
     let release = matches.is_present("RELEASE");
-    let offline = matches.is_present("OFFLINE");
-    let verbosity = matches.occurrences_of("VERBOSE") as u32;
     let tests = arg_as_string_vec(matches, "TEST");
     let bearded = matches.is_present("BEARDED");
 
-    Box::new(move |rustc_triple: Option<&str>, build_args: &BuildArgs| {
-        let requested_profile = if release
-            || build_args.compile_mode == cargo::util::command_prelude::CompileMode::Bench
-        {
-            InternedString::new("release")
-        } else {
-            InternedString::new("debug")
-        };
-        let mut config = CompileConfig::default()?;
-        config.configure(
-            verbosity,
-            None,
-            None,
-            false,
-            false,
-            offline,
-            &None,
-            &[],
-            &[],
-        )?;
+    let config = config(matches)?;
+
+    let f = Box::new(move |rustc_triple: Option<&str>, build_args: &BuildArgs| {
+        let requested_profile = profile(release, build_args);
         let root_manifest = find_root_manifest_for_wd(&current_dir()?)?;
         if current_dir()? == root_manifest.parent().unwrap() && features.len() > 0 {
             bail!("cargo does not support --features flag when building from root of workspace")
@@ -179,28 +199,19 @@ fn create_build_command(
             (packages.clone(), excludes.clone())
         };
 
-        let requested_kind = if let Some(rustc_triple) = rustc_triple {
-            cargo::core::compiler::CompileKind::Target(cargo::core::compiler::CompileTarget::new(
-                rustc_triple,
-            )?)
-        } else {
-            cargo::core::compiler::CompileKind::Host
-        };
+        let (requested_kind, requested_targets) = kind_and_target(rustc_triple)?;
 
-        let build_config = CargoCoreCompiler::BuildConfig {
-            requested_kind,
-            requested_profile,
-            message_format: MessageFormat::Human,
-            ..CargoCoreCompiler::BuildConfig::new(
-                &config,
-                jobs,
-                &rustc_triple.map(str::to_string),
-                build_args.compile_mode,
-            )?
-        };
+        let mut build_config = CargoCoreCompiler::BuildConfig::new(
+            &config,
+            jobs,
+            &[requested_targets],
+            build_args.compile_mode,
+        )?;
+        build_config.requested_kinds = vec![requested_kind];
+        build_config.requested_profile = requested_profile;
+        build_config.message_format = MessageFormat::Human;
 
         let compile_options = CompileOptions {
-            config: &config,
             build_config,
             features: features.clone(),
             all_features,
@@ -220,7 +231,6 @@ fn create_build_command(
             ),
             target_rustdoc_args: None,
             target_rustc_args: None,
-            export_dir: None,
             local_rustdoc_args: None,
             rustdoc_document_private_items: false,
         };
@@ -228,56 +238,42 @@ fn create_build_command(
         if bearded {
             setup_dinghy_wrapper(&workspace, rustc_triple)?;
         }
-        let compilation = CargoOps::compile(&workspace, &compile_options)?;
+        let compilation = ops::compile(&workspace, &compile_options)?;
         let build = to_build(compilation, &config, build_args, rustc_triple)?;
         copy_dependencies_to_target(&build)?;
         Ok(build)
-    })
+    });
+    Ok(f)
 }
 
-fn create_clean_command(matches: &ArgMatches) -> Box<dyn Fn(Option<&str>) -> Result<()>> {
+fn create_clean_command(matches: &ArgMatches) -> Result<Box<dyn Fn(Option<&str>) -> Result<()>>> {
     let packages = arg_as_string_vec(matches, "SPEC");
     let release = matches.is_present("RELEASE");
-    let offline = matches.is_present("OFFLINE");
-    let verbosity = matches.occurrences_of("VERBOSE") as u32;
+    let config = config(matches)?;
 
-    Box::new(move |rustc_triple: Option<&str>| {
-        let mut config = CompileConfig::default()?;
-        config.configure(
-            verbosity,
-            None,
-            None,
-            false,
-            false,
-            offline,
-            &None,
-            &[],
-            &[],
-        )?;
+    let f = Box::new(move |rustc_triple: Option<&str>| {
         let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?, &config)?;
-        let requested_profile = if release {
-            InternedString::new("release")
-        } else {
-            InternedString::new("debug")
-        };
+        let requested_profile = InternedString::new(if release { "release" } else { "debug" });
+        let (_, target) = kind_and_target(rustc_triple)?;
 
         let options = CleanOptions {
             config: &config,
             requested_profile,
             profile_specified: false,
             spec: packages.clone(),
-            target: rustc_triple.map(str::to_string),
+            targets: vec![target],
             doc: false,
         };
 
-        CargoOps::clean(&workspace, &options)?;
+        ops::clean(&workspace, &options)?;
         Ok(())
-    })
+    });
+    Ok(f)
 }
 
 fn create_run_command(
     matches: &ArgMatches,
-) -> Box<dyn Fn(Option<&str>, &BuildArgs, &[&str]) -> Result<()>> {
+) -> Result<Box<dyn Fn(Option<&str>, &BuildArgs, &[&str]) -> Result<()>>> {
     let all = matches.is_present("ALL");
     let all_features = matches.is_present("ALL_FEATURES");
     let benches = arg_as_string_vec(matches, "BENCH");
@@ -296,32 +292,12 @@ fn create_run_command(
     let packages = arg_as_string_vec(matches, "SPEC");
 
     let release = matches.is_present("RELEASE");
-    let verbosity = matches.occurrences_of("VERBOSE") as u32;
     let tests = arg_as_string_vec(matches, "TEST");
     let bearded = matches.is_present("BEARDED");
-    let offline = matches.is_present("OFFLINE");
+    let config = config(matches)?;
 
-    Box::new(
+    let f = Box::new(
         move |rustc_triple: Option<&str>, build_args: &BuildArgs, args: &[&str]| {
-            let requested_kind = if let Some(rustc_triple) = rustc_triple {
-                cargo::core::compiler::CompileKind::Target(
-                    cargo::core::compiler::CompileTarget::new(rustc_triple)?,
-                )
-            } else {
-                cargo::core::compiler::CompileKind::Host
-            };
-            let mut config = CompileConfig::default()?;
-            config.configure(
-                verbosity,
-                None,
-                None,
-                false,
-                false,
-                offline,
-                &None,
-                &[],
-                &[],
-            )?;
             let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?, &config)?;
 
             let project_metadata_list = workskpace_metadata(&workspace)?;
@@ -335,21 +311,21 @@ fn create_run_command(
                 excludes.clone()
             };
             let requested_profile = InternedString::new(if release { "release" } else { "debug" });
+            let (kind, target) = kind_and_target(rustc_triple)?;
 
             let build_config = CargoCoreCompiler::BuildConfig {
                 message_format: MessageFormat::Human,
-                requested_kind,
+                requested_kinds: vec![kind],
                 requested_profile,
                 ..CargoCoreCompiler::BuildConfig::new(
                     &config,
                     jobs,
-                    &rustc_triple.map(str::to_string),
+                    &[target],
                     build_args.compile_mode,
                 )?
             };
 
             let compile_options = CompileOptions {
-                config: &config,
                 build_config,
                 features: features.clone(),
                 all_features,
@@ -370,7 +346,6 @@ fn create_run_command(
 
                 target_rustdoc_args: None,
                 target_rustc_args: None,
-                export_dir: None,
                 local_rustdoc_args: None,
                 rustdoc_document_private_items: false,
             };
@@ -386,24 +361,24 @@ fn create_run_command(
             }
             match build_args.compile_mode {
                 CompileMode::Bench => {
-                    if let Some(err) = CargoOps::run_benches(&workspace, &test_options, args)? {
+                    if let Some(err) = ops::run_benches(&workspace, &test_options, args)? {
                         bail!("An error occured: {:?}", err);
                     };
                 }
                 CompileMode::Build => {
-                    if let Some(err) = CargoOps::run(
+                    if let Err(err) = ops::run(
                         &workspace,
                         &test_options.compile_opts,
                         args.into_iter()
                             .map(|it| OsString::from(it))
                             .collect_vec()
                             .as_slice(),
-                    )? {
+                    ) {
                         bail!("An error occured: {:?}", err);
                     };
                 }
                 CompileMode::Test => {
-                    if let Some(err) = CargoOps::run_tests(&workspace, &test_options, args)? {
+                    if let Err(err) = ops::run_tests(&workspace, &test_options, args) {
                         bail!("An error occured: {:?}", err);
                     };
                 }
@@ -413,7 +388,8 @@ fn create_run_command(
             }
             Ok(())
         },
-    )
+    );
+    Ok(f)
 }
 
 fn setup_dinghy_wrapper(workspace: &Workspace, rustc_triple: Option<&str>) -> Result<()> {
@@ -472,10 +448,11 @@ fn copy_dependencies_to_target(build: &Build) -> Result<()> {
 
 fn to_build(
     compilation: Compilation,
-    config: &CompileConfig,
+    config: &Config,
     build_args: &BuildArgs,
     rustc_triple: Option<&str>,
 ) -> Result<Build> {
+    let (kind, _) = kind_and_target(rustc_triple)?;
     match build_args.compile_mode {
         CompileMode::Build => Ok(Build {
             build_args: build_args.clone(),
@@ -489,6 +466,38 @@ fn to_build(
                 .binaries
                 .iter()
                 .map(|exe_path| {
+                    Ok(Runnable {
+                        exe: exe_path.1.clone(),
+                        id: exe_path
+                            .1
+                            .file_name()
+                            .ok_or_else(|| {
+                                anyhow!("Invalid executable file '{}'", &exe_path.1.display())
+                            })?
+                            .to_str()
+                            .ok_or_else(|| {
+                                anyhow!("Invalid executable file '{}'", &exe_path.1.display())
+                            })?
+                            .to_string(),
+                        source: PathBuf::from("."),
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?,
+            target_path: compilation.root_output[&kind].clone(),
+        }),
+
+        _ => Ok(Build {
+            build_args: build_args.clone(),
+            dynamic_libraries: find_dynamic_libraries(
+                &compilation,
+                config,
+                build_args,
+                rustc_triple,
+            )?,
+            runnables: compilation
+                .tests
+                .iter()
+                .map(|&(_, ref exe_path)| {
                     Ok(Runnable {
                         exe: exe_path.clone(),
                         id: exe_path
@@ -505,38 +514,7 @@ fn to_build(
                     })
                 })
                 .collect::<Result<Vec<_>>>()?,
-            target_path: compilation.root_output.clone(),
-        }),
-
-        _ => Ok(Build {
-            build_args: build_args.clone(),
-            dynamic_libraries: find_dynamic_libraries(
-                &compilation,
-                config,
-                build_args,
-                rustc_triple,
-            )?,
-            runnables: compilation
-                .tests
-                .iter()
-                .map(|&(ref pkg, _, ref exe_path)| {
-                    Ok(Runnable {
-                        exe: exe_path.clone(),
-                        id: exe_path
-                            .file_name()
-                            .ok_or_else(|| {
-                                anyhow!("Invalid executable file '{}'", &exe_path.display())
-                            })?
-                            .to_str()
-                            .ok_or_else(|| {
-                                anyhow!("Invalid executable file '{}'", &exe_path.display())
-                            })?
-                            .to_string(),
-                        source: pkg.root().to_path_buf(),
-                    })
-                })
-                .collect::<Result<Vec<_>>>()?,
-            target_path: compilation.root_output.clone(),
+            target_path: compilation.root_output[&kind].clone(),
         }),
     }
 }
@@ -569,7 +547,7 @@ fn exclude_by_target_triple(
 // the same dependency are available). Need improvement.
 fn find_dynamic_libraries(
     compilation: &Compilation,
-    config: &CompileConfig,
+    config: &Config,
     build_args: &BuildArgs,
     rustc_triple: Option<&str>,
 ) -> Result<Vec<PathBuf>> {
@@ -594,7 +572,8 @@ fn find_dynamic_libraries(
             Some(_) => return Err(err),
         },
     };
-    let linked_library_names = find_all_linked_library_names(compilation, build_args)?;
+    let linked_library_names =
+        find_all_linked_library_names(compilation, build_args, rustc_triple)?;
 
     let is_library_linked_to_project = move |path: &PathBuf| -> bool {
         path.file_name()
@@ -661,6 +640,7 @@ fn find_dynamic_libraries(
 fn find_all_linked_library_names(
     compilation: &Compilation,
     build_args: &BuildArgs,
+    rustc_triple: Option<&str>,
 ) -> Result<HashSet<String>> {
     fn is_output_file(file_path: &PathBuf) -> bool {
         file_path.is_file()
@@ -679,7 +659,9 @@ fn find_all_linked_library_names(
             .unwrap_or(lib_name)
     }
 
-    let linked_library_names = WalkDir::new(&compilation.root_output)
+    let (kind, _) = kind_and_target(rustc_triple)?;
+    let root_output = &compilation.root_output[&kind];
+    let linked_library_names = WalkDir::new(root_output)
         .into_iter()
         .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
         .filter(is_output_file)
@@ -687,8 +669,8 @@ fn find_all_linked_library_names(
             CargoCoreCompiler::BuildOutput::parse_file(
                 &output_file,
                 "idontcare",
-                &compilation.root_output,
-                &compilation.root_output,
+                root_output,
+                root_output,
             )
         })
         .flat_map(|build_output| build_output.map(|it| it.library_links))
@@ -714,7 +696,7 @@ fn is_system_path<P1: AsRef<Path>, P2: AsRef<Path>>(sysroot: P1, path: P2) -> Re
     Ok(is_system_path || is_sysroot_path)
 }
 
-pub fn linker_lib_dirs(compilation: &Compilation, config: &CompileConfig) -> Result<Vec<PathBuf>> {
+pub fn linker_lib_dirs(compilation: &Compilation, config: &Config) -> Result<Vec<PathBuf>> {
     let linker = linker(compilation, config);
     if linker.is_err() {
         return Ok(vec![]);
@@ -761,8 +743,8 @@ pub fn overlay_lib_dirs(rustc_triple: Option<&str>) -> Result<Vec<PathBuf>> {
         .collect())
 }
 
-fn linker(compilation: &Compilation, compile_config: &CompileConfig) -> Result<PathBuf> {
-    let linker = compile_config.get_path(&format!("target.{}.linker", compilation.target))?;
+fn linker(compilation: &Compilation, compile_config: &Config) -> Result<PathBuf> {
+    let linker = compile_config.get_path(&format!("target.{}.linker", compilation.host))?;
     if let Some(linker) = linker {
         let linker = linker.val;
         if linker.exists() {
