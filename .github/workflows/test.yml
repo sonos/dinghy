@@ -35,3 +35,9 @@ jobs:
       #    - uses: actions/checkout@v1
       #    - name: cargo test
       #      run: cargo test --all
+
+  linux-musl:
+    runs-on: ubuntu-latest
+    - uses: actions/checkout@v1
+    - name: cargo test
+      run: ./musl_build.sh
