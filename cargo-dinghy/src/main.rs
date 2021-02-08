@@ -62,7 +62,7 @@ fn main() {
 
 fn run_command(args: &ArgMatches) -> Result<()> {
     let conf = Arc::new(dinghy_config(current_dir().unwrap())?);
-    let compiler = Arc::new(Compiler::from_args(args.subcommand().1.unwrap_or(args)));
+    let compiler = Arc::new(Compiler::from_args(args.subcommand().1.unwrap_or(args))?);
     let dinghy = Dinghy::probe(&conf, &compiler)?;
     let project = Project::new(&conf);
     match args.subcommand() {
