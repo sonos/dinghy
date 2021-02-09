@@ -191,7 +191,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-dinghy"
-version = "0.4.42-pre"
+version = "0.4.44-pre"
 dependencies = [
  "clap",
  "dinghy-lib",
@@ -386,18 +386,7 @@ dependencies = [
 
 [[package]]
 name = "dinghy-build"
-version = "0.4.43"
-dependencies = [
- "cc",
- "error-chain",
- "log",
-]
-
-[[package]]
-name = "dinghy-build"
-version = "0.4.43"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "138ce23ec1f410c63e47e0b639d6d6d95345429363e0ea55d801614ebc5def37"
+version = "0.4.44-pre"
 dependencies = [
  "cc",
  "error-chain",
@@ -406,7 +395,7 @@ dependencies = [
 
 [[package]]
 name = "dinghy-lib"
-version = "0.4.43"
+version = "0.4.44-pre"
 dependencies = [
  "anyhow",
  "atty",
@@ -414,7 +403,7 @@ dependencies = [
  "clap",
  "core-foundation 0.7.0",
  "core-foundation-sys 0.7.0",
- "dinghy-build 0.4.43 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dinghy-build",
  "dirs",
  "env_logger",
  "failure",
@@ -441,7 +430,7 @@ dependencies = [
 
 [[package]]
 name = "dinghy-test"
-version = "0.4.43"
+version = "0.4.44-pre"
 
 [[package]]
 name = "dirs"
@@ -810,9 +799,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libc"
-version = "0.2.85"
+version = "0.2.86"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ccac4b00700875e6a07c6cde370d44d32fa01c5a65cdd2fca6858c479d28bb3"
+checksum = "b7282d924be3275cec7f6756ff4121987bc6481325397dde6ba3e7802b1a8b1c"
 
 [[package]]
 name = "libgit2-sys"
@@ -1564,9 +1553,9 @@ dependencies = [
 
 [[package]]
 name = "unicode-normalization"
-version = "0.1.16"
+version = "0.1.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a13e63ab62dbe32aeee58d1c5408d35c36c392bba5d9d3142287219721afe606"
+checksum = "07fbfce1c8a97d547e8b5334978438d9d6ec8c20e38f56d4a4374d181493eaef"
 dependencies = [
  "tinyvec",
 ]
