@@ -27,6 +27,7 @@ jobs:
 
       - name: Build cargo-dinghy
         run: |
+          set -ex
           ZIPDIR=cargo-dinghy-${{ steps.version.outputs.value }}
           mkdir $ZIPDIR
           if [ ${{matrix.name}} == "macos" ]
@@ -37,7 +38,8 @@ jobs:
             ./musl_build.sh
             mv target/cargo-dinghy $ZIPDIR
           fi
-          tar vczf cargo-dinghy-${{matrix.name}}-${{ steps.version.outputs.value }}.tgz cargo-dinghy-${{ steps.version.outputs.value }}
+          ls -al $ZIPDIR
+          tar vczf cargo-dinghy-${{matrix.name}}-${{ steps.version.outputs.value }}.tgz $ZIPDIR
 
       - name: Upload asset
         uses: softprops/action-gh-release@v1
