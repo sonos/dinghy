@@ -8,6 +8,7 @@ use crate::BuildArgs;
 use crate::Device;
 use crate::Platform;
 use crate::Result;
+use cargo::core::compiler::CompileKind;
 use dinghy_build::build_env::set_all_env;
 use std::fmt::{Debug, Formatter};
 use std::process::Command;
@@ -24,12 +25,12 @@ impl HostPlatform {
     pub fn new(
         compiler: Arc<Compiler>,
         configuration: PlatformConfiguration,
-    ) -> Result<Box<dyn Platform>> {
-        Ok(Box::new(HostPlatform {
-            compiler: compiler,
+    ) -> Result<HostPlatform> {
+        Ok(HostPlatform {
+            compiler,
             configuration,
             id: "host".to_string(),
-        }))
+        })
     }
 }
 
@@ -46,19 +47,31 @@ impl Platform for HostPlatform {
 
         Overlayer::overlay(&self.configuration, self, project, "/")?;
 
-        self.compiler.build(None, build_args)
+        self.compiler.build(self, build_args)
     }
 
     fn id(&self) -> String {
         "host".to_string()
     }
 
+    fn is_host(&self) -> bool {
+        true
+    }
+
+    fn as_cargo_kind(&self) -> CompileKind {
+        CompileKind::Host
+    }
+
+    fn sysroot(&self) -> std::path::PathBuf {
+        std::path::PathBuf::from("/")
+    }
+
     fn is_compatible_with(&self, device: &dyn Device) -> bool {
         device.is_compatible_with_host_platform(self)
     }
 
-    fn rustc_triple(&self) -> Option<&str> {
-        None
+    fn rustc_triple(&self) -> &str {
+        std::env!("TARGET")
     }
 
     fn strip(&self, build: &Build) -> Result<()> {

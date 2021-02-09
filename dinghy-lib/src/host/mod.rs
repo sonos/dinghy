@@ -26,16 +26,18 @@ impl HostManager {
             host_conf,
         })
     }
+
+    fn platform(&self) -> Result<HostPlatform> {
+        platform::HostPlatform::new(sync::Arc::clone(&self.compiler), self.host_conf.clone())
+    }
 }
 
 impl PlatformManager for HostManager {
     fn devices(&self) -> Result<Vec<Box<dyn Device>>> {
-        Ok(vec![Box::new(HostDevice::new(&self.compiler))])
+        Ok(vec![Box::new(HostDevice::new(self.platform()?, &self.compiler))])
     }
+
     fn platforms(&self) -> Result<Vec<Box<dyn Platform>>> {
-        Ok(vec![platform::HostPlatform::new(
-            sync::Arc::clone(&self.compiler),
-            self.host_conf.clone(),
-        )?])
+        Ok(vec![Box::new(self.platform()?)])
     }
 }

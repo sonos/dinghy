@@ -81,7 +81,7 @@ fn run_command(args: &ArgMatches) -> Result<()> {
     match args.subcommand() {
         ("bench", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
         ("build", Some(sub_args)) => build(&platform, &project, args, sub_args).and(Ok(())),
-        ("clean", Some(_)) => compiler.clean(None),
+        ("clean", Some(_)) => compiler.clean(&**platform),
         ("devices", Some(_)) => show_all_devices_for_platform(&dinghy, platform),
         ("lldbproxy", Some(_)) => run_lldb(device),
         ("run", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
@@ -159,8 +159,6 @@ fn show_all_platforms(dinghy: &Dinghy) -> Result<()> {
             "* {} {}",
             pf.id(),
             pf.rustc_triple()
-                .map(|s| format!("({})", s))
-                .unwrap_or("".to_string())
         );
     }
     Ok(())
