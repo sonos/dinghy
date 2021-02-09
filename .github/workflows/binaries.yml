@@ -29,8 +29,14 @@ jobs:
         run: |
           ZIPDIR=cargo-dinghy-${{ steps.version.outputs.value }}
           mkdir $ZIPDIR
-          ./musl_build.sh
-          mv cargo-dinghy $ZIPDIR
+          if [ ${{matrix.name}} == "macos" ]
+          then
+            cargo build --release -p cargo-dinghy
+            mv target/release/cargo-dinghy $ZIPDIR
+          else
+            ./musl_build.sh
+            mv cargo-dinghy $ZIPDIR
+          fi
           tar vczf cargo-dinghy-${{matrix.name}}-${{ steps.version.outputs.value }}.tgz cargo-dinghy-${{ steps.version.outputs.value }}
 
       - name: Upload asset
