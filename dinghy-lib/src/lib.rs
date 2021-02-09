@@ -50,6 +50,7 @@ pub use crate::compiler::Compiler;
 pub use crate::config::Configuration;
 
 use crate::compiler::CompileMode;
+use cargo::core::compiler::CompileKind;
 use crate::config::PlatformConfiguration;
 #[cfg(target_os = "macos")]
 use crate::ios::IosManager;
@@ -206,9 +207,11 @@ pub trait Platform: std::fmt::Debug {
 
     fn is_compatible_with(&self, device: &dyn Device) -> bool;
 
-    fn rustc_triple(&self) -> Option<&str>;
+    fn rustc_triple(&self) -> &str;
 
     fn strip(&self, build: &Build) -> Result<()>;
+
+    fn as_cargo_kind(&self) -> CompileKind;
 }
 
 impl Display for dyn Platform {

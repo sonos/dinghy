@@ -4,6 +4,7 @@ use crate::utils::copy_and_sync_file;
 use crate::Platform;
 use crate::Result;
 use crate::Runnable;
+use cargo::core::compiler::CompileKind;
 use ignore::WalkBuilder;
 use std::env::current_dir;
 use std::fs;
@@ -32,15 +33,13 @@ impl Project {
     }
 
     pub fn overlay_work_dir(&self, platform: &dyn Platform) -> Result<PathBuf> {
-        Ok(self
-            .target_dir(platform.rustc_triple())?
-            .join(platform.id()))
+        Ok(self.target_dir(platform)?.join(platform.rustc_triple()))
     }
 
-    pub fn target_dir(&self, rustc_triple: Option<&str>) -> Result<PathBuf> {
+    pub fn target_dir(&self, platform: &CompileKind) -> Result<PathBuf> {
         let mut target_path = self.project_dir()?.join("target");
-        if let Some(rustc_triple) = rustc_triple {
-            target_path = target_path.join(rustc_triple);
+        if let CompileKind::Target(s) = platform {
+            target_path = target_path.join(s);
         }
         Ok(target_path)
     }
