@@ -39,6 +39,7 @@ jobs:
             mv target/cargo-dinghy $ZIPDIR
           fi
           ls -al $ZIPDIR
+          $ZIPDIR/cargo-dinghy --version
           tar vczf cargo-dinghy-${{matrix.name}}-${{ steps.version.outputs.value }}.tgz $ZIPDIR
 
       - name: Upload asset
