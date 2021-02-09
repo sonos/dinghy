@@ -66,6 +66,7 @@ impl Platform for IosPlatform {
         set_env("TARGET_SYSROOT", &sysroot);
         self.toolchain
             .setup_linker(&self.id(), &format!("cc -isysroot {}", sysroot))?;
+        dbg!(&self.toolchain);
         self.toolchain.setup_pkg_config()?;
 
         self.compiler.build(self.rustc_triple(), build_args)
