@@ -33,13 +33,13 @@ impl Project {
     }
 
     pub fn overlay_work_dir(&self, platform: &dyn Platform) -> Result<PathBuf> {
-        Ok(self.target_dir(platform)?.join(platform.rustc_triple()))
+        Ok(self.target_dir(&platform.as_cargo_kind())?.join(platform.rustc_triple()))
     }
 
     pub fn target_dir(&self, platform: &CompileKind) -> Result<PathBuf> {
         let mut target_path = self.project_dir()?.join("target");
         if let CompileKind::Target(s) = platform {
-            target_path = target_path.join(s);
+            target_path = target_path.join(s.rustc_target());
         }
         Ok(target_path)
     }

@@ -9,6 +9,7 @@ use crate::BuildArgs;
 use crate::Device;
 use crate::Platform;
 use crate::Result;
+use cargo::core::compiler::{CompileKind, CompileTarget};
 use dinghy_build::build_env::set_all_env;
 use std::fmt::{Debug, Display, Formatter};
 use std::path::Path;
@@ -174,7 +175,7 @@ impl Platform for RegularPlatform {
         self.toolchain.shim_executables(&self.id)?;
 
         trace!("Internally invoke cargo");
-        self.compiler.build(self.rustc_triple(), &build_args)
+        self.compiler.build(self, &build_args)
     }
 
     fn id(&self) -> String {
@@ -185,8 +186,20 @@ impl Platform for RegularPlatform {
         device.is_compatible_with_regular_platform(self)
     }
 
-    fn rustc_triple(&self) -> Option<&str> {
-        Some(&self.toolchain.rustc_triple)
+    fn is_host(&self) -> bool {
+        false
+    }
+
+    fn rustc_triple(&self) -> &str {
+        &self.toolchain.rustc_triple
+    }
+
+    fn sysroot(&self) -> std::path::PathBuf {
+        self.toolchain.sysroot.clone()
+    }
+
+    fn as_cargo_kind(&self) -> CompileKind {
+        CompileKind::Target(CompileTarget::new(self.rustc_triple()).unwrap())
     }
 
     fn strip(&self, build: &Build) -> Result<()> {

@@ -9,7 +9,6 @@ use crate::Result;
 use crate::Runnable;
 use cargo::core::compiler as CargoCoreCompiler;
 use cargo::core::compiler::Compilation;
-use cargo::core::compiler::CompileKind;
 pub use cargo::core::compiler::CompileMode;
 use cargo::core::compiler::MessageFormat;
 use cargo::core::Workspace;
@@ -196,7 +195,7 @@ fn create_build_command(
             &[platform.rustc_triple().to_string()],
             build_args.compile_mode,
         )?;
-        build_config.requested_kinds = vec![requested_kind];
+        build_config.requested_kinds = vec![platform.as_cargo_kind()];
         build_config.requested_profile = requested_profile;
         build_config.message_format = MessageFormat::Human;
 
@@ -224,32 +223,31 @@ fn create_build_command(
             rustdoc_document_private_items: false,
         };
         if bearded {
-            setup_dinghy_wrapper(&workspace, rustc_triple)?;
+            setup_dinghy_wrapper(&workspace, platform)?;
         }
         let compilation = ops::compile(&workspace, &compile_options)?;
-        let build = to_build(compilation, &config, build_args, rustc_triple, sysroot)?;
+        let build = to_build(compilation, &config, build_args, platform)?;
         copy_dependencies_to_target(&build)?;
         Ok(build)
     });
     Ok(f)
 }
 
-fn create_clean_command(matches: &ArgMatches) -> Result<Box<dyn Fn(Option<&str>) -> Result<()>>> {
+fn create_clean_command(matches: &ArgMatches) -> Result<Box<dyn Fn(&dyn Platform) -> Result<()>>> {
     let packages = arg_as_string_vec(matches, "SPEC");
     let release = matches.is_present("RELEASE");
     let config = config(matches)?;
 
-    let f = Box::new(move |rustc_triple: Option<&str>| {
+    let f = Box::new(move |platform: &dyn Platform| {
         let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?, &config)?;
         let requested_profile = InternedString::new(if release { "release" } else { "debug" });
-        let (_, target) = kind_and_target(rustc_triple)?;
 
         let options = CleanOptions {
             config: &config,
             requested_profile,
             profile_specified: false,
             spec: packages.clone(),
-            targets: vec![target],
+            targets: vec![platform.rustc_triple().to_string()],
             doc: false,
         };
 
@@ -261,7 +259,7 @@ fn create_clean_command(matches: &ArgMatches) -> Result<Box<dyn Fn(Option<&str>)
 
 fn create_run_command(
     matches: &ArgMatches,
-) -> Result<Box<dyn Fn(Option<&str>, &BuildArgs, &[&str]) -> Result<()>>> {
+) -> Result<Box<dyn Fn(&dyn Platform, &BuildArgs, &[&str]) -> Result<()>>> {
     let all = matches.is_present("ALL");
     let all_features = matches.is_present("ALL_FEATURES");
     let benches = arg_as_string_vec(matches, "BENCH");
@@ -285,13 +283,13 @@ fn create_run_command(
     let config = config(matches)?;
 
     let f = Box::new(
-        move |rustc_triple: Option<&str>, build_args: &BuildArgs, args: &[&str]| {
+        move |platform: &dyn Platform, build_args: &BuildArgs, args: &[&str]| {
             let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?, &config)?;
 
             let project_metadata_list = workskpace_metadata(&workspace)?;
             let excludes = if (all || workspace.is_virtual()) && packages.is_empty() {
                 exclude_by_target_triple(
-                    rustc_triple,
+                    Some(platform.rustc_triple()),
                     project_metadata_list.as_slice(),
                     excludes.as_slice(),
                 )
@@ -299,16 +297,15 @@ fn create_run_command(
                 excludes.clone()
             };
             let requested_profile = InternedString::new(if release { "release" } else { "debug" });
-            let (kind, target) = kind_and_target(rustc_triple)?;
 
             let build_config = CargoCoreCompiler::BuildConfig {
                 message_format: MessageFormat::Human,
-                requested_kinds: vec![kind],
+                requested_kinds: vec![platform.as_cargo_kind()],
                 requested_profile,
                 ..CargoCoreCompiler::BuildConfig::new(
                     &config,
                     jobs,
-                    &[target],
+                    &[platform.rustc_triple().to_string()],
                     build_args.compile_mode,
                 )?
             };
@@ -345,7 +342,7 @@ fn create_run_command(
             };
 
             if bearded {
-                setup_dinghy_wrapper(&workspace, rustc_triple)?;
+                setup_dinghy_wrapper(&workspace, platform)?;
             }
             match build_args.compile_mode {
                 CompileMode::Bench => {
@@ -376,9 +373,13 @@ fn create_run_command(
     Ok(f)
 }
 
-fn setup_dinghy_wrapper(workspace: &Workspace, rustc_triple: Option<&str>) -> Result<()> {
+fn setup_dinghy_wrapper(workspace: &Workspace, platform: &dyn Platform) -> Result<()> {
     let mut target_dir = workspace.target_dir();
-    target_dir.push(rustc_triple.unwrap_or("host"));
+    target_dir.push(if platform.is_host() {
+        "host"
+    } else {
+        platform.rustc_triple()
+    });
     target_dir.create_dir()?;
     let target_dir = target_dir.into_path_unlocked();
     let measure_sh_path = target_dir.join("dinghy-wrapper.sh");
@@ -434,20 +435,12 @@ fn to_build(
     compilation: Compilation,
     config: &Config,
     build_args: &BuildArgs,
-    rustc_triple: Option<&str>,
-    sysroot: Option<&str>,
+    platform: &dyn Platform,
 ) -> Result<Build> {
-    let (kind, _) = kind_and_target(rustc_triple)?;
     match build_args.compile_mode {
         CompileMode::Build => Ok(Build {
             build_args: build_args.clone(),
-            dynamic_libraries: find_dynamic_libraries(
-                &compilation,
-                config,
-                build_args,
-                rustc_triple,
-                sysroot,
-            )?,
+            dynamic_libraries: find_dynamic_libraries(&compilation, config, build_args, platform)?,
             runnables: compilation
                 .binaries
                 .iter()
@@ -469,18 +462,12 @@ fn to_build(
                     })
                 })
                 .collect::<Result<Vec<_>>>()?,
-            target_path: compilation.root_output[&kind].clone(),
+            target_path: compilation.root_output[&platform.as_cargo_kind()].clone(),
         }),
 
         _ => Ok(Build {
             build_args: build_args.clone(),
-            dynamic_libraries: find_dynamic_libraries(
-                &compilation,
-                config,
-                build_args,
-                rustc_triple,
-                sysroot,
-            )?,
+            dynamic_libraries: find_dynamic_libraries(&compilation, config, build_args, platform)?,
             runnables: compilation
                 .tests
                 .iter()
@@ -501,7 +488,7 @@ fn to_build(
                     })
                 })
                 .collect::<Result<Vec<_>>>()?,
-            target_path: compilation.root_output[&kind].clone(),
+            target_path: compilation.root_output[&platform.as_cargo_kind()].clone(),
         }),
     }
 }
@@ -536,34 +523,32 @@ fn find_dynamic_libraries(
     compilation: &Compilation,
     config: &Config,
     build_args: &BuildArgs,
-    rustc_triple: Option<&str>,
-    sysroot: Option<&Path>,
+    platform: &dyn Platform,
 ) -> Result<Vec<PathBuf>> {
     /*
     let sysroot = match linker(compilation, config) {
-        Ok(linker) => PathBuf::from(
-            String::from_utf8(
-                Command::new(&linker)
-                    .arg("-print-sysroot")
-                    .output()
-                    .with_context(|| {
-                        format!(
-                            "Error while checking libraries using linker {}",
-                            linker.display()
-                        )
-                    })?
-                    .stdout,
-            )?
-            .trim(),
-        ),
-        Err(err) => match rustc_triple {
-            None => PathBuf::from(""), // Host platform case
-            Some(triple) => return Err(err).with_context(|| format!("Looking for sysroot for {}", triple))
-        },
+    Ok(linker) => PathBuf::from(
+    String::from_utf8(
+    Command::new(&linker)
+    .arg("-print-sysroot")
+    .output()
+    .with_context(|| {
+    format!(
+    "Error while checking libraries using linker {}",
+    linker.display()
+    )
+    })?
+    .stdout,
+    )?
+    .trim(),
+    ),
+    Err(err) => match rustc_triple {
+    None => PathBuf::from(""), // Host platform case
+    Some(triple) => return Err(err).with_context(|| format!("Looking for sysroot for {}", triple))
+    },
     };
     */
-    let linked_library_names =
-        find_all_linked_library_names(compilation, build_args, rustc_triple)?;
+    let linked_library_names = find_all_linked_library_names(compilation, build_args, platform)?;
 
     let is_library_linked_to_project = move |path: &PathBuf| -> bool {
         path.file_name()
@@ -586,9 +571,7 @@ fn find_dynamic_libraries(
             .and_then(|file_name| file_name.to_str())
             .map(|file_name| {
                 file_name != "libstdc++.so" && file_name != "libdl.so"
-                    || !rustc_triple
-                        .map(|it| it.contains("android"))
-                        .unwrap_or(false)
+                    || !platform.rustc_triple().contains("android")
             })
             .unwrap_or(false)
     };
@@ -598,9 +581,9 @@ fn find_dynamic_libraries(
         .iter() // Should better use output files instead of deprecated native_dirs
         .map(strip_annoying_prefix)
         .chain(linker_lib_dirs(&compilation, config)?.into_iter())
-        .chain(overlay_lib_dirs(rustc_triple)?.into_iter())
+        .chain(overlay_lib_dirs(platform)?)
         .inspect(|path| trace!("Checking library path {}", path.display()))
-        .filter(move |path| !is_system_path(sysroot.as_path(), path).unwrap_or(true))
+        .filter(move |path| !is_system_path(platform.sysroot(), path).unwrap_or(true))
         .inspect(|path| trace!("{} is not a system library path", path.display()))
         .flat_map(|path| WalkDir::new(path).into_iter())
         .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
@@ -630,7 +613,7 @@ fn find_dynamic_libraries(
 fn find_all_linked_library_names(
     compilation: &Compilation,
     build_args: &BuildArgs,
-    rustc_triple: Option<&str>,
+    platform: &dyn Platform,
 ) -> Result<HashSet<String>> {
     fn is_output_file(file_path: &PathBuf) -> bool {
         file_path.is_file()
@@ -649,8 +632,7 @@ fn find_all_linked_library_names(
             .unwrap_or(lib_name)
     }
 
-    let (kind, _) = kind_and_target(rustc_triple)?;
-    let root_output = &compilation.root_output[&kind];
+    let root_output = &compilation.root_output[&platform.as_cargo_kind()];
     let linked_library_names = WalkDir::new(root_output)
         .into_iter()
         .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
@@ -722,10 +704,13 @@ pub fn linker_lib_dirs(compilation: &Compilation, config: &Config) -> Result<Vec
     Ok(paths)
 }
 
-pub fn overlay_lib_dirs(rustc_triple: Option<&str>) -> Result<Vec<PathBuf>> {
-    let pkg_config_libdir = rustc_triple
-        .map(|it| target_env_from_triple("PKG_CONFIG_LIBDIR", it, false).unwrap_or("".to_string()))
-        .unwrap_or(env::var("PKG_CONFIG_LIBDIR").unwrap_or("".to_string()));
+pub fn overlay_lib_dirs(platform: &dyn Platform) -> Result<Vec<PathBuf>> {
+    let pkg_config_libdir = if platform.is_host() {
+        env::var("PKG_CONFIG_LIBDIR").unwrap_or("".to_string())
+    } else {
+        target_env_from_triple("PKG_CONFIG_LIBDIR", platform.rustc_triple(), false)
+            .unwrap_or("".to_string())
+    };
 
     Ok(pkg_config_libdir
         .split(":")

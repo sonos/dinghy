@@ -11,14 +11,17 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::fmt::{Debug, Display};
 use std::sync::Arc;
+use crate::host::HostPlatform;
 
 pub struct HostDevice {
+    platform: HostPlatform,
     compiler: Arc<Compiler>,
 }
 
 impl HostDevice {
-    pub fn new(compiler: &Arc<Compiler>) -> Self {
+    pub fn new(platform: HostPlatform, compiler: &Arc<Compiler>) -> Self {
         HostDevice {
+            platform,
             compiler: compiler.clone(),
         }
     }
@@ -86,7 +89,7 @@ impl Device for HostDevice {
             .map(|arg| Ok(shellexpand::full(arg)?.to_string()))
             .collect::<Result<Vec<_>>>()?;
         debug!("Arguments expanded to: {:?}", args);
-        self.compiler.run(None, &build.build_args, &*args)?;
+        self.compiler.run(&self.platform, &build.build_args, &*args)?;
         Ok(build_bundles)
     }
 

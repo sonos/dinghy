@@ -50,7 +50,7 @@ impl Overlayer {
     ) -> Result<()> {
         let overlayer = Overlayer {
             platform_id: platform.id().to_string(),
-            rustc_triple: platform.rustc_triple().map(|it| it.to_string()),
+            rustc_triple: Some(platform.rustc_triple().to_string()),
             sysroot: sysroot.as_ref().to_path_buf(),
             work_dir: project.overlay_work_dir(platform)?,
         };

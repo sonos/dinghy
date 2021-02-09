@@ -50,12 +50,12 @@ pub use crate::compiler::Compiler;
 pub use crate::config::Configuration;
 
 use crate::compiler::CompileMode;
-use cargo::core::compiler::CompileKind;
 use crate::config::PlatformConfiguration;
 #[cfg(target_os = "macos")]
 use crate::ios::IosManager;
 use crate::platform::regular_platform::RegularPlatform;
 use crate::project::Project;
+use cargo::core::compiler::CompileKind;
 use std::fmt::Display;
 use std::{path, sync};
 
@@ -207,11 +207,12 @@ pub trait Platform: std::fmt::Debug {
 
     fn is_compatible_with(&self, device: &dyn Device) -> bool;
 
+    fn is_host(&self) -> bool;
     fn rustc_triple(&self) -> &str;
+    fn as_cargo_kind(&self) -> CompileKind;
 
     fn strip(&self, build: &Build) -> Result<()>;
-
-    fn as_cargo_kind(&self) -> CompileKind;
+    fn sysroot(&self) -> path::PathBuf;
 }
 
 impl Display for dyn Platform {
