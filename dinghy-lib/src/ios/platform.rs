@@ -8,6 +8,7 @@ use crate::Build;
 use crate::BuildArgs;
 use crate::Device;
 use crate::Platform;
+use cargo::core::compiler::{CompileKind, CompileTarget};
 use dinghy_build::build_env::set_env;
 use std::fmt::{Debug, Display, Formatter};
 use std::process;
@@ -69,7 +70,7 @@ impl Platform for IosPlatform {
         dbg!(&self.toolchain);
         self.toolchain.setup_pkg_config()?;
 
-        self.compiler.build(self.rustc_triple(), build_args)
+        self.compiler.build(self, build_args)
     }
 
     fn id(&self) -> String {
@@ -80,8 +81,20 @@ impl Platform for IosPlatform {
         device.is_compatible_with_ios_platform(self)
     }
 
-    fn rustc_triple(&self) -> Option<&str> {
-        Some(&self.toolchain.rustc_triple)
+    fn is_host(&self) -> bool {
+        false
+    }
+
+    fn rustc_triple(&self) -> &str {
+        &self.toolchain.rustc_triple
+    }
+
+    fn as_cargo_kind(&self) -> CompileKind {
+        CompileKind::Target(CompileTarget::new(self.rustc_triple()).unwrap())
+    }
+
+    fn sysroot(&self) -> Result<std::path::PathBuf> {
+        self.sysroot_path().map(|s| s.into())
     }
 
     fn strip(&self, build: &Build) -> Result<()> {

@@ -576,6 +576,8 @@ fn find_dynamic_libraries(
             .unwrap_or(false)
     };
 
+    let sysroot = platform.sysroot()?;
+
     Ok(compilation
         .native_dirs
         .iter() // Should better use output files instead of deprecated native_dirs
@@ -583,7 +585,7 @@ fn find_dynamic_libraries(
         .chain(linker_lib_dirs(&compilation, config)?.into_iter())
         .chain(overlay_lib_dirs(platform)?)
         .inspect(|path| trace!("Checking library path {}", path.display()))
-        .filter(move |path| !is_system_path(platform.sysroot(), path).unwrap_or(true))
+        .filter(|path| !is_system_path(&sysroot, path).unwrap_or(true))
         .inspect(|path| trace!("{} is not a system library path", path.display()))
         .flat_map(|path| WalkDir::new(path).into_iter())
         .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
