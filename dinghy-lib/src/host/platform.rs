@@ -62,8 +62,8 @@ impl Platform for HostPlatform {
         CompileKind::Host
     }
 
-    fn sysroot(&self) -> std::path::PathBuf {
-        std::path::PathBuf::from("/")
+    fn sysroot(&self) -> Result<std::path::PathBuf> {
+        Ok(std::path::PathBuf::from("/"))
     }
 
     fn is_compatible_with(&self, device: &dyn Device) -> bool {

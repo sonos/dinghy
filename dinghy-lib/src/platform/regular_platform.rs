@@ -194,8 +194,8 @@ impl Platform for RegularPlatform {
         &self.toolchain.rustc_triple
     }
 
-    fn sysroot(&self) -> std::path::PathBuf {
-        self.toolchain.sysroot.clone()
+    fn sysroot(&self) -> Result<std::path::PathBuf> {
+        Ok(self.toolchain.sysroot.clone())
     }
 
     fn as_cargo_kind(&self) -> CompileKind {
