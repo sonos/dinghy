@@ -98,9 +98,7 @@ impl ProjectMetadata {
     }
 }
 
-fn config(matches: &ArgMatches) -> Result<Config> {
-    let offline = matches.is_present("OFFLINE");
-    let verbosity = matches.occurrences_of("VERBOSE") as u32;
+fn config(offline: bool, verbosity: u32) -> Result<Config> {
     let mut config = Config::default()?;
     config.configure(
         verbosity,
@@ -145,10 +143,11 @@ fn create_build_command(
     let release = matches.is_present("RELEASE");
     let tests = arg_as_string_vec(matches, "TEST");
     let bearded = matches.is_present("BEARDED");
-
-    let config = config(matches)?;
+    let offline = matches.is_present("OFFLINE");
+    let verbosity = matches.occurrences_of("VERBOSE") as u32;
 
     let f = Box::new(move |platform: &dyn Platform, build_args: &BuildArgs| {
+        let config = config(offline, verbosity)?;
         let requested_profile = profile(release, build_args);
         let root_manifest = find_root_manifest_for_wd(&current_dir()?)?;
         if current_dir()? == root_manifest.parent().unwrap() && features.len() > 0 {
@@ -222,6 +221,7 @@ fn create_build_command(
             local_rustdoc_args: None,
             rustdoc_document_private_items: false,
         };
+
         if bearded {
             setup_dinghy_wrapper(&workspace, platform)?;
         }
@@ -236,7 +236,9 @@ fn create_build_command(
 fn create_clean_command(matches: &ArgMatches) -> Result<Box<dyn Fn(&dyn Platform) -> Result<()>>> {
     let packages = arg_as_string_vec(matches, "SPEC");
     let release = matches.is_present("RELEASE");
-    let config = config(matches)?;
+    let offline = matches.is_present("OFFLINE");
+    let verbosity = matches.occurrences_of("VERBOSE") as u32;
+    let config = config(offline, verbosity)?;
 
     let f = Box::new(move |platform: &dyn Platform| {
         let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?, &config)?;
@@ -280,10 +282,12 @@ fn create_run_command(
     let release = matches.is_present("RELEASE");
     let tests = arg_as_string_vec(matches, "TEST");
     let bearded = matches.is_present("BEARDED");
-    let config = config(matches)?;
+    let offline = matches.is_present("OFFLINE");
+    let verbosity = matches.occurrences_of("VERBOSE") as u32;
 
     let f = Box::new(
         move |platform: &dyn Platform, build_args: &BuildArgs, args: &[&str]| {
+            let config = config(offline, verbosity)?;
             let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?, &config)?;
 
             let project_metadata_list = workskpace_metadata(&workspace)?;

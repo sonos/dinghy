@@ -46,7 +46,7 @@ impl Toolchain {
         )?;
         set_env(
             format!("CARGO_TARGET_{}_LINKER", envify(self.rustc_triple.as_str())).as_str(),
-            shim,
+            shim
         );
         Ok(())
     }
