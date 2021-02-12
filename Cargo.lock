@@ -191,7 +191,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-dinghy"
-version = "0.4.49-pre"
+version = "0.4.51-pre"
 dependencies = [
  "clap",
  "dinghy-lib",
@@ -386,18 +386,7 @@ dependencies = [
 
 [[package]]
 name = "dinghy-build"
-version = "0.4.50"
-dependencies = [
- "cc",
- "error-chain",
- "log",
-]
-
-[[package]]
-name = "dinghy-build"
-version = "0.4.50"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be856a5750073052e2e3aa7eb72740ed9ffa46ccedd45a716fd41c2e4aa43453"
+version = "0.4.51-pre"
 dependencies = [
  "cc",
  "error-chain",
@@ -406,7 +395,7 @@ dependencies = [
 
 [[package]]
 name = "dinghy-lib"
-version = "0.4.50"
+version = "0.4.51-pre"
 dependencies = [
  "anyhow",
  "atty",
@@ -414,7 +403,7 @@ dependencies = [
  "clap",
  "core-foundation 0.7.0",
  "core-foundation-sys 0.7.0",
- "dinghy-build 0.4.50 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dinghy-build",
  "dirs",
  "env_logger",
  "failure",
@@ -441,7 +430,7 @@ dependencies = [
 
 [[package]]
 name = "dinghy-test"
-version = "0.4.50"
+version = "0.4.51-pre"
 
 [[package]]
 name = "dirs"
@@ -492,9 +481,9 @@ checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
 name = "env_logger"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f26ecb66b4bdca6c1409b40fb255eefc2bd4f6d135dab3c3124f80ffa2a9661e"
+checksum = "17392a012ea30ef05a610aa97dfb49496e71c9f676b27879922ea5bdf60d9d3f"
 dependencies = [
  "atty",
  "humantime",
@@ -1059,9 +1048,9 @@ dependencies = [
 
 [[package]]
 name = "quote"
-version = "1.0.8"
+version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "991431c3519a3f36861882da93630ce66b52918dcf1b8e2fd66b397fc96f28df"
+checksum = "c3d0b9745dc2debf507c8422de05d7226cc1f0644216dfdfead988f9b1ab32a7"
 dependencies = [
  "proc-macro2",
 ]
