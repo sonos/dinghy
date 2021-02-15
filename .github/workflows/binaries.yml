@@ -34,6 +34,7 @@ jobs:
           then
             brew install coreutils gnu-tar
             PATH=$(brew --prefix)/opt/coreutils/libexec/gnubin:$PATH
+            PATH=$(brew --prefix)/opt/gnu-tar/libexec/gnubin:$PATH
             tar --version
             cargo build --release -p cargo-dinghy
             mv target/release/cargo-dinghy $ZIPDIR
