@@ -40,6 +40,8 @@ jobs:
           fi
           ls -al $ZIPDIR
           $ZIPDIR/cargo-dinghy --version
+          file $ZIPDIR/cargo-dinghy
+          md5sum $ZIPDIR/cargo-dinghy
           tar vczf cargo-dinghy-${{matrix.name}}-${{ steps.version.outputs.value }}.tgz $ZIPDIR
 
       - name: Upload asset
