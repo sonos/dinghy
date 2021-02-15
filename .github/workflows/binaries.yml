@@ -32,8 +32,9 @@ jobs:
           mkdir $ZIPDIR
           if [ ${{matrix.name}} == "macos" ]
           then
-            brew install coreutils
-            PATH=$PATH:$(brew --prefix)/opt/coreutils/libexec/gnubin
+            brew install coreutils gnu-tar
+            PATH=$(brew --prefix)/opt/coreutils/libexec/gnubin:$PATH
+            tar --version
             cargo build --release -p cargo-dinghy
             mv target/release/cargo-dinghy $ZIPDIR
           else
