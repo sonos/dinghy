@@ -33,6 +33,7 @@ jobs:
           if [ ${{matrix.name}} == "macos" ]
           then
             brew install coreutils
+            PATH=$PATH:$(brew --prefix)/opt/coreutils/libexec/gnubin
             cargo build --release -p cargo-dinghy
             mv target/release/cargo-dinghy $ZIPDIR
           else
@@ -42,7 +43,7 @@ jobs:
           ls -al $ZIPDIR
           $ZIPDIR/cargo-dinghy --version
           file $ZIPDIR/cargo-dinghy
-          $(brew --prefix)/opt/coreutils/libexec/gnubin/md5sum $ZIPDIR/cargo-dinghy
+          md5sum $ZIPDIR/cargo-dinghy
           tar vczf cargo-dinghy-${{matrix.name}}-${{ steps.version.outputs.value }}.tgz $ZIPDIR
 
       - name: Upload asset
