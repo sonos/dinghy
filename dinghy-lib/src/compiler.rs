@@ -581,6 +581,7 @@ fn find_dynamic_libraries(
     };
 
     let sysroot = platform.sysroot()?;
+    let sysroot = sysroot.as_deref();
 
     Ok(compilation
         .native_dirs
@@ -589,7 +590,7 @@ fn find_dynamic_libraries(
         .chain(linker_lib_dirs(&compilation, config)?.into_iter())
         .chain(overlay_lib_dirs(platform)?)
         .inspect(|path| trace!("Checking library path {}", path.display()))
-        .filter(|path| !is_system_path(&sysroot, path).unwrap_or(true))
+        .filter(|path| !is_system_path(sysroot, path).unwrap_or(true))
         .inspect(|path| trace!("{} is not a system library path", path.display()))
         .flat_map(|path| WalkDir::new(path).into_iter())
         .filter_map(|walk_entry| walk_entry.map(|it| it.path().to_path_buf()).ok())
@@ -661,7 +662,7 @@ fn find_all_linked_library_names(
     Ok(linked_library_names)
 }
 
-fn is_system_path<P1: AsRef<Path>, P2: AsRef<Path>>(sysroot: P1, path: P2) -> Result<bool> {
+fn is_system_path<P1: AsRef<Path>, P2: AsRef<Path>>(sysroot: Option<P1>, path: P2) -> Result<bool> {
     let ignored_path = vec![
         Path::new("/lib"),
         Path::new("/usr/lib"),
@@ -670,7 +671,11 @@ fn is_system_path<P1: AsRef<Path>, P2: AsRef<Path>>(sysroot: P1, path: P2) -> Re
     ];
     let is_system_path = ignored_path.iter().any(|it| path.as_ref().starts_with(it));
     let is_sysroot_path = sysroot.as_ref().iter().count() > 0
-        && path.as_ref().canonicalize()?.starts_with(sysroot.as_ref());
+        && sysroot.is_some()
+        && path
+            .as_ref()
+            .canonicalize()?
+            .starts_with(sysroot.as_ref().unwrap());
     Ok(is_system_path || is_sysroot_path)
 }
 

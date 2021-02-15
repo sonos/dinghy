@@ -88,7 +88,7 @@ impl PlatformManager for AndroidManager {
                             bin_dir: bin.clone(),
                             rustc_triple: format!("{}-linux-{}", rustc_cpu, abi_kind),
                             root: prebuilt.clone(),
-                            sysroot: tools.path().join("sysroot"),
+                            sysroot: Some(tools.path().join("sysroot")),
                             cc: "clang".to_string(),
                             binutils_prefix: format!("{}-linux-{}", binutils_cpu, abi_kind),
                             cc_prefix: format!("{}-linux-{}{}", cc_cpu, abi_kind, api),

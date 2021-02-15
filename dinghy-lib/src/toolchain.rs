@@ -46,7 +46,7 @@ impl Toolchain {
         )?;
         set_env(
             format!("CARGO_TARGET_{}_LINKER", envify(self.rustc_triple.as_str())).as_str(),
-            shim
+            shim,
         );
         Ok(())
     }
@@ -63,7 +63,7 @@ pub struct ToolchainConfig {
     pub bin_dir: PathBuf,
     pub root: PathBuf,
     pub rustc_triple: String,
-    pub sysroot: PathBuf,
+    pub sysroot: Option<PathBuf>,
     pub cc: String,
     pub binutils_prefix: String,
     pub cc_prefix: String,
@@ -100,16 +100,16 @@ impl ToolchainConfig {
             );
         }
 
-        set_target_env(
-            "PKG_CONFIG_SYSROOT_DIR",
-            Some(&self.rustc_triple),
-            &self.sysroot.clone(),
-        );
+        if let Some(sr) = &self.sysroot {
+            set_target_env("PKG_CONFIG_SYSROOT_DIR", Some(&self.rustc_triple), &sr);
+        }
         Ok(())
     }
 
     pub fn setup_sysroot(&self) {
-        set_env("TARGET_SYSROOT", &self.sysroot);
+        if let Some(sr) = &self.sysroot {
+            set_env("TARGET_SYSROOT", sr);
+        }
     }
 
     pub fn setup_tool(&self, var: &str, command: &str) -> Result<()> {

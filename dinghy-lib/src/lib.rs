@@ -212,7 +212,7 @@ pub trait Platform: std::fmt::Debug {
     fn as_cargo_kind(&self) -> CompileKind;
 
     fn strip(&self, build: &Build) -> Result<()>;
-    fn sysroot(&self) -> Result<path::PathBuf>;
+    fn sysroot(&self) -> Result<Option<path::PathBuf>>;
 }
 
 impl Display for dyn Platform {

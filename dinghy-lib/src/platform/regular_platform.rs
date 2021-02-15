@@ -49,7 +49,7 @@ impl RegularPlatform {
                     bin_dir: "/usr/bin".into(),
                     rustc_triple,
                     root: "/".into(),
-                    sysroot: "/".into(),
+                    sysroot: Some("/".into()),
                     cc: "gcc".to_string(),
                     binutils_prefix: prefix.clone(),
                     cc_prefix: prefix.clone(),
@@ -127,7 +127,9 @@ impl Platform for RegularPlatform {
         // Set custom env variables specific to the platform
         set_all_env(&self.configuration.env());
 
-        Overlayer::overlay(&self.configuration, self, project, &self.toolchain.sysroot)?;
+        if let Some(sr) = &self.toolchain.sysroot {
+            Overlayer::overlay(&self.configuration, self, project, &sr)?;
+        }
 
         self.toolchain
             .setup_cc(&self.id, &self.toolchain.cc_executable(&self.toolchain.cc))?;
@@ -159,7 +161,9 @@ impl Platform for RegularPlatform {
         if build_args.verbose {
             linker_cmd.push_str("-Wl,--verbose -v")
         }
-        linker_cmd.push_str(&format!(" --sysroot {}", self.toolchain.sysroot.display()));
+        if let Some(sr) = &self.toolchain.sysroot {
+            linker_cmd.push_str(&format!(" --sysroot {}", sr.display()));
+        }
         for forced_overlay in &build_args.forced_overlays {
             linker_cmd.push_str(" -l");
             linker_cmd.push_str(&forced_overlay);
@@ -194,7 +198,7 @@ impl Platform for RegularPlatform {
         &self.toolchain.rustc_triple
     }
 
-    fn sysroot(&self) -> Result<std::path::PathBuf> {
+    fn sysroot(&self) -> Result<Option<std::path::PathBuf>> {
         Ok(self.toolchain.sysroot.clone())
     }
 
@@ -213,14 +217,14 @@ impl Platform for RegularPlatform {
     }
 }
 
-fn find_sysroot<P: AsRef<Path>>(toolchain_path: P) -> Result<PathBuf> {
+fn find_sysroot<P: AsRef<Path>>(toolchain_path: P) -> Result<Option<PathBuf>> {
     let toolchain = toolchain_path.as_ref();
     let immediate = toolchain.join("sysroot");
     if immediate.is_dir() {
         let sysroot = immediate
             .to_str()
             .ok_or_else(|| anyhow!("sysroot is not utf-8"))?;
-        return Ok(sysroot.into());
+        return Ok(Some(sysroot.into()));
     }
     for subdir in toolchain.read_dir()? {
         let subdir = subdir?;
@@ -229,8 +233,8 @@ fn find_sysroot<P: AsRef<Path>>(toolchain_path: P) -> Result<PathBuf> {
             let sysroot = maybe
                 .to_str()
                 .ok_or_else(|| anyhow!("sysroot is not utf-8"))?;
-            return Ok(sysroot.into());
+            return Ok(Some(sysroot.into()));
         }
     }
-    bail!("no sysroot found in toolchain {:?}", toolchain)
+    Ok(None)
 }
