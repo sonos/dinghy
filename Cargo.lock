@@ -191,7 +191,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-dinghy"
-version = "0.4.56-pre"
+version = "0.4.57-pre"
 dependencies = [
  "clap",
  "dinghy-lib",
@@ -386,18 +386,7 @@ dependencies = [
 
 [[package]]
 name = "dinghy-build"
-version = "0.4.56"
-dependencies = [
- "cc",
- "error-chain",
- "log",
-]
-
-[[package]]
-name = "dinghy-build"
-version = "0.4.56"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0b71a7d70dd9bd1153a72bb74712de6a9ee924197429a15c0a668bc5517c45d"
+version = "0.4.57-pre"
 dependencies = [
  "cc",
  "error-chain",
@@ -406,7 +395,7 @@ dependencies = [
 
 [[package]]
 name = "dinghy-lib"
-version = "0.4.56"
+version = "0.4.57-pre"
 dependencies = [
  "anyhow",
  "atty",
@@ -414,7 +403,7 @@ dependencies = [
  "clap",
  "core-foundation 0.7.0",
  "core-foundation-sys 0.7.0",
- "dinghy-build 0.4.56 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dinghy-build",
  "dirs",
  "env_logger",
  "failure",
@@ -441,7 +430,7 @@ dependencies = [
 
 [[package]]
 name = "dinghy-test"
-version = "0.4.56"
+version = "0.4.57-pre"
 
 [[package]]
 name = "dirs"
