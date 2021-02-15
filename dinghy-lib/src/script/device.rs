@@ -61,14 +61,13 @@ impl Device for ScriptDevice {
         let mut build_bundles = vec![];
         for runnable in &build.runnables {
             let bundle_path = &runnable.source;
-            let bundle_exe_path = build.target_path.join(&runnable.id);
 
             trace!("About to start runner script...");
             let test_data_path = project.link_test_data(&runnable, &bundle_path)?;
 
             let status = self
                 .command(build)?
-                .arg(&bundle_exe_path)
+                .arg(&runnable.exe)
                 .current_dir(&runnable.source)
                 .env("DINGHY_TEST_DATA_PATH", test_data_path)
                 .args(args)
@@ -94,7 +93,7 @@ impl Device for ScriptDevice {
             build_bundles.push(BuildBundle {
                 id: runnable.id.clone(),
                 bundle_dir: bundle_path.to_path_buf(),
-                bundle_exe: bundle_exe_path,
+                bundle_exe: runnable.exe.to_path_buf(),
                 lib_dir: build.target_path.clone(),
                 root_dir: root_dir.clone(),
             });

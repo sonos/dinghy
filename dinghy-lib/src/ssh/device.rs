@@ -90,7 +90,7 @@ impl SshDevice {
             Ok(rsync_path) => rsync_path,
             Err(error) => bail!("Problem with rsync on the target: {:?}", error),
         };
-        let mut command = Command::new("/usr/bin/rsync");
+        let mut command = Command::new("rsync");
         command.arg(&format!("--rsync-path={}", rsync));
         command.arg("-a").arg("-v");
         if let Some(port) = self.conf.port {
