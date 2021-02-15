@@ -93,8 +93,8 @@ impl Platform for IosPlatform {
         CompileKind::Target(CompileTarget::new(self.rustc_triple()).unwrap())
     }
 
-    fn sysroot(&self) -> Result<std::path::PathBuf> {
-        self.sysroot_path().map(|s| s.into())
+    fn sysroot(&self) -> Result<Option<std::path::PathBuf>> {
+        self.sysroot_path().map(|s| Some(s.into()))
     }
 
     fn strip(&self, build: &Build) -> Result<()> {
