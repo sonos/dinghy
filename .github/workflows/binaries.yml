@@ -46,6 +46,10 @@ jobs:
           md5sum $ZIPDIR/cargo-dinghy
           tar vczf cargo-dinghy-${{matrix.name}}-${{ steps.version.outputs.value }}.tgz $ZIPDIR
           md5sum cargo-dinghy-${{matrix.name}}-${{ steps.version.outputs.value }}.tgz
+          mkdir test
+          cd test
+          tar zxf ../cargo-dinghy-${{matrix.name}}-${{ steps.version.outputs.value }}.tgz
+          md5sum $ZIPDIR/cargo-dinghy
 
       - name: Upload asset
         uses: softprops/action-gh-release@v1

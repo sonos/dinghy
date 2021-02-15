@@ -191,10 +191,10 @@ dependencies = [
 
 [[package]]
 name = "cargo-dinghy"
-version = "0.4.57-pre"
+version = "0.4.57"
 dependencies = [
  "clap",
- "dinghy-lib",
+ "dinghy-lib 0.4.57 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger",
  "error-chain",
  "log",
@@ -433,6 +433,42 @@ dependencies = [
  "shellexpand",
  "tempdir",
  "tempfile",
+ "toml",
+ "url",
+ "walkdir",
+ "which",
+]
+
+[[package]]
+name = "dinghy-lib"
+version = "0.4.57"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4672590411b001f1d261ef732d4f9c845d1d56f7329a33d7d6f98a58aa263e4d"
+dependencies = [
+ "anyhow",
+ "atty",
+ "cargo",
+ "clap",
+ "core-foundation 0.7.0",
+ "core-foundation-sys 0.7.0",
+ "dinghy-build 0.4.57 (registry+https://github.com/rust-lang/crates.io-index)",
+ "dirs",
+ "env_logger",
+ "failure",
+ "filetime",
+ "ignore",
+ "itertools",
+ "json",
+ "libc",
+ "log",
+ "plist",
+ "regex",
+ "semver 0.11.0",
+ "serde",
+ "serde_derive",
+ "shell-escape",
+ "shellexpand",
+ "tempdir",
  "toml",
  "url",
  "walkdir",
