@@ -10,10 +10,8 @@ jobs:
     name: Upload Release Assets
     strategy:
       matrix:
-        os: [ ubuntu-latest, macOS-latest ]
+        os: [ macOS-latest ]
         include:
-          - os: ubuntu-latest
-            name: linux
           - os: macOS-latest
             name: macos
     runs-on: ${{ matrix.os }}
