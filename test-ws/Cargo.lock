@@ -2,7 +2,7 @@
 # It is not intended for manual editing.
 [[package]]
 name = "dinghy-test"
-version = "0.4.60-pre"
+version = "0.4.61-pre"
 
 [[package]]
 name = "test-app"
