@@ -11,6 +11,7 @@ use cargo::core::compiler as CargoCoreCompiler;
 use cargo::core::compiler::Compilation;
 pub use cargo::core::compiler::CompileMode;
 use cargo::core::compiler::MessageFormat;
+use cargo::core::resolver::CliFeatures;
 use cargo::core::Workspace;
 use cargo::ops;
 use cargo::ops::CleanOptions;
@@ -197,12 +198,19 @@ fn create_build_command(
         build_config.requested_kinds = vec![platform.as_cargo_kind()];
         build_config.requested_profile = requested_profile;
         build_config.message_format = MessageFormat::Human;
+        let features = features
+            .iter()
+            .map(|s| cargo::core::summary::FeatureValue::new(s.into()))
+            .collect();
+        let cli_features = CliFeatures {
+            features: std::rc::Rc::new(features),
+            all_features,
+            uses_default_features: !no_default_features,
+        };
 
         let compile_options = CompileOptions {
             build_config,
-            features: features.clone(),
-            all_features,
-            no_default_features,
+            cli_features,
             spec: CompilePackages::from_flags(all, excludes, packages)?,
             filter: CompileFilter::from_raw_arguments(
                 lib_only,
@@ -220,6 +228,7 @@ fn create_build_command(
             target_rustc_args: None,
             local_rustdoc_args: None,
             rustdoc_document_private_items: false,
+            honor_rust_version: false,
         };
 
         if bearded {
@@ -314,11 +323,18 @@ fn create_run_command(
                 )?
             };
 
+            let features = features
+                .iter()
+                .map(|s| cargo::core::summary::FeatureValue::new(s.into()))
+                .collect();
+            let cli_features = CliFeatures {
+                features: std::rc::Rc::new(features),
+                all_features,
+                uses_default_features: !no_default_features,
+            };
             let compile_options = CompileOptions {
                 build_config,
-                features: features.clone(),
-                all_features,
-                no_default_features,
+                cli_features,
                 spec: CompilePackages::from_flags(all, excludes, packages.clone())?,
                 filter: CompileFilter::from_raw_arguments(
                     lib_only,
@@ -337,6 +353,7 @@ fn create_run_command(
                 target_rustc_args: None,
                 local_rustdoc_args: None,
                 rustdoc_document_private_items: false,
+                honor_rust_version: false,
             };
 
             let test_options = TestOptions {
@@ -450,16 +467,16 @@ fn to_build(
                 .iter()
                 .map(|exe_path| {
                     Ok(Runnable {
-                        exe: exe_path.1.clone(),
+                        exe: exe_path.path.clone(),
                         id: exe_path
-                            .1
+                            .path
                             .file_name()
                             .ok_or_else(|| {
-                                anyhow!("Invalid executable file '{}'", &exe_path.1.display())
+                                anyhow!("Invalid executable file '{}'", &exe_path.path.display())
                             })?
                             .to_str()
                             .ok_or_else(|| {
-                                anyhow!("Invalid executable file '{}'", &exe_path.1.display())
+                                anyhow!("Invalid executable file '{}'", &exe_path.path.display())
                             })?
                             .to_string(),
                         source: PathBuf::from("."),
@@ -475,20 +492,21 @@ fn to_build(
             runnables: compilation
                 .tests
                 .iter()
-                .map(|&(ref u, ref exe_path)| {
+                .map(|output| {
                     Ok(Runnable {
-                        exe: exe_path.clone(),
-                        id: exe_path
+                        exe: output.path.clone(),
+                        id: output
+                            .path
                             .file_name()
                             .ok_or_else(|| {
-                                anyhow!("Invalid executable file '{}'", &exe_path.display())
+                                anyhow!("Invalid executable file '{}'", &output.path.display())
                             })?
                             .to_str()
                             .ok_or_else(|| {
-                                anyhow!("Invalid executable file '{}'", &exe_path.display())
+                                anyhow!("Invalid executable file '{}'", &output.path.display())
                             })?
                             .to_string(),
-                        source: u.pkg.package_id().source_id().url().to_file_path().unwrap(),
+                        source: output.unit.pkg.package_id().source_id().url().to_file_path().unwrap(),
                     })
                 })
                 .collect::<Result<Vec<_>>>()?,
@@ -647,9 +665,12 @@ fn find_all_linked_library_names(
         .map(|output_file| {
             CargoCoreCompiler::BuildOutput::parse_file(
                 &output_file,
+                None,
                 "idontcare",
                 root_output,
                 root_output,
+                false,
+                false,
             )
         })
         .flat_map(|build_output| build_output.map(|it| it.library_links))
