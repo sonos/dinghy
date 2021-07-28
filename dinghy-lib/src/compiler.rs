@@ -200,6 +200,7 @@ fn create_build_command(
         build_config.message_format = MessageFormat::Human;
         let features = features
             .iter()
+            .filter(|f| !f.is_empty())
             .map(|s| cargo::core::summary::FeatureValue::new(s.into()))
             .collect();
         let cli_features = CliFeatures {
@@ -325,6 +326,7 @@ fn create_run_command(
 
             let features = features
                 .iter()
+                .filter(|f| !f.is_empty())
                 .map(|s| cargo::core::summary::FeatureValue::new(s.into()))
                 .collect();
             let cli_features = CliFeatures {
@@ -506,7 +508,14 @@ fn to_build(
                                 anyhow!("Invalid executable file '{}'", &output.path.display())
                             })?
                             .to_string(),
-                        source: output.unit.pkg.package_id().source_id().url().to_file_path().unwrap(),
+                        source: output
+                            .unit
+                            .pkg
+                            .package_id()
+                            .source_id()
+                            .url()
+                            .to_file_path()
+                            .unwrap(),
                     })
                 })
                 .collect::<Result<Vec<_>>>()?,
