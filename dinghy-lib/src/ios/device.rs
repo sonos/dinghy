@@ -588,7 +588,7 @@ fn start_remote_debug_server(dev: *const am_device) -> Result<c_int> {
         let mut handle: *const c_void = std::ptr::null();
         mk_result(AMDeviceSecureStartService(
             dev,
-            CFString::from_static_string("com.apple.debugserver").as_concrete_TypeRef(),
+            CFString::from_static_string("com.apple.debugserver.DVTSecureSocketProxy").as_concrete_TypeRef(),
             ptr::null_mut(),
             &mut handle,
         ))?;
