@@ -171,7 +171,7 @@ pub fn rec_copy_excl<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path> + ::std::
                 fs::remove_file(&target)?;
             }
             trace!("Creating directory {}", target.display());
-            &fs::create_dir_all(&target)?;
+            fs::create_dir_all(&target)?;
         } else if metadata.is_file() {
             if target.exists() && !target.is_file() {
                 trace!("Remove 2 {:?}", target);

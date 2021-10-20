@@ -680,6 +680,8 @@ fn find_all_linked_library_names(
                 root_output,
                 false,
                 false,
+                &[]
+
             )
         })
         .flat_map(|build_output| build_output.map(|it| it.library_links))
