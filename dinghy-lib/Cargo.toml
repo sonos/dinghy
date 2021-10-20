@@ -17,13 +17,13 @@ edition = "2018"
 [dependencies]
 anyhow = "1"
 dinghy-build = { path = "../dinghy-build" }
-dirs = "3"
+dirs = "4"
 failure = "0.1.6"
 filetime = "0.2"
 log = "0.4"
 env_logger = "0.9"
 clap = "2.33"
-cargo = "0.54"
+cargo = "0.56"
 atty = "0.2"
 itertools = "0.10"
 plist = "1"
@@ -37,7 +37,6 @@ shell-escape = "0.1"
 walkdir = "2.0"
 which = "4.0"
 shellexpand="2"
-url = "= 2.1.1" # The `url` version 2.1.1 introduced a regression in Cargo (https://github.com/servo/rust-url/issues/577). This line should be removed once `cargo` lib is updated to support ssh urls again. It should be included in `cargo` 0.43: https://github.com/rust-lang/cargo/pull/7787/commits/dde27346685e09166967616581aac383918b2c04#diff-1dc41e0ad8fa6e5cafa93ac2d22c67f3
 semver = "1"
 
 [dev-dependencies]
