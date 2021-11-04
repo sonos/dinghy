@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "dinghy-test"
-version = "0.4.63-pre"
+version = "0.4.64-pre"
 
 [[package]]
 name = "test-app"
