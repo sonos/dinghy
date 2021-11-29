@@ -31,7 +31,7 @@ extern crate walkdir;
 extern crate which;
 
 pub mod errors {
-    pub use anyhow::{Context, Error, Result};
+    pub use anyhow::{anyhow, bail, Context, Error, Result};
 }
 
 mod android;
