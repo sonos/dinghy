@@ -30,11 +30,14 @@ extern crate toml;
 extern crate walkdir;
 extern crate which;
 
+pub mod errors {
+    pub use anyhow::{Context, Error, Result};
+}
+
 mod android;
 pub mod compiler;
 pub mod config;
 pub mod device;
-pub mod errors;
 mod host;
 #[cfg(target_os = "macos")]
 mod ios;
