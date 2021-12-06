@@ -115,11 +115,21 @@ fn config(offline: bool, verbosity: u32) -> Result<Config> {
     Ok(config)
 }
 
-fn profile(release: bool, build_args: &BuildArgs) -> InternedString {
-    if release || build_args.compile_mode == cargo::util::command_prelude::CompileMode::Bench {
+fn profile(
+    release: bool,
+    custom_profile: &Option<String>,
+    build_args: Option<&BuildArgs>,
+) -> InternedString {
+    if release
+        || build_args
+            .map(|args| args.compile_mode == cargo::util::command_prelude::CompileMode::Bench)
+            .unwrap_or(false)
+    {
         InternedString::new("release")
+    } else if let Some(custom_profile) = custom_profile {
+        InternedString::new(&custom_profile)
     } else {
-        InternedString::new("debug")
+        InternedString::new("dev")
     }
 }
 
@@ -142,6 +152,7 @@ fn create_build_command(
     let packages = arg_as_string_vec(matches, "SPEC");
 
     let release = matches.is_present("RELEASE");
+    let custom_profile = matches.value_of("PROFILE").map(ToString::to_string);
     let tests = arg_as_string_vec(matches, "TEST");
     let bearded = matches.is_present("BEARDED");
     let offline = matches.is_present("OFFLINE");
@@ -149,7 +160,7 @@ fn create_build_command(
 
     let f = Box::new(move |platform: &dyn Platform, build_args: &BuildArgs| {
         let config = config(offline, verbosity)?;
-        let requested_profile = profile(release, build_args);
+        let requested_profile = profile(release, &custom_profile, Some(build_args));
         let root_manifest = find_root_manifest_for_wd(&current_dir()?)?;
         if current_dir()? == root_manifest.parent().unwrap() && features.len() > 0 {
             bail!("cargo does not support --features flag when building from root of workspace")
@@ -246,13 +257,14 @@ fn create_build_command(
 fn create_clean_command(matches: &ArgMatches) -> Result<Box<dyn Fn(&dyn Platform) -> Result<()>>> {
     let packages = arg_as_string_vec(matches, "SPEC");
     let release = matches.is_present("RELEASE");
+    let custom_profile = matches.value_of("PROFILE").map(ToString::to_string);
     let offline = matches.is_present("OFFLINE");
     let verbosity = matches.occurrences_of("VERBOSE") as u32;
     let config = config(offline, verbosity)?;
 
     let f = Box::new(move |platform: &dyn Platform| {
         let workspace = Workspace::new(&find_root_manifest_for_wd(&current_dir()?)?, &config)?;
-        let requested_profile = InternedString::new(if release { "release" } else { "debug" });
+        let requested_profile = profile(release, &custom_profile, None);
 
         let options = CleanOptions {
             config: &config,
@@ -290,6 +302,7 @@ fn create_run_command(
     let packages = arg_as_string_vec(matches, "SPEC");
 
     let release = matches.is_present("RELEASE");
+    let custom_profile = matches.value_of("PROFILE").map(ToString::to_string);
     let tests = arg_as_string_vec(matches, "TEST");
     let bearded = matches.is_present("BEARDED");
     let offline = matches.is_present("OFFLINE");
@@ -310,7 +323,7 @@ fn create_run_command(
             } else {
                 excludes.clone()
             };
-            let requested_profile = InternedString::new(if release { "release" } else { "debug" });
+            let requested_profile = profile(release, &custom_profile, None);
 
             let build_config = CargoCoreCompiler::BuildConfig {
                 message_format: MessageFormat::Human,
@@ -679,9 +692,7 @@ fn find_all_linked_library_names(
                 root_output,
                 root_output,
                 false,
-                false,
-                &[]
-
+                &[],
             )
         })
         .flat_map(|build_output| build_output.map(|it| it.library_links))
