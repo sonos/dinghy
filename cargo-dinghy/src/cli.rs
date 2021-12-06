@@ -365,9 +365,15 @@ impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
                 .long("debug")
                 .help("Build artifacts in debug mode, without optimizations"),
         )
+        .arg(
+            Arg::with_name("PROFILE")
+                .long("profile")
+                .takes_value(true)
+                .help("Build artifacts with the specified profile"),
+        )
         .group(
             ArgGroup::with_name("BUILD_TYPE")
-                .args(&["DEBUG", "RELEASE"])
+                .args(&["DEBUG", "RELEASE", "PROFILE"])
                 .multiple(false),
         )
     }
