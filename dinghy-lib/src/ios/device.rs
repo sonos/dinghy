@@ -517,16 +517,14 @@ fn ensure_session(dev: *const am_device) -> Result<Session> {
             bail!("lost pairing")
         };
         mk_result(AMDeviceValidatePairing(dev))?;
-        mk_result(AMDeviceStartSession(dev))?;
-        Ok(Session(dev))
-        // debug!("ensure session 4 ({:x})", rv);
-        // if rv as u32 == 0xe800001d {
-        // Ok(Session(::std::ptr::null()))
-        // } else {
-        // mk_result(rv)?;
-        // Ok(Session(dev))
-        // }
-        //
+        let rv = AMDeviceStartSession(dev);
+        // kAMDSessionActiveError
+        if rv as u32 == 0xe800001d {
+            Ok(Session(::std::ptr::null()))
+        } else {
+            mk_result(rv)?;
+            Ok(Session(dev))
+        }
     }
 }
 
