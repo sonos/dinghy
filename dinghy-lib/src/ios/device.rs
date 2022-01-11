@@ -444,12 +444,12 @@ fn platform_support_path(platform: &str, os_version: &str) -> Result<PathBuf> {
 
 extern "C" fn mount_callback(_dict: CFDictionaryRef, _arg: *mut libc::c_void) {}
 
-fn mount_developper_image(dev: *const am_device) -> Result<()> {
+fn mount_developer_image(dev: *const am_device) -> Result<()> {
     unsafe {
         let _session = ensure_session(dev);
         let ds_path = device_support_path(dev)?;
         let image_path = ds_path.join("DeveloperDiskImage.dmg");
-        debug!("Developper image path: {:?}", image_path);
+        debug!("Developer image path: {:?}", image_path);
         let sig_image_path = ds_path.join("DeveloperDiskImage.dmg.signature");
         let sig = fs::read(sig_image_path)?;
         let sig = CFData::from_buffer(&sig);
@@ -457,7 +457,7 @@ fn mount_developper_image(dev: *const am_device) -> Result<()> {
         let options = [
             (
                 CFString::from_static_string("ImageType"),
-                CFString::from_static_string("Developper").as_CFType(),
+                CFString::from_static_string("Developer").as_CFType(),
             ),
             (
                 CFString::from_static_string("ImageSignature"),
@@ -556,7 +556,7 @@ pub fn install_app<P: AsRef<Path>>(dev: *const am_device, app: P) -> Result<()> 
             ::core_foundation::url::CFURL::from_file_system_path(CFString::new(path), 0, true);
         let options = [(
             CFString::from_static_string("PackageType"),
-            CFString::from_static_string("Developper").as_CFType(),
+            CFString::from_static_string("Developer").as_CFType(),
         )];
         let options = CFDictionary::from_CFType_pairs(&options);
         mk_result(AMDeviceSecureTransferPath(
@@ -581,8 +581,8 @@ pub fn install_app<P: AsRef<Path>>(dev: *const am_device, app: P) -> Result<()> 
 
 fn start_remote_debug_server(dev: *const am_device) -> Result<c_int> {
     unsafe {
-        debug!("mount developper image");
-        mount_developper_image(dev)?;
+        debug!("mount developer image");
+        mount_developer_image(dev)?;
         debug!("start debugserver on phone");
         let _session = ensure_session(dev)?;
         let mut handle: *const c_void = std::ptr::null();
