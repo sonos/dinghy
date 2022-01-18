@@ -9,6 +9,7 @@ use crate::Result;
 use crate::Runnable;
 use cargo::core::compiler as CargoCoreCompiler;
 use cargo::core::compiler::Compilation;
+use cargo::core::compiler::CompileKind;
 pub use cargo::core::compiler::CompileMode;
 use cargo::core::compiler::MessageFormat;
 use cargo::core::resolver::CliFeatures;
@@ -499,6 +500,8 @@ fn to_build(
             _ => compilation
                 .tests
                 .iter()
+                // Filter out proc macro tests
+                .filter(|output| output.unit.kind != CompileKind::Host)
                 .map(|output| {
                     Ok(Runnable {
                         exe: output.path.clone(),
