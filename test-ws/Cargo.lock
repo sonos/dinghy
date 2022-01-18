@@ -12,3 +12,7 @@ version = "0.1.0"
 dependencies = [
  "dinghy-test",
 ]
+
+[[package]]
+name = "test-proc-macro"
+version = "0.1.0"
