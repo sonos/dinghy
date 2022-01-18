@@ -467,60 +467,42 @@ fn copy_dependencies_to_target(build: &Build) -> Result<()> {
     Ok(())
 }
 
+fn get_id(path: &Path) -> Result<&str> {
+    Ok(path
+        .file_name()
+        .ok_or_else(|| anyhow!("Invalid executable file '{}'", &path.display()))?
+        .to_str()
+        .ok_or_else(|| anyhow!("Invalid executable file '{}'", &path.display()))?)
+}
+
 fn to_build(
     compilation: Compilation,
     config: &Config,
     build_args: &BuildArgs,
     platform: &dyn Platform,
 ) -> Result<Build> {
-    match build_args.compile_mode {
-        CompileMode::Build => Ok(Build {
-            build_args: build_args.clone(),
-            dynamic_libraries: find_dynamic_libraries(&compilation, config, build_args, platform)?,
-            runnables: compilation
+    Ok(Build {
+        build_args: build_args.clone(),
+        dynamic_libraries: find_dynamic_libraries(&compilation, config, build_args, platform)?,
+        runnables: match build_args.compile_mode {
+            CompileMode::Build => compilation
                 .binaries
                 .iter()
                 .map(|exe_path| {
                     Ok(Runnable {
                         exe: exe_path.path.clone(),
-                        id: exe_path
-                            .path
-                            .file_name()
-                            .ok_or_else(|| {
-                                anyhow!("Invalid executable file '{}'", &exe_path.path.display())
-                            })?
-                            .to_str()
-                            .ok_or_else(|| {
-                                anyhow!("Invalid executable file '{}'", &exe_path.path.display())
-                            })?
-                            .to_string(),
+                        id: get_id(&exe_path.path)?.to_string(),
                         source: PathBuf::from("."),
                     })
                 })
                 .collect::<Result<Vec<_>>>()?,
-            target_path: compilation.root_output[&platform.as_cargo_kind()].clone(),
-        }),
-
-        _ => Ok(Build {
-            build_args: build_args.clone(),
-            dynamic_libraries: find_dynamic_libraries(&compilation, config, build_args, platform)?,
-            runnables: compilation
+            _ => compilation
                 .tests
                 .iter()
                 .map(|output| {
                     Ok(Runnable {
                         exe: output.path.clone(),
-                        id: output
-                            .path
-                            .file_name()
-                            .ok_or_else(|| {
-                                anyhow!("Invalid executable file '{}'", &output.path.display())
-                            })?
-                            .to_str()
-                            .ok_or_else(|| {
-                                anyhow!("Invalid executable file '{}'", &output.path.display())
-                            })?
-                            .to_string(),
+                        id: get_id(&output.path)?.to_string(),
                         source: output
                             .unit
                             .pkg
@@ -532,9 +514,9 @@ fn to_build(
                     })
                 })
                 .collect::<Result<Vec<_>>>()?,
-            target_path: compilation.root_output[&platform.as_cargo_kind()].clone(),
-        }),
-    }
+        },
+        target_path: compilation.root_output[&platform.as_cargo_kind()].clone(),
+    })
 }
 
 fn exclude_by_target_triple(
