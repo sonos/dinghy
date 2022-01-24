@@ -1,6 +1,6 @@
 # Dinghy
 
-![rustc >= 1.40.0](https://img.shields.io/badge/rustc-%3E%3D1.40.0-brightgreen)
+![rustc >= 1.53.0](https://img.shields.io/badge/rustc-%3E%3D1.53.0-brightgreen)
 ![MIT/Apache 2](https://img.shields.io/crates/l/dinghy)
 ![Build and test](https://github.com/snipsco/dinghy/workflows/Build%20and%20test/badge.svg)
 
