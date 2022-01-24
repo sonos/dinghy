@@ -4,6 +4,9 @@ set -x
 export CARGO_DINGHY="`pwd`/target/debug/cargo-dinghy"
 export RUST_BACKTRACE=1
 
+rustup toolchain add $RUST_VERSION
+export RUSTUP_TOOLCHAIN=$RUST_VERSION
+
 if [ `uname` = Darwin ]
 then
     export OPENSSL_INCLUDE_DIR=`brew --prefix openssl`/include
