@@ -501,7 +501,7 @@ fn to_build(
                 .tests
                 .iter()
                 // Filter out proc macro tests
-                .filter(|output| output.unit.kind != CompileKind::Host)
+                .filter(|output| platform.is_host() || output.unit.kind != CompileKind::Host)
                 .map(|output| {
                     Ok(Runnable {
                         exe: output.path.clone(),
