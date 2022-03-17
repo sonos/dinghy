@@ -749,7 +749,7 @@ fn launch_app(dev: &IosSimDevice, app_args: &[&str], _envs: &[&str]) -> Result<(
     println!("{}", test_contents);
 
     let output: String = String::from_utf8_lossy(&output.stdout).to_string();
-    debug!("LLDB OUTPUT: {}", output);
+    debug!("lldb script: \n{}", output);
     // The stdout from lldb is something like:
     //
     // (lldb) attach 34163
@@ -762,18 +762,17 @@ fn launch_app(dev: &IosSimDevice, app_args: &[&str], _envs: &[&str]) -> Result<(
     //     0x1019cd003 <+3>: movq   %rsp, %rbp
     //     0x1019cd006 <+6>: andq   $-0x10, %rsp
     // Target 0: (Dinghy) stopped.
-    //
     // Executable module set to .....
     // Architecture set to: x86_64h-apple-ios-.
     // (lldb) continue
     // Process 34163 resuming
     // Process 34163 exited with status = 101 (0x00000065)
-    //
     // (lldb) quit
     //
     // We need the "exit with status" line which is the 3rd from the last
-    let lines: Vec<&str> = output.lines().rev().collect();
-    let exit_status_line = lines.get(2);
+    let lines: Vec<&str> = output.lines().filter(|line| line.trim().len() > 0).rev().collect();
+    let exit_status_line = lines.get(1);
+    debug!("exit status line: {:?}", exit_status_line);
     if let Some(exit_status_line) = exit_status_line {
         let words: Vec<&str> = exit_status_line.split_whitespace().rev().collect();
         if let Some(exit_status) = words.get(1) {
