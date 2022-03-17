@@ -240,6 +240,7 @@ fn create_build_command(
             target_rustdoc_args: None,
             target_rustc_args: None,
             local_rustdoc_args: None,
+            target_rustc_crate_types: None,
             rustdoc_document_private_items: false,
             honor_rust_version: false,
         };
@@ -365,6 +366,7 @@ fn create_run_command(
                     false, // all_targets
                 ),
 
+                target_rustc_crate_types: None,
                 target_rustdoc_args: None,
                 target_rustc_args: None,
                 local_rustdoc_args: None,
