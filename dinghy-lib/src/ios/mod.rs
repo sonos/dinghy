@@ -118,7 +118,7 @@ impl PlatformManager for IosManager {
     }
 
     fn platforms(&self) -> Result<Vec<Box<dyn Platform>>> {
-        ["armv7", "armv7s", "aarch64", "aarch64-sim", "i386", "x86_64"]
+        ["armv7", "armv7s", "aarch64", "i386", "x86_64", "aarch64-sim"]
             .iter()
             .map(|arch| {
                 let id = format!("auto-ios-{}", arch);
