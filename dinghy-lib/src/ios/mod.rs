@@ -118,11 +118,16 @@ impl PlatformManager for IosManager {
     }
 
     fn platforms(&self) -> Result<Vec<Box<dyn Platform>>> {
-        ["armv7", "armv7s", "aarch64", "i386", "x86_64"]
+        ["armv7", "armv7s", "aarch64", "aarch64-sim", "i386", "x86_64"]
             .iter()
             .map(|arch| {
                 let id = format!("auto-ios-{}", arch);
-                let rustc_triple = format!("{}-apple-ios", arch);
+                let rustc_triple =
+                if *arch != "aarch64-sim" {
+                    format!("{}-apple-ios", arch)
+                } else {
+                    format!("aarch64-apple-ios-sim")
+                };
                 IosPlatform::new(
                     id,
                     &rustc_triple,

@@ -37,7 +37,7 @@ impl IosPlatform {
     ) -> Result<Box<dyn Platform>> {
         Ok(Box::new(IosPlatform {
             id,
-            sim: rustc_triple.contains("86"),
+            sim: rustc_triple.contains("86") || rustc_triple.contains("sim"),
             toolchain: Toolchain {
                 rustc_triple: rustc_triple.to_string(),
             },
