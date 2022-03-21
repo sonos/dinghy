@@ -28,6 +28,8 @@ pub fn add_plist_to_app(bundle: &BuildBundle, arch: &str, app_bundle_id: &str) -
     writeln!(plist, "<string>{}</string>", arch)?;
     writeln!(plist, "<key>CFBundleShortVersionString</key>")?;
     writeln!(plist, "<string>{}</string>", arch)?;
+    writeln!(plist, "<key>UILaunchStoryboardName</key>")?;
+    writeln!(plist, "<string></string>")?;
     writeln!(plist, r#"</dict></plist>"#)?;
     /*
     let app_name = app_bundle_id.split(".").last().unwrap();
