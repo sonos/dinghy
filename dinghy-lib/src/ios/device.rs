@@ -314,7 +314,10 @@ impl DeviceCompatibility for IosDevice {
 
 impl DeviceCompatibility for IosSimDevice {
     fn is_compatible_with_ios_platform(&self, platform: &IosPlatform) -> bool {
-        platform.sim && platform.toolchain.rustc_triple == "x86_64-apple-ios"
+        platform.sim && (
+            platform.toolchain.rustc_triple == "x86_64-apple-ios" ||
+            platform.toolchain.rustc_triple == "aarch64-apple-ios-sim"
+        )
     }
 }
 
