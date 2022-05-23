@@ -174,7 +174,11 @@ pub trait CargoDinghyCliExt {
 
 impl<'a> CargoDinghyCliExt for App<'a> {
     fn additional_args(self) -> Self {
-        self.arg(Arg::with_name("ARGS").multiple(true).help("test arguments"))
+        self.arg(
+            Arg::with_name("ARGS")
+                .multiple_occurrences(true)
+                .help("test arguments"),
+        )
     }
 
     fn all(self) -> Self {
@@ -228,7 +232,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
             Arg::with_name("ENVS")
                 .long("env")
                 .takes_value(true)
-                .multiple(true)
+                .multiple_values(true)
                 .help("Space-separated list of env variables to set e.g. RUST_TRACE=trace"),
         )
     }
@@ -257,7 +261,6 @@ impl<'a> CargoDinghyCliExt for App<'a> {
             Arg::with_name("EXCLUDE")
                 .long("exclude")
                 .takes_value(true)
-                .multiple(true)
                 .number_of_values(1)
                 .help("Exclude package to from the build"),
         )
@@ -326,7 +329,6 @@ impl<'a> CargoDinghyCliExt for App<'a> {
                 .short('p')
                 .long("package")
                 .takes_value(true)
-                .multiple(true)
                 .number_of_values(1)
                 .help("Package to bench, build, run or test"),
         )
@@ -338,7 +340,6 @@ impl<'a> CargoDinghyCliExt for App<'a> {
                 .short('o')
                 .long("overlay")
                 .takes_value(true)
-                .multiple(true)
                 .number_of_values(1)
                 .help("Force the use of an overlay during project build"),
         )
@@ -400,7 +401,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
             Arg::with_name("VERBOSE")
                 .short('v')
                 .long("verbose")
-                .multiple(true)
+                .multiple_occurrences(true)
                 .help("Raise the level of verbosity"),
         )
     }
@@ -410,7 +411,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
             Arg::with_name("QUIET")
                 .short('q')
                 .long("quiet")
-                .multiple(true)
+                .multiple_occurrences(true)
                 .help("Lower the level of verbosity"),
         )
     }
