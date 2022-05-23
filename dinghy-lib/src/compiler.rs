@@ -204,6 +204,7 @@ fn create_build_command(
         let mut build_config = CargoCoreCompiler::BuildConfig::new(
             &config,
             jobs,
+            false,
             &[platform.rustc_triple().to_string()],
             build_args.compile_mode,
         )?;
@@ -334,6 +335,7 @@ fn create_run_command(
                 ..CargoCoreCompiler::BuildConfig::new(
                     &config,
                     jobs,
+                    false,
                     &[platform.rustc_triple().to_string()],
                     build_args.compile_mode,
                 )?
