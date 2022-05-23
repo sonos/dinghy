@@ -62,12 +62,16 @@ fn main() {
 
 fn run_command(args: &ArgMatches) -> Result<()> {
     let conf = Arc::new(dinghy_config(current_dir().unwrap())?);
-    let compiler = Arc::new(Compiler::from_args(args.subcommand().1.unwrap_or(args))?);
+    let compiler = Arc::new(Compiler::from_args(
+        args.subcommand()
+            .map(|(_, sub_args)| sub_args)
+            .unwrap_or(args),
+    )?);
     let dinghy = Dinghy::probe(&conf, &compiler)?;
     let project = Project::new(&conf);
     match args.subcommand() {
-        ("all-devices", Some(_)) => return show_all_devices(&dinghy),
-        ("all-platforms", Some(_)) => return show_all_platforms(&dinghy),
+        Some(("all-devices", _)) => return show_all_devices(&dinghy),
+        Some(("all-platforms", _)) => return show_all_platforms(&dinghy),
         _ => {}
     };
 
@@ -79,14 +83,15 @@ fn run_command(args: &ArgMatches) -> Result<()> {
     );
 
     match args.subcommand() {
-        ("bench", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
-        ("build", Some(sub_args)) => build(&platform, &project, args, sub_args).and(Ok(())),
-        ("clean", Some(_)) => compiler.clean(&**platform),
-        ("devices", Some(_)) => show_all_devices_for_platform(&dinghy, platform),
-        ("lldbproxy", Some(_)) => run_lldb(device),
-        ("run", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
-        ("test", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
-        (sub, _) => bail!("Unknown dinghy command '{}'", sub),
+        Some(("bench", sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
+        Some(("build", sub_args)) => build(&platform, &project, args, sub_args).and(Ok(())),
+        Some(("clean", _)) => compiler.clean(&**platform),
+        Some(("devices", _)) => show_all_devices_for_platform(&dinghy, platform),
+        Some(("lldbproxy", _)) => run_lldb(device),
+        Some(("run", sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
+        Some(("test", sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
+        Some((sub, _)) => bail!("Unknown dinghy command '{}'", sub),
+        None => bail!("Unknown dinghy command"),
     }
 }
 

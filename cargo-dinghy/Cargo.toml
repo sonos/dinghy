@@ -20,6 +20,6 @@ travis-ci = { repository = "snipsco/dinghy" }
 dinghy-lib = { path = "../dinghy-lib" }
 error-chain = "0.12"
 log = "0.4"
-clap = "2.32"
+clap = { version = "3.1", features = ["cargo"] }
 env_logger = "0.9"
 openssl-sys = { features = [ "vendored" ], version = "0.9" }

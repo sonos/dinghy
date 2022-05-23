@@ -9,134 +9,133 @@ use std::ffi::OsString;
 
 pub struct CargoDinghyCli {}
 
+fn default_app() -> App<'static> {
+    App::new("dinghy")
+        .version(crate_version!())
+        .device()
+        .verbose()
+        .quiet()
+        .overlay()
+        .platform()
+        .subcommand(
+            SubCommand::with_name("all-devices")
+                .about("List all devices that can be used with Dinghy"),
+        )
+        .subcommand(
+            SubCommand::with_name("all-platforms").about("List all platforms known to dinghy"),
+        )
+        .subcommand(
+            SubCommand::with_name("bench")
+                .about("Run the benchmarks")
+                .lib()
+                .bin()
+                .example()
+                .test()
+                .bench()
+                .package()
+                .all()
+                .exclude()
+                .job()
+                .features()
+                .no_default_features()
+                .no_run()
+                .all_features()
+                .common_remote()
+                .target()
+                .verbose()
+                .additional_args()
+                .strip()
+                .bearded(),
+        )
+        .subcommand(
+            SubCommand::with_name("build")
+                .about("Compile the current project")
+                .package()
+                .all()
+                .exclude()
+                .job()
+                .lib()
+                .bin()
+                .example()
+                .test()
+                .bench()
+                .debug_or_release()
+                .features()
+                .all_features()
+                .no_default_features()
+                .target()
+                .verbose()
+                .additional_args()
+                .strip()
+                .bearded(),
+        )
+        .subcommand(
+            SubCommand::with_name("clean")
+                .about("Remove artifacts that cargo has generated in the past"),
+        )
+        .subcommand(
+            SubCommand::with_name("devices")
+                .about("List devices that can be used with Dinghy for the selected platform"),
+        )
+        .subcommand(SubCommand::with_name("lldbproxy").about("Debug through lldb"))
+        .subcommand(
+            SubCommand::with_name("run")
+                .about("Build and execute src/main.rs")
+                .bin()
+                .example()
+                .package()
+                .job()
+                .debug_or_release()
+                .features()
+                .all_features()
+                .no_default_features()
+                .target()
+                .verbose()
+                .common_remote()
+                .additional_args()
+                .strip()
+                .bearded(),
+        )
+        .subcommand(
+            SubCommand::with_name("test")
+                .about("Run the tests")
+                .lib()
+                .bin()
+                .example()
+                .test()
+                .bench()
+                .all()
+                .package()
+                .exclude()
+                .job()
+                .features()
+                .all_features()
+                .no_default_features()
+                .no_run()
+                .debug_or_release()
+                .target()
+                .verbose()
+                .common_remote()
+                .additional_args()
+                .strip()
+                .bearded(),
+        )
+}
+
 impl CargoDinghyCli {
-    pub fn parse<'a, I, T>(args: I) -> ArgMatches<'a>
+    pub fn parse<I, T>(args: I) -> ArgMatches
     where
         I: IntoIterator<Item = T>,
         T: Into<OsString> + Clone,
     {
-        {
-            App::new("dinghy")
-                .version(crate_version!())
-                .device()
-                .verbose()
-                .quiet()
-                .overlay()
-                .platform()
-                .subcommand(
-                    SubCommand::with_name("all-devices")
-                        .about("List all devices that can be used with Dinghy"),
-                )
-                .subcommand(
-                    SubCommand::with_name("all-platforms")
-                        .about("List all platforms known to dinghy"),
-                )
-                .subcommand(
-                    SubCommand::with_name("bench")
-                        .about("Run the benchmarks")
-                        .lib()
-                        .bin()
-                        .example()
-                        .test()
-                        .bench()
-                        .package()
-                        .all()
-                        .exclude()
-                        .job()
-                        .features()
-                        .no_default_features()
-                        .no_run()
-                        .all_features()
-                        .common_remote()
-                        .target()
-                        .verbose()
-                        .additional_args()
-                        .strip()
-                        .bearded(),
-                )
-                .subcommand(
-                    SubCommand::with_name("build")
-                        .about("Compile the current project")
-                        .package()
-                        .all()
-                        .exclude()
-                        .job()
-                        .lib()
-                        .bin()
-                        .example()
-                        .test()
-                        .bench()
-                        .debug_or_release()
-                        .features()
-                        .all_features()
-                        .no_default_features()
-                        .target()
-                        .verbose()
-                        .additional_args()
-                        .strip()
-                        .bearded(),
-                )
-                .subcommand(
-                    SubCommand::with_name("clean")
-                        .about("Remove artifacts that cargo has generated in the past"),
-                )
-                .subcommand(
-                    SubCommand::with_name("devices").about(
-                        "List devices that can be used with Dinghy for the selected platform",
-                    ),
-                )
-                .subcommand(SubCommand::with_name("lldbproxy").about("Debug through lldb"))
-                .subcommand(
-                    SubCommand::with_name("run")
-                        .about("Build and execute src/main.rs")
-                        .bin()
-                        .example()
-                        .package()
-                        .job()
-                        .debug_or_release()
-                        .features()
-                        .all_features()
-                        .no_default_features()
-                        .target()
-                        .verbose()
-                        .common_remote()
-                        .additional_args()
-                        .strip()
-                        .bearded(),
-                )
-                .subcommand(
-                    SubCommand::with_name("test")
-                        .about("Run the tests")
-                        .lib()
-                        .bin()
-                        .example()
-                        .test()
-                        .bench()
-                        .all()
-                        .package()
-                        .exclude()
-                        .job()
-                        .features()
-                        .all_features()
-                        .no_default_features()
-                        .no_run()
-                        .debug_or_release()
-                        .target()
-                        .verbose()
-                        .common_remote()
-                        .additional_args()
-                        .strip()
-                        .bearded(),
-                )
-        }
-        .get_matches_from(args)
+        default_app().get_matches_from(args)
     }
 
     pub fn build_args_from(matches: &ArgMatches) -> BuildArgs {
         BuildArgs {
             compile_mode: match matches.subcommand() {
-                ("bench", Some(_)) => CompileMode::Bench,
-                ("test", Some(_)) => CompileMode::Test,
+                Some(("bench", _)) => CompileMode::Bench,
+                Some(("test", _)) => CompileMode::Test,
                 _ => CompileMode::Build,
             },
             forced_overlays: arg_as_string_vec(matches, "OVERLAY"),
@@ -173,7 +172,7 @@ pub trait CargoDinghyCliExt {
     fn bearded(self) -> Self;
 }
 
-impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
+impl<'a> CargoDinghyCliExt for App<'a> {
     fn additional_args(self) -> Self {
         self.arg(Arg::with_name("ARGS").multiple(true).help("test arguments"))
     }
@@ -237,7 +236,7 @@ impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
     fn device(self) -> Self {
         self.arg(
             Arg::with_name("DEVICE")
-                .short("d")
+                .short('d')
                 .long("device")
                 .takes_value(true)
                 .help("device hint"),
@@ -286,7 +285,7 @@ impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
         self.arg(
             Arg::with_name("JOBS")
                 .long("jobs")
-                .short("j")
+                .short('j')
                 .takes_value(true)
                 .help("number of concurrent jobs"),
         )
@@ -324,7 +323,7 @@ impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
     fn package(self) -> Self {
         self.arg(
             Arg::with_name("SPEC")
-                .short("p")
+                .short('p')
                 .long("package")
                 .takes_value(true)
                 .multiple(true)
@@ -336,7 +335,7 @@ impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
     fn overlay(self) -> Self {
         self.arg(
             Arg::with_name("OVERLAY")
-                .short("o")
+                .short('o')
                 .long("overlay")
                 .takes_value(true)
                 .multiple(true)
@@ -399,7 +398,7 @@ impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
     fn verbose(self) -> Self {
         self.arg(
             Arg::with_name("VERBOSE")
-                .short("v")
+                .short('v')
                 .long("verbose")
                 .multiple(true)
                 .help("Raise the level of verbosity"),
@@ -409,7 +408,7 @@ impl<'a, 'b> CargoDinghyCliExt for App<'a, 'b> {
     fn quiet(self) -> Self {
         self.arg(
             Arg::with_name("QUIET")
-                .short("q")
+                .short('q')
                 .long("quiet")
                 .multiple(true)
                 .help("Lower the level of verbosity"),
@@ -430,4 +429,14 @@ fn arg_as_string_vec(matches: &ArgMatches, option: &str) -> Vec<String> {
         .values_of(option)
         .map(|vs| vs.map(|s| s.to_string()).collect())
         .unwrap_or(vec![])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn verify_app() {
+        default_app().debug_assert();
+    }
 }
