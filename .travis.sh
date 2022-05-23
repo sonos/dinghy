@@ -3,7 +3,7 @@ set -e
 set -x
 export CARGO_DINGHY="`pwd`/target/debug/cargo-dinghy"
 export RUST_BACKTRACE=1
-echo RUST_VERSION: ${RUST_VERSION:=1.59.0}
+echo RUST_VERSION: ${RUST_VERSION:=1.61.0}
 
 rustup toolchain add $RUST_VERSION
 export RUSTUP_TOOLCHAIN=$RUST_VERSION
