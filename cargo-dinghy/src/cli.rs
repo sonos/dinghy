@@ -1,16 +1,15 @@
-use clap::App;
 use clap::Arg;
 use clap::ArgGroup;
 use clap::ArgMatches;
-use clap::SubCommand;
+use clap::Command;
 use dinghy_lib::compiler::CompileMode;
 use dinghy_lib::BuildArgs;
 use std::ffi::OsString;
 
 pub struct CargoDinghyCli {}
 
-fn default_app() -> App<'static> {
-    App::new("dinghy")
+fn default_app() -> Command<'static> {
+    Command::new("dinghy")
         .version(crate_version!())
         .device()
         .verbose()
@@ -18,14 +17,11 @@ fn default_app() -> App<'static> {
         .overlay()
         .platform()
         .subcommand(
-            SubCommand::with_name("all-devices")
-                .about("List all devices that can be used with Dinghy"),
+            Command::new("all-devices").about("List all devices that can be used with Dinghy"),
         )
+        .subcommand(Command::new("all-platforms").about("List all platforms known to dinghy"))
         .subcommand(
-            SubCommand::with_name("all-platforms").about("List all platforms known to dinghy"),
-        )
-        .subcommand(
-            SubCommand::with_name("bench")
+            Command::new("bench")
                 .about("Run the benchmarks")
                 .lib()
                 .bin()
@@ -48,7 +44,7 @@ fn default_app() -> App<'static> {
                 .bearded(),
         )
         .subcommand(
-            SubCommand::with_name("build")
+            Command::new("build")
                 .about("Compile the current project")
                 .package()
                 .all()
@@ -70,16 +66,15 @@ fn default_app() -> App<'static> {
                 .bearded(),
         )
         .subcommand(
-            SubCommand::with_name("clean")
-                .about("Remove artifacts that cargo has generated in the past"),
+            Command::new("clean").about("Remove artifacts that cargo has generated in the past"),
         )
         .subcommand(
-            SubCommand::with_name("devices")
+            Command::new("devices")
                 .about("List devices that can be used with Dinghy for the selected platform"),
         )
-        .subcommand(SubCommand::with_name("lldbproxy").about("Debug through lldb"))
+        .subcommand(Command::new("lldbproxy").about("Debug through lldb"))
         .subcommand(
-            SubCommand::with_name("run")
+            Command::new("run")
                 .about("Build and execute src/main.rs")
                 .bin()
                 .example()
@@ -97,7 +92,7 @@ fn default_app() -> App<'static> {
                 .bearded(),
         )
         .subcommand(
-            SubCommand::with_name("test")
+            Command::new("test")
                 .about("Run the tests")
                 .lib()
                 .bin()
@@ -172,10 +167,10 @@ pub trait CargoDinghyCliExt {
     fn bearded(self) -> Self;
 }
 
-impl<'a> CargoDinghyCliExt for App<'a> {
+impl<'a> CargoDinghyCliExt for Command<'a> {
     fn additional_args(self) -> Self {
         self.arg(
-            Arg::with_name("ARGS")
+            Arg::new("ARGS")
                 .multiple_occurrences(true)
                 .help("test arguments"),
         )
@@ -183,7 +178,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn all(self) -> Self {
         self.arg(
-            Arg::with_name("ALL")
+            Arg::new("ALL")
                 .long("all")
                 .help("Build all packages in the workspace"),
         )
@@ -191,7 +186,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn all_features(self) -> Self {
         self.arg(
-            Arg::with_name("ALL_FEATURES")
+            Arg::new("ALL_FEATURES")
                 .long("all-features")
                 .help("Build all available features"),
         )
@@ -199,7 +194,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn bench(self) -> Self {
         self.arg(
-            Arg::with_name("BENCH")
+            Arg::new("BENCH")
                 .long("bench")
                 .takes_value(true)
                 .help("only the specified benchmark target"),
@@ -208,7 +203,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn bin(self) -> Self {
         self.arg(
-            Arg::with_name("BIN")
+            Arg::new("BIN")
                 .long("bin")
                 .takes_value(true)
                 .help("only the specified binary"),
@@ -217,19 +212,19 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn common_remote(self) -> Self {
         self.arg(
-            Arg::with_name("CLEANUP")
+            Arg::new("CLEANUP")
                 .long("cleanup")
                 .takes_value(false)
                 .help("cleanup device after complete"),
         )
         .arg(
-            Arg::with_name("DEBUGGER")
+            Arg::new("DEBUGGER")
                 .long("debugger")
                 .takes_value(false)
                 .help("just start debugger"),
         )
         .arg(
-            Arg::with_name("ENVS")
+            Arg::new("ENVS")
                 .long("env")
                 .takes_value(true)
                 .multiple_values(true)
@@ -239,7 +234,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn device(self) -> Self {
         self.arg(
-            Arg::with_name("DEVICE")
+            Arg::new("DEVICE")
                 .short('d')
                 .long("device")
                 .takes_value(true)
@@ -249,7 +244,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn example(self) -> Self {
         self.arg(
-            Arg::with_name("EXAMPLE")
+            Arg::new("EXAMPLE")
                 .long("example")
                 .takes_value(true)
                 .help("only the specified example"),
@@ -258,7 +253,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn exclude(self) -> Self {
         self.arg(
-            Arg::with_name("EXCLUDE")
+            Arg::new("EXCLUDE")
                 .long("exclude")
                 .takes_value(true)
                 .number_of_values(1)
@@ -268,7 +263,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn exe(self) -> Self {
         self.arg(
-            Arg::with_name("EXE")
+            Arg::new("EXE")
                 .long("exe")
                 .takes_value(true)
                 .help("Executable to strip"),
@@ -277,7 +272,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn features(self) -> Self {
         self.arg(
-            Arg::with_name("FEATURES")
+            Arg::new("FEATURES")
                 .long("features")
                 .takes_value(true)
                 .help("Space-separated list of features to also build"),
@@ -286,7 +281,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn job(self) -> Self {
         self.arg(
-            Arg::with_name("JOBS")
+            Arg::new("JOBS")
                 .long("jobs")
                 .short('j')
                 .takes_value(true)
@@ -295,12 +290,12 @@ impl<'a> CargoDinghyCliExt for App<'a> {
     }
 
     fn lib(self) -> Self {
-        self.arg(Arg::with_name("LIB").long("lib").help("only the library"))
+        self.arg(Arg::new("LIB").long("lib").help("only the library"))
     }
 
     fn no_default_features(self) -> Self {
         self.arg(
-            Arg::with_name("NO_DEFAULT_FEATURES")
+            Arg::new("NO_DEFAULT_FEATURES")
                 .long("no-default-features")
                 .help("Do not build the `default` feature"),
         )
@@ -308,7 +303,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn no_run(self) -> Self {
         self.arg(
-            Arg::with_name("NO_RUN")
+            Arg::new("NO_RUN")
                 .long("no-run")
                 .help("Compile, but don't run tests or benches"),
         )
@@ -316,7 +311,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn strip(self) -> Self {
         self.arg(
-            Arg::with_name("STRIP")
+            Arg::new("STRIP")
                 .long("strip")
                 .takes_value(false)
                 .help("strip the final executable (will have '-stripped' extension)"),
@@ -325,7 +320,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn package(self) -> Self {
         self.arg(
-            Arg::with_name("SPEC")
+            Arg::new("SPEC")
                 .short('p')
                 .long("package")
                 .takes_value(true)
@@ -336,7 +331,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn overlay(self) -> Self {
         self.arg(
-            Arg::with_name("OVERLAY")
+            Arg::new("OVERLAY")
                 .short('o')
                 .long("overlay")
                 .takes_value(true)
@@ -347,7 +342,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn platform(self) -> Self {
         self.arg(
-            Arg::with_name("PLATFORM")
+            Arg::new("PLATFORM")
                 .long("platform")
                 .takes_value(true)
                 .help("Use a specific platform (build only)"),
@@ -356,23 +351,23 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn debug_or_release(self) -> Self {
         self.arg(
-            Arg::with_name("RELEASE")
+            Arg::new("RELEASE")
                 .long("release")
                 .help("Build artifacts in release mode, with optimizations"),
         )
         .arg(
-            Arg::with_name("DEBUG")
+            Arg::new("DEBUG")
                 .long("debug")
                 .help("Build artifacts in debug mode, without optimizations"),
         )
         .arg(
-            Arg::with_name("PROFILE")
+            Arg::new("PROFILE")
                 .long("profile")
                 .takes_value(true)
                 .help("Build artifacts with the specified profile"),
         )
         .group(
-            ArgGroup::with_name("BUILD_TYPE")
+            ArgGroup::new("BUILD_TYPE")
                 .args(&["DEBUG", "RELEASE", "PROFILE"])
                 .multiple(false),
         )
@@ -380,7 +375,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn target(self) -> Self {
         self.arg(
-            Arg::with_name("TARGET")
+            Arg::new("TARGET")
                 .long("target")
                 .takes_value(true)
                 .help("target triple (rust conventions)"),
@@ -389,7 +384,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn test(self) -> Self {
         self.arg(
-            Arg::with_name("TEST")
+            Arg::new("TEST")
                 .long("test")
                 .takes_value(true)
                 .help("only the specified integration test target"),
@@ -398,7 +393,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn verbose(self) -> Self {
         self.arg(
-            Arg::with_name("VERBOSE")
+            Arg::new("VERBOSE")
                 .short('v')
                 .long("verbose")
                 .multiple_occurrences(true)
@@ -408,7 +403,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn quiet(self) -> Self {
         self.arg(
-            Arg::with_name("QUIET")
+            Arg::new("QUIET")
                 .short('q')
                 .long("quiet")
                 .multiple_occurrences(true)
@@ -418,7 +413,7 @@ impl<'a> CargoDinghyCliExt for App<'a> {
 
     fn bearded(self) -> Self {
         self.arg(
-            Arg::with_name("BEARDED")
+            Arg::new("BEARDED")
                 .long("bearded")
                 .help("Do some naughty stuff"),
         )
