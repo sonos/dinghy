@@ -1,17 +1,10 @@
 use crate::errors::Result;
-use clap::ArgMatches;
+use anyhow::{anyhow, bail};
 use filetime::set_file_times;
 use filetime::FileTime;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
-
-pub fn arg_as_string_vec(matches: &ArgMatches, option: &str) -> Vec<String> {
-    matches
-        .values_of(option)
-        .map(|vs| vs.map(|s| s.to_string()).collect())
-        .unwrap_or(vec![])
-}
 
 pub fn copy_and_sync_file<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<()> {
     let from = &from.as_ref();
@@ -26,7 +19,7 @@ pub fn copy_and_sync_file<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Res
         }
     }
 
-    trace!("copy {:?} to {:?}", from, to);
+    log::trace!("copy {:?} to {:?}", from, to);
     fs::copy(&from, &to)?;
 
     // Keep filetime to avoid useless sync on some devices (e.g. Android).

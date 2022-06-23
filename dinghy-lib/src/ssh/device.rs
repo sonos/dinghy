@@ -9,7 +9,6 @@ use crate::Build;
 use crate::BuildBundle;
 use crate::Device;
 use crate::DeviceCompatibility;
-use crate::Runnable;
 use std::fmt;
 use std::fmt::Formatter;
 use std::fmt::{Debug, Display};
@@ -23,17 +22,13 @@ pub struct SshDevice {
 }
 
 impl SshDevice {
-    fn install_app(
-        &self,
-        project: &Project,
-        build: &Build,
-        runnable: &Runnable,
-    ) -> Result<(BuildBundle, BuildBundle)> {
-        debug!("make_remote_app {}", runnable.id);
-        let build_bundle = make_remote_app(project, build, runnable)?;
-        trace!("make_remote_app {} done", runnable.id);
+    fn install_app(&self, project: &Project, build: &Build) -> Result<(BuildBundle, BuildBundle)> {
+        log::debug!("make_remote_app {}", build.runnable.id);
+        let build_bundle = make_remote_app(project, build)?;
+
+        log::trace!("make_remote_app {} done", build.runnable.id);
         let remote_bundle = self.to_remote_bundle(&build_bundle)?;
-        trace!("Create remote dir: {:?}", remote_bundle.bundle_dir);
+        log::trace!("Create remote dir: {:?}", remote_bundle.bundle_dir);
 
         let _ = self
             .ssh_command()?
@@ -42,7 +37,7 @@ impl SshDevice {
             .arg(&remote_bundle.bundle_dir)
             .status();
 
-        info!("Install {} to {}", runnable.id, self.id);
+        log::info!("Install {} to {}", build.runnable.id, self.id);
         self.sync(&build_bundle.bundle_dir, &remote_bundle.bundle_dir)?;
         self.sync(&build_bundle.lib_dir, &remote_bundle.lib_dir)?;
         Ok((build_bundle, remote_bundle))
@@ -65,6 +60,9 @@ impl SshDevice {
             Some(rsync) => {
                 let rsync_path = "/tmp/rsync";
                 let mut command = Command::new("scp");
+                if let Some(true) = self.conf.use_legacy_scp_protocol_for_adhoc_rsync_copy {
+                    command.arg("-O");
+                }
                 command.arg("-q");
                 if let Some(port) = self.conf.port {
                     command.arg("-P").arg(&format!("{}", port));
@@ -74,7 +72,7 @@ impl SshDevice {
                     "{}@{}:{}",
                     self.conf.username, self.conf.hostname, rsync_path
                 ));
-                debug!("Running {:?}", command);
+                log::debug!("Running {:?}", command);
                 if !command.status()?.success() {
                     bail!("Error copying rsync binary ({:?})", command)
                 }
@@ -96,7 +94,7 @@ impl SshDevice {
         if let Some(port) = self.conf.port {
             command.arg("-e").arg(&*format!("ssh -p {}", port));
         };
-        if !log_enabled!(::log::Level::Debug) {
+        if !log::log_enabled!(::log::Level::Debug) {
             command.stdout(::std::process::Stdio::null());
             command.stderr(::std::process::Stdio::null());
         }
@@ -108,8 +106,12 @@ impl SshDevice {
                 self.conf.hostname,
                 path_to_str(&to_path.as_ref())?
             ));
-        debug!("Running {:?}", command);
-        if !command.status().with_context(||format!("failed to run '{:?}'", command))?.success() {
+        log::debug!("Running {:?}", command);
+        if !command
+            .status()
+            .with_context(|| format!("failed to run '{:?}'", command))?
+            .success()
+        {
             bail!("Error syncing ssh directory ({:?})", command)
         } else {
             Ok(())
@@ -178,8 +180,7 @@ impl Device for SshDevice {
         build: &Build,
         args: &[&str],
         envs: &[&str],
-    ) -> Result<Vec<BuildBundle>> {
-        let mut build_bundles = vec![];
+    ) -> Result<BuildBundle> {
         let remote_shell_vars_as_context = |a: &str| -> Option<std::borrow::Cow<str>> {
             self.conf.remote_shell_vars.get(a).map(|s| s.into())
         };
@@ -194,33 +195,26 @@ impl Device for SshDevice {
             })
             .map(|a| ::shell_escape::escape(a).to_string())
             .collect();
-        for runnable in &build.runnables {
-            info!("Install {:?}", runnable.id);
-            let (build_bundle, remote_bundle) = self.install_app(&project, &build, &runnable)?;
-            debug!("Installed {:?}", runnable.id);
-            let command = format!(
-                        "cd '{}' ; {} RUST_BACKTRACE=1 DINGHY=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {} {}",
-                        path_to_str(&remote_bundle.bundle_dir)?,
-                        envs.join(" "),
-                        path_to_str(&remote_bundle.lib_dir)?,
-                        path_to_str(&remote_bundle.bundle_exe)?,
-                        if build.build_args.compile_mode == ::cargo::core::compiler::CompileMode::Bench { "--bench" } else { "" },
-                        args.join(" ")
-                        );
-            trace!("Ssh command: {}", command);
-            info!(
-                "Run {} on {} ({:?})",
-                runnable.id, self.id, build.build_args.compile_mode
-            );
+        log::info!("Install {:?}", build.runnable.id);
+        let (build_bundle, remote_bundle) = self.install_app(&project, &build)?;
+        log::debug!("Installed {:?}", build.runnable.id);
+        let command = format!(
+            "cd '{}' ; {} RUST_BACKTRACE=1 DINGHY=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {}",
+            path_to_str(&remote_bundle.bundle_dir)?,
+            envs.join(" "),
+            path_to_str(&remote_bundle.lib_dir)?,
+            path_to_str(&remote_bundle.bundle_exe)?,
+            args.join(" ")
+        );
+        log::trace!("Ssh command: {}", command);
+        log::info!("Run {} on {}", build.runnable.id, self.id,);
 
-            let status = self.ssh_command()?.arg(&command).status()?;
-            if !status.success() {
-                bail!("Test failed 🐛")
-            }
-
-            build_bundles.push(build_bundle);
+        let status = self.ssh_command()?.arg(&command).status()?;
+        if !status.success() {
+            bail!("Failed")
         }
-        Ok(build_bundles)
+
+        Ok(build_bundle)
     }
 
     fn start_remote_lldb(&self) -> Result<String> {

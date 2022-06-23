@@ -1,5 +1,6 @@
 use super::{SignatureSettings, SigningIdentity};
 use crate::errors::*;
+use log::{debug, trace};
 use std::io::Write;
 use std::{fs, io, process};
 

@@ -18,6 +18,7 @@ use core_foundation::number::CFNumber;
 use core_foundation::string::CFString;
 use core_foundation_sys::number::kCFBooleanTrue;
 use libc::*;
+use log::{debug, error};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Display;
@@ -119,11 +120,7 @@ impl Device for IosDevice {
         args: &[&str],
         envs: &[&str],
     ) -> Result<BuildBundle> {
-        let runnable = build
-            .runnables
-            .iter()
-            .next()
-            .ok_or_else(|| anyhow!("No executable compiled"))?;
+        let runnable = &build.runnable;
         let build_bundle = self.install_app(project, build, runnable)?;
         let lldb_proxy = self.start_remote_lldb()?;
         run_remote(
@@ -151,22 +148,19 @@ impl Device for IosDevice {
         build: &Build,
         args: &[&str],
         envs: &[&str],
-    ) -> Result<Vec<BuildBundle>> {
-        let mut build_bundles = vec![];
-        for runnable in &build.runnables {
-            let build_bundle = self.install_app(&project, &build, &runnable)?;
-            let lldb_proxy = self.start_remote_lldb()?;
-            run_remote(
-                self.ptr,
-                &lldb_proxy,
-                &build_bundle.bundle_dir,
-                args,
-                envs,
-                false,
-            )?;
-            build_bundles.push(build_bundle)
-        }
-        Ok(build_bundles)
+    ) -> Result<BuildBundle> {
+        let build_bundle = self.install_app(&project, &build, &build.runnable)?;
+        let lldb_proxy = self.start_remote_lldb()?;
+        run_remote(
+            self.ptr,
+            &lldb_proxy,
+            &build_bundle.bundle_dir,
+            args,
+            envs,
+            false,
+        )?;
+
+        Ok(build_bundle)
     }
 
     fn start_remote_lldb(&self) -> Result<String> {
@@ -230,11 +224,7 @@ impl Device for IosSimDevice {
         args: &[&str],
         envs: &[&str],
     ) -> Result<BuildBundle> {
-        let runnable = build
-            .runnables
-            .iter()
-            .next()
-            .ok_or_else(|| anyhow!("No executable compiled"))?;
+        let runnable = &build.runnable;
         let build_bundle = self.install_app(project, build, runnable)?;
         let install_path = String::from_utf8(
             process::Command::new("xcrun")
@@ -260,14 +250,10 @@ impl Device for IosSimDevice {
         build: &Build,
         args: &[&str],
         envs: &[&str],
-    ) -> Result<Vec<BuildBundle>> {
-        let mut build_bundles = vec![];
-        for runnable in &build.runnables {
-            let build_bundle = self.install_app(&project, &build, &runnable)?;
-            launch_app(&self, args, envs)?;
-            build_bundles.push(build_bundle);
-        }
-        Ok(build_bundles)
+    ) -> Result<BuildBundle> {
+        let build_bundle = self.install_app(&project, &build, &build.runnable)?;
+        launch_app(&self, args, envs)?;
+        Ok(build_bundle)
     }
 
     fn start_remote_lldb(&self) -> Result<String> {
@@ -314,10 +300,9 @@ impl DeviceCompatibility for IosDevice {
 
 impl DeviceCompatibility for IosSimDevice {
     fn is_compatible_with_ios_platform(&self, platform: &IosPlatform) -> bool {
-        platform.sim && (
-            platform.toolchain.rustc_triple == "x86_64-apple-ios" ||
-            platform.toolchain.rustc_triple == "aarch64-apple-ios-sim"
-        )
+        platform.sim
+            && (platform.toolchain.rustc_triple == "x86_64-apple-ios"
+                || platform.toolchain.rustc_triple == "aarch64-apple-ios-sim")
     }
 }
 
@@ -492,7 +477,7 @@ fn make_ios_app(
     app_id: &str,
 ) -> Result<BuildBundle> {
     use crate::project;
-    let build_bundle = make_remote_app_with_name(project, build, runnable, Some("Dinghy.app"))?;
+    let build_bundle = make_remote_app_with_name(project, build, Some("Dinghy.app"))?;
     project::rec_copy(&runnable.exe, build_bundle.bundle_dir.join("Dinghy"), false)?;
     let magic = process::Command::new("file")
         .arg(
@@ -773,7 +758,11 @@ fn launch_app(dev: &IosSimDevice, app_args: &[&str], _envs: &[&str]) -> Result<(
     // (lldb) quit
     //
     // We need the "exit with status" line which is the 3rd from the last
-    let lines: Vec<&str> = output.lines().filter(|line| line.trim().len() > 0).rev().collect();
+    let lines: Vec<&str> = output
+        .lines()
+        .filter(|line| line.trim().len() > 0)
+        .rev()
+        .collect();
     let exit_status_line = lines.get(1);
     debug!("exit status line: {:?}", exit_status_line);
     if let Some(exit_status_line) = exit_status_line {

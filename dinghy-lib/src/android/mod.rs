@@ -1,17 +1,18 @@
 use crate::config::PlatformConfiguration;
 use crate::platform::regular_platform::RegularPlatform;
 use crate::toolchain::ToolchainConfig;
-use crate::{Compiler, Device, Platform, PlatformManager, Result};
-use std::{env, fs, path, process, sync};
+use crate::{Device, Platform, PlatformManager, Result};
+use std::{env, fs, path, process};
 
 pub use self::device::AndroidDevice;
 
-use anyhow::Context;
+use anyhow::{anyhow, bail, Context};
+use log::debug;
 
 mod device;
 
 pub struct AndroidManager {
-    compiler: sync::Arc<Compiler>,
+    //compiler: sync::Arc<Compiler>,
     adb: path::PathBuf,
 }
 
@@ -93,12 +94,7 @@ impl PlatformManager for AndroidManager {
                             binutils_prefix: format!("{}-linux-{}", binutils_cpu, abi_kind),
                             cc_prefix: format!("{}-linux-{}{}", cc_cpu, abi_kind, api),
                         };
-                        RegularPlatform::new_with_tc(
-                            self.compiler.clone(),
-                            PlatformConfiguration::default(),
-                            id,
-                            tc,
-                        )
+                        RegularPlatform::new_with_tc(PlatformConfiguration::default(), id, tc)
                     };
                     for api in api_levels.iter() {
                         platforms.push(create_platform(&api, &format!("-api{}", api))?);
@@ -127,11 +123,11 @@ impl PlatformManager for AndroidManager {
 }
 
 impl AndroidManager {
-    pub fn probe(compiler: sync::Arc<Compiler>) -> Option<AndroidManager> {
+    pub fn probe() -> Option<AndroidManager> {
         match adb() {
             Ok(adb) => {
                 debug!("ADB found: {:?}", adb);
-                Some(AndroidManager { adb, compiler })
+                Some(AndroidManager { adb })
             }
             Err(_) => {
                 debug!("adb not found in path, android disabled");

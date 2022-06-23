@@ -13,8 +13,7 @@
 //! these variables names. It also notify all environment lookup "back" to
 //! cargo using `cargo:rerun-if-env-changed` markup.
 
-use super::Result;
-use super::ResultExt;
+use anyhow::{Context, Result};
 use std::env;
 use std::ffi::OsStr;
 use std::ffi::OsString;
@@ -72,7 +71,7 @@ pub fn set_all_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(env: &[(K, V)]) {
 
 /// Set one environment variable.
 pub fn set_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(k: K, v: V) {
-    debug!(
+    log::debug!(
         "Setting environment variable {:?}={:?}",
         k.as_ref(),
         v.as_ref()
@@ -83,14 +82,14 @@ pub fn set_env<K: AsRef<OsStr>, V: AsRef<OsStr>>(k: K, v: V) {
 /// Set one environment variable if not set yet.
 pub fn set_env_ifndef<K: AsRef<OsStr>, V: AsRef<OsStr>>(k: K, v: V) {
     if let Ok(current_env_value) = env::var(k.as_ref()) {
-        debug!(
+        log::debug!(
             "Ignoring value {:?} as environment variable {:?} already defined with value {:?}",
             k.as_ref(),
             v.as_ref(),
             current_env_value
         );
     } else {
-        debug!(
+        log::debug!(
             "Setting environment variable {:?}={:?}",
             k.as_ref(),
             v.as_ref()
@@ -113,9 +112,7 @@ pub fn set_target_env<K: AsRef<OsStr>, R: AsRef<str>, V: AsRef<OsStr>>(
 pub fn sysroot_path() -> Result<PathBuf> {
     env::var_os("TARGET_SYSROOT")
         .map(PathBuf::from)
-        .chain_err(|| {
-            "You must either define a TARGET_SYSROOT or use Dinghy to build your project."
-        })
+        .context("You must either define a TARGET_SYSROOT or use Dinghy to build your project.")
 }
 
 /// Access `var_base` directly, or use targetting rules depending on the build
