@@ -1,6 +1,7 @@
 //! Some helpers around Path and PathBuf manipulations.
 
 use super::Result;
+use anyhow::anyhow;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -8,7 +9,7 @@ use std::path::PathBuf;
 pub fn path_to_str(path: &PathBuf) -> Result<&str> {
     Ok(path
         .to_str()
-        .ok_or(format!("Not a valid UTF-8 path ({})", path.display()))?)
+        .ok_or(anyhow!("Not a valid UTF-8 path ({})", path.display()))?)
 }
 
 /// Finds the path to `to` relative from `from`.

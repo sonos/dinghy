@@ -4,22 +4,17 @@ use crate::project::Project;
 use crate::utils::copy_and_sync_file;
 use crate::Build;
 use crate::BuildBundle;
-use crate::Runnable;
+use log::debug;
 use std::fs;
 use std::path::Path;
 
-pub fn make_remote_app(
-    project: &Project,
-    build: &Build,
-    runnable: &Runnable,
-) -> Result<BuildBundle> {
-    make_remote_app_with_name(project, build, runnable, None)
+pub fn make_remote_app(project: &Project, build: &Build) -> Result<BuildBundle> {
+    make_remote_app_with_name(project, build, None)
 }
 
 pub fn make_remote_app_with_name(
     project: &Project,
     build: &Build,
-    runnable: &Runnable,
     bundle_name: Option<&str>,
 ) -> Result<BuildBundle> {
     fn is_sysroot_library(path: &Path) -> bool {
@@ -35,15 +30,16 @@ pub fn make_remote_app_with_name(
                 && !path.to_str().unwrap().contains("android"))
     }
 
-    let project = project.for_runnable(runnable)?;
+    // TODO this is probably useless
+    let project = project.for_runnable(&build.runnable)?;
     let root_dir = build.target_path.join("dinghy");
     let bundle_path = match bundle_name {
-        Some(name) => root_dir.join(&runnable.id).join(name),
-        None => root_dir.join(&runnable.id),
+        Some(name) => root_dir.join(&build.runnable.id).join(name),
+        None => root_dir.join(&build.runnable.id),
     };
     let bundle_libs_path = root_dir.join("overlay");
     let bundle_target_path = &bundle_path;
-    let bundle_exe_path = bundle_target_path.join(format!("_dinghy_{}", &runnable.id));
+    let bundle_exe_path = bundle_target_path.join(format!("_dinghy_{}", &build.runnable.id));
 
     debug!("Removing previous bundle {:?}", bundle_path);
     let _ = fs::remove_dir_all(&bundle_path);
@@ -60,12 +56,12 @@ pub fn make_remote_app_with_name(
 
     debug!(
         "Copying exe {:?} to bundle {:?}",
-        &runnable.exe, bundle_exe_path
+        &build.runnable.exe, bundle_exe_path
     );
-    copy_and_sync_file(&runnable.exe, &bundle_exe_path).with_context(|| {
+    copy_and_sync_file(&build.runnable.exe, &bundle_exe_path).with_context(|| {
         format!(
             "Couldn't copy {} to {}",
-            &runnable.exe.display(),
+            &build.runnable.exe.display(),
             &bundle_exe_path.display()
         )
     })?;
@@ -100,20 +96,20 @@ pub fn make_remote_app_with_name(
 
     debug!(
         "Copying src {} to bundle {}",
-        runnable.source.display(),
+        build.runnable.source.display(),
         bundle_path.display()
     );
     project::rec_copy_excl(
-        &runnable.source,
+        &build.runnable.source,
         &bundle_path,
         false,
-        &[runnable.source.join("target")],
+        &[build.runnable.source.join("target")],
     )?;
     debug!("Copying test_data to bundle {}", bundle_path.display());
     project.copy_test_data(&bundle_path)?;
 
     Ok(BuildBundle {
-        id: runnable.id.clone(),
+        id: build.runnable.id.clone(),
         bundle_dir: bundle_path.to_path_buf(),
         bundle_exe: bundle_exe_path.to_path_buf(),
         lib_dir: bundle_libs_path.to_path_buf(),

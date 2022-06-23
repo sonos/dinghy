@@ -1,5 +1,6 @@
 use crate::config::ScriptDeviceConfiguration;
 use crate::*;
+use anyhow::bail;
 use std::{fmt, fs, process};
 
 #[derive(Debug)]
@@ -9,7 +10,7 @@ pub struct ScriptDevice {
 }
 
 impl ScriptDevice {
-    fn command(&self, build: &Build) -> Result<process::Command> {
+    fn command(&self, _build: &Build) -> Result<process::Command> {
         if fs::metadata(&self.conf.path).is_err() {
             bail!("Can not read {:?} for {}.", self.conf.path, self.id);
         }
@@ -19,11 +20,12 @@ impl ScriptDevice {
         if let Some(ref pf) = self.conf.platform {
             cmd.env("DINGHY_PLATFORM", &*pf);
         }
-        cmd.env(
-            "DINGHY_COMPILE_MODE",
-            &*format!("{:?}", build.build_args.compile_mode),
-        );
-        Ok(cmd)
+        todo!("What is your usage of script the script device, this do you need the DINGHY_COMPILE_MODE env var to be set ? (this notion doesn't exist anymore in dinghy and is handled by cargo directly)");
+        // cmd.env(
+        //     "DINGHY_COMPILE_MODE",
+        //     &*format!("{:?}", _build.build_args.compile_mode),
+        // );
+        //Ok(cmd)
     }
 }
 
@@ -56,49 +58,45 @@ impl Device for ScriptDevice {
         build: &Build,
         args: &[&str],
         envs: &[&str],
-    ) -> Result<Vec<BuildBundle>> {
+    ) -> Result<BuildBundle> {
         let root_dir = build.target_path.join("dinghy");
-        let mut build_bundles = vec![];
-        for runnable in &build.runnables {
-            let bundle_path = &runnable.source;
+        let bundle_path = &build.runnable.source;
 
-            trace!("About to start runner script...");
-            let test_data_path = project.link_test_data(&runnable, &bundle_path)?;
+        log::trace!("About to start runner script...");
+        let test_data_path = project.link_test_data(&build.runnable, &bundle_path)?;
 
-            let status = self
-                .command(build)?
-                .arg(&runnable.exe)
-                .current_dir(&runnable.source)
-                .env("DINGHY_TEST_DATA_PATH", test_data_path)
-                .args(args)
-                .envs(
-                    envs.iter()
-                        .map(|kv| {
-                            Ok((
-                                kv.split("=")
-                                    .nth(0)
-                                    .ok_or_else(|| anyhow!("Wrong env spec"))?,
-                                kv.split("=")
-                                    .nth(1)
-                                    .ok_or_else(|| anyhow!("Wrong env spec"))?,
-                            ))
-                        })
-                        .collect::<Result<Vec<_>>>()?,
-                )
-                .status()?;
-            if !status.success() {
-                bail!("Test failed")
-            }
-
-            build_bundles.push(BuildBundle {
-                id: runnable.id.clone(),
-                bundle_dir: bundle_path.to_path_buf(),
-                bundle_exe: runnable.exe.to_path_buf(),
-                lib_dir: build.target_path.clone(),
-                root_dir: root_dir.clone(),
-            });
+        let status = self
+            .command(build)?
+            .arg(&build.runnable.exe)
+            .current_dir(&build.runnable.source)
+            .env("DINGHY_TEST_DATA_PATH", test_data_path)
+            .args(args)
+            .envs(
+                envs.iter()
+                    .map(|kv| {
+                        Ok((
+                            kv.split("=")
+                                .nth(0)
+                                .ok_or_else(|| anyhow!("Wrong env spec"))?,
+                            kv.split("=")
+                                .nth(1)
+                                .ok_or_else(|| anyhow!("Wrong env spec"))?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+            )
+            .status()?;
+        if !status.success() {
+            bail!("Test failed")
         }
-        Ok(build_bundles)
+
+        Ok(BuildBundle {
+            id: build.runnable.id.clone(),
+            bundle_dir: bundle_path.to_path_buf(),
+            bundle_exe: build.runnable.exe.to_path_buf(),
+            lib_dir: build.target_path.clone(),
+            root_dir: root_dir.clone(),
+        })
     }
 
     fn start_remote_lldb(&self) -> Result<String> {

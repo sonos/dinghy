@@ -7,12 +7,6 @@
 //! cc-rs, pkg-config-rs, bindgen, and others. It also helps providing
 //! cross-compilation arguments to autotools `./configure` scripts.
 
-#[macro_use]
-extern crate error_chain;
-extern crate cc;
-#[macro_use]
-extern crate log;
-
 mod bindgen_macros;
 pub mod build;
 pub mod build_env;
@@ -29,13 +23,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
-error_chain! {
-    foreign_links {
-        Io(::std::io::Error);
-        EnvVar(::std::env::VarError);
-        StringFromUtf8(::std::string::FromUtf8Error);
-    }
-}
+use anyhow::Result;
 
 /// Decorator for the std::process::Command adding a some chainable helpers.
 ///
@@ -84,15 +72,15 @@ impl CommandExt for Command {
     fn with_pkgconfig(&mut self) -> Result<&mut Command> {
         if is_cross_compiling()? {
             if let Ok(value) = target_env("PKG_CONFIG_PATH") {
-                info!("Running command with PKG_CONFIG_PATH:{:?}", value);
+                log::info!("Running command with PKG_CONFIG_PATH:{:?}", value);
                 self.env("PKG_CONFIG_PATH", value);
             }
             if let Ok(value) = target_env("PKG_CONFIG_LIBDIR") {
-                info!("Running command with PKG_CONFIG_LIBDIR:{:?}", value);
+                log::info!("Running command with PKG_CONFIG_LIBDIR:{:?}", value);
                 self.env("PKG_CONFIG_LIBDIR", value);
             }
             if let Ok(value) = target_env("PKG_CONFIG_SYSROOT_DIR") {
-                info!("Running command with PKG_CONFIG_SYSROOT_DIR:{:?}", value);
+                log::info!("Running command with PKG_CONFIG_SYSROOT_DIR:{:?}", value);
                 self.env("PKG_CONFIG_SYSROOT_DIR", value);
             }
         }

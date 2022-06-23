@@ -1,41 +1,18 @@
 #![type_length_limit = "2149570"]
-#[macro_use]
-extern crate anyhow;
-extern crate atty;
-pub extern crate cargo;
-extern crate clap;
 #[cfg(target_os = "macos")]
 extern crate core_foundation;
 #[cfg(target_os = "macos")]
 extern crate core_foundation_sys;
-extern crate dinghy_build;
-extern crate dirs;
-extern crate filetime;
-extern crate ignore;
-pub extern crate itertools;
-extern crate json;
 #[cfg(target_os = "macos")]
 extern crate libc;
-#[macro_use]
-extern crate log;
-extern crate plist;
-extern crate regex;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate shell_escape;
 #[cfg(target_os = "macos")]
 extern crate tempdir;
-extern crate toml;
-extern crate walkdir;
-extern crate which;
 
 pub mod errors {
     pub use anyhow::{anyhow, bail, Context, Error, Result};
 }
 
 mod android;
-pub mod compiler;
 pub mod config;
 pub mod device;
 mod host;
@@ -49,16 +26,14 @@ mod ssh;
 mod toolchain;
 pub mod utils;
 
-pub use crate::compiler::Compiler;
 pub use crate::config::Configuration;
 
-use crate::compiler::CompileMode;
 use crate::config::PlatformConfiguration;
 #[cfg(target_os = "macos")]
 use crate::ios::IosManager;
 use crate::platform::regular_platform::RegularPlatform;
 use crate::project::Project;
-use cargo::core::compiler::CompileKind;
+use anyhow::anyhow;
 use std::fmt::Display;
 use std::{path, sync};
 
@@ -70,15 +45,12 @@ pub struct Dinghy {
 }
 
 impl Dinghy {
-    pub fn probe(
-        conf: &sync::Arc<Configuration>,
-        compiler: &sync::Arc<Compiler>,
-    ) -> Result<Dinghy> {
+    pub fn probe(conf: &sync::Arc<Configuration>) -> Result<Dinghy> {
         let mut managers: Vec<Box<dyn PlatformManager>> = vec![];
-        if let Some(man) = host::HostManager::probe(sync::Arc::clone(compiler), conf) {
+        if let Some(man) = host::HostManager::probe(conf) {
             managers.push(Box::new(man));
         }
-        if let Some(man) = android::AndroidManager::probe(sync::Arc::clone(compiler)) {
+        if let Some(man) = android::AndroidManager::probe() {
             managers.push(Box::new(man));
         }
         if let Some(man) = script::ScriptDeviceManager::probe(conf.clone()) {
@@ -90,7 +62,7 @@ impl Dinghy {
         #[cfg(target_os = "macos")]
         {
             std::thread::sleep(std::time::Duration::from_millis(100));
-            if let Some(man) = IosManager::new(sync::Arc::clone(compiler))? {
+            if let Some(man) = IosManager::new()? {
                 managers.push(Box::new(man));
             }
         }
@@ -114,7 +86,6 @@ impl Dinghy {
                 .as_ref()
                 .ok_or_else(|| anyhow!("Platform {} has no rustc_triple", platform_name))?;
             let pf = RegularPlatform::new(
-                compiler,
                 platform_conf.clone(),
                 platform_name.to_string(),
                 rustc_triple.clone(),
@@ -133,10 +104,6 @@ impl Dinghy {
 
     pub fn devices(&self) -> Vec<sync::Arc<Box<dyn Device>>> {
         self.devices.clone()
-    }
-
-    pub fn host_device(&self) -> sync::Arc<Box<dyn Device>> {
-        self.devices[0].clone()
     }
 
     pub fn host_platform(&self) -> sync::Arc<Box<dyn Platform>> {
@@ -183,7 +150,7 @@ pub trait Device: std::fmt::Debug + Display + DeviceCompatibility {
         build: &Build,
         args: &[&str],
         envs: &[&str],
-    ) -> Result<Vec<BuildBundle>>;
+    ) -> Result<BuildBundle>;
 
     fn start_remote_lldb(&self) -> Result<String>;
 }
@@ -204,7 +171,7 @@ pub trait DeviceCompatibility {
 }
 
 pub trait Platform: std::fmt::Debug {
-    fn build(&self, project: &Project, build_args: &BuildArgs) -> Result<Build>;
+    fn setup_env(&self, project: &Project, build_args: &SetupArgs) -> Result<()>;
 
     fn id(&self) -> String;
 
@@ -212,7 +179,6 @@ pub trait Platform: std::fmt::Debug {
 
     fn is_host(&self) -> bool;
     fn rustc_triple(&self) -> &str;
-    fn as_cargo_kind(&self) -> CompileKind;
 
     fn strip(&self, build: &Build) -> Result<()>;
     fn sysroot(&self) -> Result<Option<path::PathBuf>>;
@@ -231,17 +197,59 @@ pub trait PlatformManager {
 
 #[derive(Clone, Debug)]
 pub struct Build {
-    pub build_args: BuildArgs,
+    pub setup_args: SetupArgs,
     pub dynamic_libraries: Vec<path::PathBuf>,
-    pub runnables: Vec<Runnable>,
+    pub runnable: Runnable,
     pub target_path: path::PathBuf,
 }
 
 #[derive(Clone, Debug)]
-pub struct BuildArgs {
-    pub compile_mode: CompileMode,
-    pub verbose: bool,
+pub struct SetupArgs {
+    pub verbosity: i8,
     pub forced_overlays: Vec<String>,
+    pub envs: Vec<String>,
+    pub cleanup: bool,
+    pub strip: bool,
+    pub device_id: Option<String>,
+}
+
+impl SetupArgs {
+    pub fn get_runner_command(&self, platform_id: &str) -> String {
+        let mut extra_args = String::new();
+        if self.verbosity > 0 {
+            for _ in 0..self.verbosity {
+                extra_args.push_str("-v ")
+            }
+        }
+        if self.verbosity < 0 {
+            for _ in 0..-self.verbosity {
+                extra_args.push_str("-q ")
+            }
+        }
+        if self.cleanup {
+            extra_args.push_str("--cleanup ")
+        }
+        if self.strip {
+            extra_args.push_str("--strip ")
+        }
+        if let Some(device_id) = &self.device_id {
+            extra_args.push_str("-d ");
+            extra_args.push_str(&device_id);
+            extra_args.push(' ');
+        }
+        for env in &self.envs {
+            extra_args.push_str("-e ");
+            extra_args.push_str(env);
+            extra_args.push(' ');
+        }
+
+        format!(
+            "{} -p {} {}runner --",
+            std::env::current_exe().unwrap().to_str().unwrap(),
+            platform_id,
+            extra_args
+        )
+    }
 }
 
 #[derive(Clone, Debug, Default)]

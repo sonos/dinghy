@@ -1,2 +1,2 @@
 [workspace]
-members = ["test-app", "test-proc-macro"]
+members = ["test-app", "test-proc-macro", "test-bin"]

@@ -1,55 +1,45 @@
-#[macro_use]
-extern crate clap;
-extern crate dinghy_lib;
-extern crate env_logger;
-#[macro_use]
-extern crate log;
-
-use crate::cli::CargoDinghyCli;
-use clap::ArgMatches;
-use dinghy_lib::compiler::Compiler;
+use crate::cli::{DinghyCli, DinghyMode, DinghySubcommand, SubCommandWrapper};
 use dinghy_lib::config::dinghy_config;
 use dinghy_lib::errors::*;
-use dinghy_lib::itertools::Itertools;
 use dinghy_lib::project::Project;
-use dinghy_lib::utils::arg_as_string_vec;
-use dinghy_lib::Build;
-use dinghy_lib::Device;
 use dinghy_lib::Dinghy;
 use dinghy_lib::Platform;
+use dinghy_lib::{Build, SetupArgs};
+use dinghy_lib::{Device, Runnable};
 use std::env;
 use std::env::current_dir;
+use std::path::PathBuf;
+use std::process::Command;
 use std::sync::Arc;
 use std::thread;
 use std::time;
 
+use log::{debug, error, info};
 mod cli;
 
 fn main() {
-    let filtered_args = env::args()
-        .enumerate()
-        .filter(|&(ix, ref s)| !(ix == 1 && s == "dinghy"))
-        .map(|(_, s)| s);
-    let matches = CargoDinghyCli::parse(filtered_args);
+    let cli = DinghyCli::parse();
 
-    if env::var("RUST_LOG").is_err() {
-        let dinghy_verbosity =
-            match matches.occurrences_of("VERBOSE") - matches.occurrences_of("QUIET") {
-                0 => "info",
-                1 => "debug",
-                _ => "trace",
-            };
-        env::set_var(
-            "RUST_LOG",
-            format!(
-                "cargo_dinghy={},dinghy={}",
-                dinghy_verbosity, dinghy_verbosity
-            ),
+    if env::var("DINGHY_LOG").is_err() {
+        let level_filter = match cli.args.verbose - cli.args.quiet {
+            i8::MIN..=-1 => log::LevelFilter::Off,
+            0 => log::LevelFilter::Error,
+            1 => log::LevelFilter::Warn,
+            2 => log::LevelFilter::Info,
+            3 => log::LevelFilter::Debug,
+            4..=i8::MAX => log::LevelFilter::Trace,
+        };
+
+        env_logger::Builder::new().filter_level(level_filter).init();
+    } else {
+        env_logger::init_from_env(
+            env_logger::Env::new()
+                .filter("DINGHY_LOG")
+                .write_style("DINGHY_LOG_STYLE"),
         );
-    };
-    env_logger::init();
+    }
 
-    if let Err(e) = run_command(&matches) {
+    if let Err(e) = run_command(cli) {
         error!("{:?}", e);
         // positively ugly.
         if e.to_string().contains("are filtered out on platform") {
@@ -60,86 +50,131 @@ fn main() {
     }
 }
 
-fn run_command(args: &ArgMatches) -> Result<()> {
-    let conf = Arc::new(dinghy_config(current_dir().unwrap())?);
-    let compiler = Arc::new(Compiler::from_args(args.subcommand().1.unwrap_or(args))?);
-    let dinghy = Dinghy::probe(&conf, &compiler)?;
-    let project = Project::new(&conf);
-    match args.subcommand() {
-        ("all-devices", Some(_)) => return show_all_devices(&dinghy),
-        ("all-platforms", Some(_)) => return show_all_platforms(&dinghy),
-        _ => {}
+fn run_command(cli: DinghyCli) -> Result<()> {
+    let conf = Arc::new(dinghy_config(current_dir()?)?);
+
+    let metadata = cargo_metadata::MetadataCommand::new().exec()?;
+
+    let project = Project::new(&conf, metadata);
+    let dinghy = Dinghy::probe(&conf)?;
+
+    let (platform, device) = select_platform_and_device_from_cli(&cli, &dinghy)?;
+
+    let setup_args = SetupArgs {
+        verbosity: cli.args.verbose - cli.args.quiet,
+        forced_overlays: cli.args.overlay.clone(),
+        envs: cli.args.env.clone(),
+        cleanup: cli.args.cleanup,
+        strip: cli.args.strip, // TODO this should probably be configurable in the config as well
+        device_id: device.as_ref().map(|d| d.id().to_string()),
     };
 
-    let (platform, device) = select_platform_and_device_from_cli(&args, &dinghy)?;
-    info!(
-        "Targeting platform '{}' and device '{}'",
-        platform.id(),
-        device.as_ref().map(|it| it.id()).unwrap_or("<none>")
-    );
+    match cli.mode {
+        DinghyMode::CargoSubcommand { ref args } => {
+            info!(
+                "Targeting platform '{}' and device '{}'",
+                platform.id(),
+                device.as_ref().map(|it| it.id()).unwrap_or("<none>")
+            );
+            let cargo = env::var("CARGO")
+                .map(PathBuf::from)
+                .ok()
+                .unwrap_or_else(|| PathBuf::from("cargo"));
+            let mut cmd = Command::new(cargo);
 
-    match args.subcommand() {
-        ("bench", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
-        ("build", Some(sub_args)) => build(&platform, &project, args, sub_args).and(Ok(())),
-        ("clean", Some(_)) => compiler.clean(&**platform),
-        ("devices", Some(_)) => show_all_devices_for_platform(&dinghy, platform),
-        ("lldbproxy", Some(_)) => run_lldb(device),
-        ("run", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
-        ("test", Some(sub_args)) => prepare_and_run(device, project, platform, args, sub_args),
-        (sub, _) => bail!("Unknown dinghy command '{}'", sub),
-    }
-}
+            for arg in args {
+                cmd.arg(arg);
+            }
 
-fn build(
-    platform: &Arc<Box<dyn Platform>>,
-    project: &Project,
-    args: &ArgMatches,
-    sub_args: &ArgMatches,
-) -> Result<Build> {
-    let build_args = CargoDinghyCli::build_args_from(args);
-    let build = platform.build(&project, &build_args)?;
+            platform.setup_env(&project, &setup_args)?;
 
-    if sub_args.is_present("STRIP") {
-        platform.strip(&build)?;
-    }
-    Ok(build)
-}
+            log::debug!("Launching {:?}", cmd);
+            cmd.status()?;
+            log::debug!("done");
 
-fn prepare_and_run(
-    device: Option<Arc<Box<dyn Device>>>,
-    project: Project,
-    platform: Arc<Box<dyn Platform>>,
-    args: &ArgMatches,
-    sub_args: &ArgMatches,
-) -> Result<()> {
-    debug!("Build for {}", platform);
-    let build = build(&platform.clone(), &project, args, sub_args)?;
+            Ok(())
+        }
+        DinghyMode::DinghySubcommand(DinghySubcommand::Runner { ref args }) => {
+            debug!("starting dinghy runner, args {:?}", args);
 
-    if sub_args.is_present("NO_RUN") {
-        return Ok(());
-    }
+            //let (platform, device) = select_platform_and_device_from_cli(&cli, &dinghy)?;
 
-    debug!("Run on {:?}", device);
-    let device = device.ok_or_else(|| anyhow!("No device found"))?;
-    let args = arg_as_string_vec(sub_args, "ARGS");
-    let envs = arg_as_string_vec(sub_args, "ENVS");
+            if let Some(device) = device {
+                let exe = args.first().cloned().unwrap();
+                let exe_id = PathBuf::from(&exe)
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string();
+                let args_ref = args.iter().map(|s| &s[..]).collect::<Vec<_>>();
+                let envs_ref = cli.args.env.iter().map(|s| &s[..]).collect::<Vec<_>>();
+                platform.setup_env(&project, &setup_args)?;
 
-    let args = args.iter().map(|s| &s[..]).collect::<Vec<_>>();
-    let envs = envs.iter().map(|s| &s[..]).collect::<Vec<_>>();
-    let build_bundles = if sub_args.is_present("DEBUGGER") {
-        debug!("Debug app");
-        vec![device.debug_app(&project, &build, &*args, &*envs)?]
-    } else {
-        debug!("Run app");
-        device.run_app(&project, &build, &*args, &*envs)?
-    };
+                let build = Build {
+                    setup_args,
+                    // TODO these should be probably read from the executable file
+                    dynamic_libraries: vec![],
+                    runnable: Runnable {
+                        id: exe_id,
+                        exe: PathBuf::from(exe).canonicalize()?,
+                        // cargo launches the runner inside the dir of the crate
+                        source: PathBuf::from(".").canonicalize()?,
+                    },
+                    target_path: project.metadata.target_directory.clone().into(),
+                };
 
-    if sub_args.is_present("CLEANUP") {
-        for build_bundle in build_bundles {
-            device.clean_app(&build_bundle)?;
+                // TODO make the run of the app use the stripped binary
+                if cli.args.strip {
+                    platform.strip(&build)?;
+                }
+
+                let bundle = device.run_app(
+                    &project, &build, &args_ref,
+                    &envs_ref, // TODO these are also in the SetupArgs
+                )?;
+
+                // TODO this is not done if the run fails
+                if cli.args.cleanup {
+                    device.clean_app(&bundle)?;
+                }
+            } else {
+                bail!("No device")
+            }
+
+            Ok(())
+        }
+        DinghyMode::DinghySubcommand(DinghySubcommand::Devices {}) => {
+            match cli
+                .args
+                .platform
+                .as_ref()
+                .map(|name| dinghy.platform_by_name(name))
+            {
+                None => anyhow::bail!("No platform provided"),
+                Some(None) => anyhow::bail!("Unknown platform"),
+                Some(Some(platform)) => show_all_devices_for_platform(&dinghy, platform),
+            }
+        }
+        DinghyMode::DinghySubcommand(DinghySubcommand::AllDevices {}) => show_all_devices(&dinghy),
+        DinghyMode::DinghySubcommand(DinghySubcommand::AllPlatforms {}) => {
+            show_all_platforms(&dinghy)
+        }
+        DinghyMode::DinghySubcommand(DinghySubcommand::LldbProxy {}) => {
+            let (_platform, device) = select_platform_and_device_from_cli(&cli, &dinghy)?;
+            run_lldb(device)
+        }
+        DinghyMode::DinghySubcommand(DinghySubcommand::AllDinghySubcommands {}) => {
+            use clap::CommandFactory;
+            for sub in SubCommandWrapper::command().get_subcommands() {
+                println!("{}\n\t{}", sub.get_name(), sub.get_about().unwrap_or(""));
+            }
+            Ok(())
+        }
+        DinghyMode::Naked => {
+            anyhow::bail!("Naked mode") // what should we do?
         }
     }
-    Ok(())
 }
 
 fn run_lldb(device: Option<Arc<Box<dyn Device>>>) -> Result<()> {
@@ -155,11 +190,7 @@ fn show_all_platforms(dinghy: &Dinghy) -> Result<()> {
     let mut platforms = dinghy.platforms();
     platforms.sort_by(|str1, str2| str1.id().cmp(&str2.id()));
     for pf in platforms.iter() {
-        println!(
-            "* {} {}",
-            pf.id(),
-            pf.rustc_triple()
-        );
+        println!("* {} {}", pf.id(), pf.rustc_triple());
     }
     Ok(())
 }
@@ -206,10 +237,10 @@ fn show_devices(dinghy: &Dinghy, platform: Option<Arc<Box<dyn Platform>>>) -> Re
 }
 
 fn select_platform_and_device_from_cli(
-    matches: &ArgMatches,
+    cli: &DinghyCli,
     dinghy: &Dinghy,
 ) -> Result<(Arc<Box<dyn Platform>>, Option<Arc<Box<dyn Device>>>)> {
-    if let Some(platform_name) = matches.value_of("PLATFORM") {
+    if let Some(platform_name) = cli.args.platform.as_ref() {
         let platform = dinghy
             .platform_by_name(platform_name)
             .ok_or_else(|| anyhow!("No '{}' platform found", platform_name))?;
@@ -218,10 +249,11 @@ fn select_platform_and_device_from_cli(
             .devices()
             .into_iter()
             .filter(|device| {
-                matches
-                    .value_of("DEVICE")
+                cli.args
+                    .device
+                    .as_ref()
                     .map(|filter| {
-                        format!("{}", device)
+                        format!("{:?}", device)
                             .to_lowercase()
                             .contains(&filter.to_lowercase())
                     })
@@ -231,7 +263,7 @@ fn select_platform_and_device_from_cli(
             .next();
 
         Ok((platform, device))
-    } else if let Some(device_filter) = matches.value_of("DEVICE") {
+    } else if let Some(device_filter) = cli.args.device.as_ref() {
         let is_banned_auto_platform_id = |id: &str| -> bool {
             id.contains("auto-android")
                 && (id.contains("min") || id.contains("latest") || id.contains("api"))
@@ -244,7 +276,7 @@ fn select_platform_and_device_from_cli(
                     .to_lowercase()
                     .contains(&device_filter.to_lowercase())
             })
-            .collect_vec();
+            .collect::<Vec<_>>();
         if devices.len() == 0 {
             bail!("No devices found for name hint `{}'", device_filter)
         }
@@ -272,6 +304,6 @@ fn select_platform_and_device_from_cli(
                 )
             })
     } else {
-        Ok((dinghy.host_platform(), Some(dinghy.host_device())))
+        Ok((dinghy.host_platform(), None))
     }
 }

@@ -4,9 +4,10 @@ use crate::utils::copy_and_sync_file;
 use crate::Platform;
 use crate::Result;
 use crate::Runnable;
-use cargo::core::compiler::CompileKind;
+use anyhow::anyhow;
+use cargo_metadata::Metadata;
 use ignore::WalkBuilder;
-use std::env::current_dir;
+use log::{debug, trace};
 use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
@@ -17,36 +18,40 @@ use std::sync::Arc;
 #[derive(Debug)]
 pub struct Project {
     pub conf: Arc<Configuration>,
+    pub metadata: Metadata,
 }
 
 impl Project {
-    pub fn new(conf: &Arc<Configuration>) -> Project {
-        Project { conf: conf.clone() }
+    pub fn new(conf: &Arc<Configuration>, metadata: Metadata) -> Project {
+        Project {
+            conf: Arc::clone(conf),
+            metadata,
+        }
     }
 
     pub fn project_dir(&self) -> Result<PathBuf> {
-        let wd_path = ::cargo::util::important_paths::find_root_manifest_for_wd(&current_dir()?)?;
-        Ok(wd_path
-            .parent()
-            .ok_or_else(|| anyhow!("Couldn't read project directory {}.", wd_path.display()))?
-            .to_path_buf())
+        Ok(self.metadata.workspace_root.clone().into_std_path_buf())
     }
 
     pub fn overlay_work_dir(&self, platform: &dyn Platform) -> Result<PathBuf> {
-        Ok(self.target_dir(&platform.as_cargo_kind())?.join(platform.rustc_triple()))
+        Ok(self
+            .target_dir(platform.rustc_triple())?
+            .join(platform.rustc_triple()))
     }
 
-    pub fn target_dir(&self, platform: &CompileKind) -> Result<PathBuf> {
-        let mut target_path = self.project_dir()?.join("target");
-        if let CompileKind::Target(s) = platform {
-            target_path = target_path.join(s.rustc_target());
-        }
-        Ok(target_path)
+    pub fn target_dir(&self, triple: &str) -> Result<PathBuf> {
+        Ok(self
+            .metadata
+            .target_directory
+            .clone()
+            .into_std_path_buf()
+            .join(triple))
     }
 
     pub fn for_runnable(&self, runnable: &Runnable) -> Result<Self> {
         Ok(Project {
             conf: Arc::new(dinghy_config(&runnable.source)?),
+            metadata: self.metadata.clone(),
         })
     }
 
@@ -101,7 +106,7 @@ impl Project {
                     fs::copy(file, dst)?;
                 }
             } else {
-                warn!(
+                log::warn!(
                     "configuration required test_data `{:?}` but it could not be found",
                     td
                 );

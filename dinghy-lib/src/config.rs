@@ -1,10 +1,11 @@
 use itertools::Itertools;
-use serde::de::{self, Deserialize};
+use serde::de;
 use std::fmt;
 use std::io::Read;
 use std::result;
 use std::{collections, fs, path};
 //use walkdir::WalkDir;
+use serde::{Deserialize, Serialize};
 
 use crate::errors::*;
 
@@ -146,6 +147,7 @@ pub struct SshDeviceConfiguration {
     #[serde(default)]
     pub remote_shell_vars: collections::HashMap<String, String>,
     pub install_adhoc_rsync_local_path: Option<String>,
+    pub use_legacy_scp_protocol_for_adhoc_rsync_copy: Option<bool>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -209,10 +211,10 @@ pub fn dinghy_config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
     }
     for file in files_to_try {
         if path::Path::new(&file).exists() {
-            debug!("Loading configuration from {:?}", file);
+            log::debug!("Loading configuration from {:?}", file);
             conf.merge(&file)?;
         } else {
-            trace!("No configuration found at {:?}", file);
+            log::trace!("No configuration found at {:?}", file);
         }
     }
     Ok(conf)

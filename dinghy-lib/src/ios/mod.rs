@@ -4,14 +4,15 @@ use std::{mem, ptr, sync, thread};
 pub use self::device::{IosDevice, IosSimDevice};
 use self::mobiledevice_sys::*;
 pub use self::platform::IosPlatform;
-use crate::{Compiler, Device, Platform, PlatformManager, Result};
+use crate::{Device, Platform, PlatformManager, Result};
 
 mod device;
 mod mobiledevice_sys;
 mod platform;
 mod xcode;
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
+use log::info;
 
 #[derive(Debug, Clone)]
 pub struct SignatureSettings {
@@ -30,12 +31,11 @@ pub struct SigningIdentity {
 }
 
 pub struct IosManager {
-    compiler: sync::Arc<Compiler>,
     devices: sync::Arc<sync::Mutex<Vec<IosDevice>>>,
 }
 
 impl IosManager {
-    pub fn new(compiler: sync::Arc<Compiler>) -> Result<Option<IosManager>> {
+    pub fn new() -> Result<Option<IosManager>> {
         let devices = sync::Arc::new(sync::Mutex::new(vec![]));
 
         let devices_to_take_away = Box::new(devices.clone());
@@ -66,10 +66,7 @@ impl IosManager {
                 .map(|mut devices| devices.push(IosDevice::new(device).unwrap()));
         }
 
-        Ok(Some(IosManager {
-            devices: devices,
-            compiler,
-        }))
+        Ok(Some(IosManager { devices }))
     }
 }
 
@@ -118,24 +115,29 @@ impl PlatformManager for IosManager {
     }
 
     fn platforms(&self) -> Result<Vec<Box<dyn Platform>>> {
-        ["armv7", "armv7s", "aarch64", "i386", "x86_64", "aarch64-sim"]
-            .iter()
-            .map(|arch| {
-                let id = format!("auto-ios-{}", arch);
-                let rustc_triple =
-                if *arch != "aarch64-sim" {
-                    format!("{}-apple-ios", arch)
-                } else {
-                    format!("aarch64-apple-ios-sim")
-                };
-                IosPlatform::new(
-                    id,
-                    &rustc_triple,
-                    &self.compiler,
-                    crate::config::PlatformConfiguration::default(),
-                )
-                .map(|pf| pf as Box<dyn Platform>)
-            })
-            .collect()
+        [
+            "armv7",
+            "armv7s",
+            "aarch64",
+            "i386",
+            "x86_64",
+            "aarch64-sim",
+        ]
+        .iter()
+        .map(|arch| {
+            let id = format!("auto-ios-{}", arch);
+            let rustc_triple = if *arch != "aarch64-sim" {
+                format!("{}-apple-ios", arch)
+            } else {
+                format!("aarch64-apple-ios-sim")
+            };
+            IosPlatform::new(
+                id,
+                &rustc_triple,
+                crate::config::PlatformConfiguration::default(),
+            )
+            .map(|pf| pf as Box<dyn Platform>)
+        })
+        .collect()
     }
 }

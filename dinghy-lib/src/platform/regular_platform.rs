@@ -1,26 +1,23 @@
-use crate::compiler::Compiler;
 use crate::config::PlatformConfiguration;
 use crate::overlay::Overlayer;
 use crate::platform;
 use crate::project::Project;
 use crate::toolchain::ToolchainConfig;
 use crate::Build;
-use crate::BuildArgs;
 use crate::Device;
 use crate::Platform;
 use crate::Result;
-use cargo::core::compiler::{CompileKind, CompileTarget};
+use crate::SetupArgs;
 use dinghy_build::build_env::set_all_env;
 use std::fmt::{Debug, Display, Formatter};
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
-use std::sync::Arc;
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
+use log::trace;
 
 pub struct RegularPlatform {
-    compiler: Arc<Compiler>,
     pub configuration: PlatformConfiguration,
     pub id: String,
     pub toolchain: ToolchainConfig,
@@ -34,7 +31,6 @@ impl Debug for RegularPlatform {
 
 impl RegularPlatform {
     pub fn new<P: AsRef<Path>>(
-        compiler: &Arc<Compiler>,
         configuration: PlatformConfiguration,
         id: String,
         rustc_triple: String,
@@ -42,7 +38,6 @@ impl RegularPlatform {
     ) -> Result<Box<dyn Platform>> {
         if let Some(prefix) = configuration.deb_multiarch.clone() {
             return Ok(Box::new(RegularPlatform {
-                compiler: compiler.clone(),
                 configuration,
                 id,
                 toolchain: ToolchainConfig {
@@ -96,17 +91,15 @@ impl RegularPlatform {
             binutils_prefix: tc_triple.clone(),
             cc_prefix: tc_triple,
         };
-        Self::new_with_tc(compiler.clone(), configuration, id, toolchain)
+        Self::new_with_tc(configuration, id, toolchain)
     }
 
     pub fn new_with_tc(
-        compiler: Arc<Compiler>,
         configuration: PlatformConfiguration,
         id: String,
         toolchain: ToolchainConfig,
     ) -> Result<Box<dyn Platform>> {
         Ok(Box::new(RegularPlatform {
-            compiler,
             configuration,
             id,
             toolchain,
@@ -121,7 +114,7 @@ impl Display for RegularPlatform {
 }
 
 impl Platform for RegularPlatform {
-    fn build(&self, project: &Project, build_args: &BuildArgs) -> Result<Build> {
+    fn setup_env(&self, project: &Project, setup_args: &SetupArgs) -> Result<()> {
         // Cleanup environment
         set_all_env(&[("LIBRARY_PATH", ""), ("LD_LIBRARY_PATH", "")]);
         // Set custom env variables specific to the platform
@@ -158,28 +151,32 @@ impl Platform for RegularPlatform {
 
         let mut linker_cmd = self.toolchain.cc_executable(&*self.toolchain.cc);
         linker_cmd.push_str(" ");
-        if build_args.verbose {
+        if setup_args.verbosity > 0 {
             linker_cmd.push_str("-Wl,--verbose -v")
         }
         if let Some(sr) = &self.toolchain.sysroot {
             linker_cmd.push_str(&format!(" --sysroot {}", sr.display()));
         }
-        for forced_overlay in &build_args.forced_overlays {
+        for forced_overlay in &setup_args.forced_overlays {
             linker_cmd.push_str(" -l");
             linker_cmd.push_str(&forced_overlay);
             // TODO Add -L
         }
-        self.toolchain.setup_linker(&self.id, &linker_cmd)?;
+        self.toolchain
+            .setup_linker(&self.id, &linker_cmd, &project.metadata.workspace_root)?;
 
         trace!("Setup pkg-config");
         self.toolchain.setup_pkg_config()?;
         trace!("Setup sysroot...");
         self.toolchain.setup_sysroot();
         trace!("Setup shims...");
-        self.toolchain.shim_executables(&self.id)?;
-
-        trace!("Internally invoke cargo");
-        self.compiler.build(self, &build_args)
+        self.toolchain
+            .shim_executables(&self.id, &project.metadata.workspace_root)?;
+        trace!("Setup runner...");
+        self.toolchain.setup_runner(&self.id, setup_args)?;
+        trace!("Setup target...");
+        self.toolchain.setup_target()?;
+        Ok(())
     }
 
     fn id(&self) -> String {
@@ -198,22 +195,17 @@ impl Platform for RegularPlatform {
         &self.toolchain.rustc_triple
     }
 
+    fn strip(&self, build: &Build) -> Result<()> {
+        platform::strip_runnable(
+            &build.runnable,
+            Command::new(self.toolchain.binutils_executable("strip")),
+        )?;
+
+        Ok(())
+    }
+
     fn sysroot(&self) -> Result<Option<std::path::PathBuf>> {
         Ok(self.toolchain.sysroot.clone())
-    }
-
-    fn as_cargo_kind(&self) -> CompileKind {
-        CompileKind::Target(CompileTarget::new(self.rustc_triple()).unwrap())
-    }
-
-    fn strip(&self, build: &Build) -> Result<()> {
-        for runnable in &build.runnables {
-            platform::strip_runnable(
-                runnable,
-                Command::new(self.toolchain.binutils_executable("strip")),
-            )?;
-        }
-        Ok(())
     }
 }
 

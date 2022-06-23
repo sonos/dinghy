@@ -144,7 +144,7 @@ impl Overlayer {
         // Setup overlay work directory
         if let Err(error) = remove_dir_all(&self.work_dir) {
             if self.work_dir.exists() {
-                warn!(
+                log::warn!(
                     "Couldn't cleanup directory overlay work directory {} ({:?})",
                     self.work_dir.display(),
                     error
@@ -164,7 +164,7 @@ impl Overlayer {
         );
 
         for overlay in overlays {
-            debug!("Overlaying '{}'", overlay.id.as_str());
+            log::debug!("Overlaying '{}'", overlay.id.as_str());
             let mut has_pkg_config_files = false;
 
             let pkg_config_path_list = WalkDir::new(&overlay.path)
@@ -177,7 +177,7 @@ impl Overlayer {
                 .map(|pkg_config_path| pkg_config_path.path().to_path_buf());
 
             for pkg_config_path in pkg_config_path_list {
-                debug!(
+                log::debug!(
                     "Discovered pkg-config directory '{}'",
                     pkg_config_path.display()
                 );
@@ -212,7 +212,7 @@ impl Overlayer {
             name: &str,
             libs: &[T],
         ) -> Result<()> {
-            debug!(
+            log::debug!(
                 "Generating pkg-config pc file {}",
                 pc_file_path.as_ref().display()
             );

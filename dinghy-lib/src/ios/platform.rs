@@ -1,25 +1,21 @@
-use crate::compiler::Compiler;
 use crate::config::PlatformConfiguration;
 use crate::errors::*;
 use crate::overlay::Overlayer;
 use crate::project::Project;
 use crate::toolchain::Toolchain;
 use crate::Build;
-use crate::BuildArgs;
 use crate::Device;
 use crate::Platform;
-use cargo::core::compiler::{CompileKind, CompileTarget};
+use crate::SetupArgs;
 use dinghy_build::build_env::set_env;
 use std::fmt::{Debug, Display, Formatter};
 use std::process;
-use std::sync::Arc;
 
 pub struct IosPlatform {
     id: String,
     pub sim: bool,
     pub toolchain: Toolchain,
     pub configuration: PlatformConfiguration,
-    compiler: Arc<Compiler>,
 }
 
 impl Debug for IosPlatform {
@@ -32,7 +28,6 @@ impl IosPlatform {
     pub fn new(
         id: String,
         rustc_triple: &str,
-        compiler: &Arc<Compiler>,
         configuration: PlatformConfiguration,
     ) -> Result<Box<dyn Platform>> {
         Ok(Box::new(IosPlatform {
@@ -41,7 +36,6 @@ impl IosPlatform {
             toolchain: Toolchain {
                 rustc_triple: rustc_triple.to_string(),
             },
-            compiler: Arc::clone(compiler),
             configuration,
         }))
     }
@@ -60,17 +54,20 @@ impl IosPlatform {
 }
 
 impl Platform for IosPlatform {
-    fn build(&self, project: &Project, build_args: &BuildArgs) -> Result<Build> {
+    fn setup_env(&self, project: &Project, setup_args: &SetupArgs) -> Result<()> {
         let sysroot = self.sysroot_path()?;
         Overlayer::overlay(&self.configuration, self, project, &self.sysroot_path()?)?;
         self.toolchain.setup_cc(self.id().as_str(), "gcc")?;
         set_env("TARGET_SYSROOT", &sysroot);
-        self.toolchain
-            .setup_linker(&self.id(), &format!("cc -isysroot {}", sysroot))?;
-        dbg!(&self.toolchain);
+        self.toolchain.setup_linker(
+            &self.id(),
+            &format!("cc -isysroot {}", sysroot),
+            &project.metadata.workspace_root,
+        )?;
+        self.toolchain.setup_runner(&self.id(), setup_args)?;
+        self.toolchain.setup_target()?;
         self.toolchain.setup_pkg_config()?;
-
-        self.compiler.build(self, build_args)
+        Ok(())
     }
 
     fn id(&self) -> String {
@@ -89,21 +86,15 @@ impl Platform for IosPlatform {
         &self.toolchain.rustc_triple
     }
 
-    fn as_cargo_kind(&self) -> CompileKind {
-        CompileKind::Target(CompileTarget::new(self.rustc_triple()).unwrap())
+    fn strip(&self, build: &Build) -> Result<()> {
+        let mut command = ::std::process::Command::new("xcrun");
+        command.arg("strip");
+        crate::platform::strip_runnable(&build.runnable, command)?;
+        Ok(())
     }
 
     fn sysroot(&self) -> Result<Option<std::path::PathBuf>> {
         self.sysroot_path().map(|s| Some(s.into()))
-    }
-
-    fn strip(&self, build: &Build) -> Result<()> {
-        for runnable in &build.runnables {
-            let mut command = ::std::process::Command::new("xcrun");
-            command.arg("strip");
-            crate::platform::strip_runnable(runnable, command)?;
-        }
-        Ok(())
     }
 }
 

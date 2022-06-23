@@ -1,5 +1,5 @@
 use crate::errors::*;
-use cargo::util::important_paths::find_root_manifest_for_wd;
+use crate::SetupArgs;
 use dinghy_build::build_env::append_path_to_env;
 use dinghy_build::build_env::append_path_to_target_env;
 use dinghy_build::build_env::envify;
@@ -10,7 +10,7 @@ use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
-use std::{env, fs, path};
+use std::{fs, path};
 use walkdir::WalkDir;
 
 #[cfg(not(target_os = "windows"))]
@@ -36,9 +36,14 @@ impl Toolchain {
         Ok(())
     }
 
-    pub fn setup_linker(&self, id: &str, linker_command: &str) -> Result<()> {
+    pub fn setup_linker<P: AsRef<path::Path>>(
+        &self,
+        id: &str,
+        linker_command: &str,
+        workspace_root: P,
+    ) -> Result<()> {
         let shim = create_shim(
-            project_root()?,
+            workspace_root,
             &self.rustc_triple,
             id,
             "linker",
@@ -54,6 +59,19 @@ impl Toolchain {
     pub fn setup_pkg_config(&self) -> Result<()> {
         set_env("PKG_CONFIG_ALLOW_CROSS", "1");
         set_target_env("PKG_CONFIG_LIBPATH", Some(&self.rustc_triple), "");
+        Ok(())
+    }
+
+    pub fn setup_runner(&self, platform_id: &str, setup_args: &SetupArgs) -> Result<()> {
+        set_env(
+            format!("CARGO_TARGET_{}_RUNNER", envify(self.rustc_triple.as_str())).as_str(),
+            setup_args.get_runner_command(platform_id),
+        );
+        Ok(())
+    }
+
+    pub fn setup_target(&self) -> Result<()> {
+        set_env("CARGO_BUILD_TARGET", &self.rustc_triple);
         Ok(())
     }
 }
@@ -120,15 +138,34 @@ impl ToolchainConfig {
         self.as_toolchain().setup_cc(id, compiler_command)
     }
 
-    pub fn setup_linker(&self, id: &str, linker_command: &str) -> Result<()> {
-        self.as_toolchain().setup_linker(id, linker_command)
+    pub fn setup_linker<P: AsRef<path::Path>>(
+        &self,
+        id: &str,
+        linker_command: &str,
+        workspace_root: P,
+    ) -> Result<()> {
+        self.as_toolchain()
+            .setup_linker(id, linker_command, workspace_root)
     }
 
-    pub fn shim_executables(&self, id: &str) -> Result<()> {
-        let wd_path =
-            ::cargo::util::important_paths::find_root_manifest_for_wd(&env::current_dir()?)?;
-        let root = wd_path.parent().ok_or_else(|| anyhow!("building at / ?"))?;
-        let shims_path = root.join("target").join(&self.rustc_triple).join(id);
+    pub fn setup_runner(&self, platform_id: &str, setup_args: &SetupArgs) -> Result<()> {
+        self.as_toolchain().setup_runner(platform_id, setup_args)
+    }
+
+    pub fn setup_target(&self) -> Result<()> {
+        self.as_toolchain().setup_target()
+    }
+
+    pub fn shim_executables<P: AsRef<path::Path>>(
+        &self,
+        id: &str,
+        workspace_root: P,
+    ) -> Result<()> {
+        let workspace_root = workspace_root.as_ref();
+        let shims_path = workspace_root
+            .join("target")
+            .join(&self.rustc_triple)
+            .join(id);
 
         for exe in self.bin_dir.read_dir()? {
             let exe = exe?;
@@ -140,9 +177,9 @@ impl ToolchainConfig {
                 .to_string_lossy()
                 .replace(self.binutils_prefix.as_str(), self.rustc_triple.as_str())
                 .replace(self.cc_prefix.as_str(), self.rustc_triple.as_str());
-            trace!("Shim {} -> {}", exe_path, rustified_exe);
+            log::trace!("Shim {} -> {}", exe_path, rustified_exe);
             create_shim(
-                root,
+                workspace_root,
                 self.rustc_triple.as_str(),
                 id,
                 rustified_exe,
@@ -182,12 +219,4 @@ fn create_shim<P: AsRef<path::Path>>(
     #[cfg(unix)]
     fs::set_permissions(&shim, PermissionsExt::from_mode(0o777))?;
     Ok(shim)
-}
-
-fn project_root() -> Result<PathBuf> {
-    let wd_path = find_root_manifest_for_wd(&env::current_dir()?)?;
-    Ok(wd_path
-        .parent()
-        .ok_or_else(|| anyhow!("building at / ?"))?
-        .to_path_buf())
 }

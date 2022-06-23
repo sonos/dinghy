@@ -4,7 +4,8 @@ use crate::Runnable;
 use std::fs;
 use std::process::Command;
 
-use anyhow::Context;
+use anyhow::{bail, Context};
+use log::debug;
 
 pub mod regular_platform;
 
