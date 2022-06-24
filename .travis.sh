@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 set -x
-export CARGO_DINGHY="`pwd`/target/debug/cargo-dinghy"
+export CARGO_DINGHY="cargo dinghy -vvv"
 export RUST_BACKTRACE=1
 echo RUST_VERSION: ${RUST_VERSION:=1.61.0}
 
@@ -17,6 +17,8 @@ fi
 cargo build
 cargo test
 
+export PATH="`pwd`/target/debug/:$PATH"
+
 # Test original cargo build
 ( \
     cd test-ws/test-app \
@@ -25,40 +27,7 @@ cargo test
     && ! NOT_BUILT_WITH_DINGHY=1 cargo test fails \
 )
 
-# Test cargo from workspace dir
-( \
-    cd test-ws \
-    && cargo clean \
-    && $CARGO_DINGHY test pass \
-    && ! $CARGO_DINGHY test fails \
-)
-echo "##"
-echo "## latest failure was expected ##"
-echo "##"
-
-# Test in project subdir
-( \
-    cd test-ws/test-app \
-    && cargo clean \
-    && $CARGO_DINGHY test pass \
-    && ! $CARGO_DINGHY test fails \
-)
-echo "##"
-echo "## latest failure was expected ##"
-echo "##"
-
-# Test from workspace root with project filter
-( \
-    cd test-ws \
-    && cargo clean \
-    && $CARGO_DINGHY test -p test-app pass \
-    && ! $CARGO_DINGHY test -p test-app fails \
-)
-echo "##"
-echo "## latest failure was expected ##"
-echo "##"
-
-# Test on the ios-simulator.
+# Test on the ios-simulator on macos and on an android emulator otherwise
 if [ `uname` = Darwin ]
 then
     rustup target add x86_64-apple-ios;
@@ -86,6 +55,50 @@ then
     echo "##"
     echo "## latest failure was expected ##"
     echo "##"
+else
+  rustup target add armv7-linux-androideabi
+  #sudo apt install libpulse0 qt5-default || echo "."
+  $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-24;default;armeabi-v7a" "ndk;22.1.7171670"
+  echo no | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager create avd -n testdinghy -k "system-images;android-24;default;armeabi-v7a"
+  $ANDROID_SDK_ROOT/emulator/emulator @testdinghy -no-audio -no-boot-anim -no-window -accel on -gpu off &
+  timeout 180 $ANDROID_SDK_ROOT/platform-tools/adb wait-for-device
+
+  export ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/22.1.7171670
+
+  # Test cargo from workspace dir
+  ( \
+      cd test-ws \
+      && cargo clean \
+      && $CARGO_DINGHY -d android test pass \
+      && ! $CARGO_DINGHY -d android test fails \
+  )
+  echo "##"
+  echo "## latest failure was expected ##"
+  echo "##"
+
+  # Test in project subdir
+  ( \
+      cd test-ws/test-app \
+      && cargo clean \
+      && $CARGO_DINGHY -d android test pass \
+      && ! $CARGO_DINGHY -d android test fails \
+  )
+  echo "##"
+  echo "## latest failure was expected ##"
+  echo "##"
+
+  # Test from workspace root with project filter
+  ( \
+      cd test-ws \
+      && cargo clean \
+      && $CARGO_DINGHY -d android test -p test-app pass \
+      && ! $CARGO_DINGHY -d android test -p test-app fails \
+  )
+  echo "##"
+  echo "## latest failure was expected ##"
+  echo "##"
+
+
 fi
 
 if [ -n "$DEPLOY" ]
