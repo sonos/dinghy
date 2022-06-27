@@ -89,10 +89,13 @@ fn run_command(cli: DinghyCli) -> Result<()> {
             platform.setup_env(&project, &setup_args)?;
 
             log::debug!("Launching {:?}", cmd);
-            cmd.status()?;
+            let status = cmd.status()?;
             log::debug!("done");
 
-            Ok(())
+            std::process::exit(status.code().unwrap_or_else(|| {
+                log::error!("Could not get cargo exit code");
+                -1
+            }));
         }
         DinghyMode::DinghySubcommand(DinghySubcommand::Runner { ref args }) => {
             debug!("starting dinghy runner, args {:?}", args);
@@ -141,7 +144,6 @@ fn run_command(cli: DinghyCli) -> Result<()> {
             } else {
                 bail!("No device")
             }
-
             Ok(())
         }
         DinghyMode::DinghySubcommand(DinghySubcommand::Devices {}) => {
