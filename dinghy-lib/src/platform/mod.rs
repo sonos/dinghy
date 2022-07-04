@@ -9,7 +9,7 @@ use log::debug;
 
 pub mod regular_platform;
 
-pub fn strip_runnable(runnable: &Runnable, mut command: Command) -> Result<()> {
+pub fn strip_runnable(runnable: &Runnable, mut command: Command) -> Result<Runnable> {
     let exe_stripped_name = file_name_as_str(&runnable.exe)?;
 
     let mut stripped_runnable = runnable.clone();
@@ -40,5 +40,5 @@ pub fn strip_runnable(runnable: &Runnable, mut command: Command) -> Result<()> {
         fs::metadata(&runnable.exe)?.len(),
         fs::metadata(&stripped_runnable.exe)?.len()
     );
-    Ok(())
+    Ok(stripped_runnable)
 }

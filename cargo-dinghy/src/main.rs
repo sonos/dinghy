@@ -114,7 +114,7 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                 let envs_ref = cli.args.env.iter().map(|s| &s[..]).collect::<Vec<_>>();
                 platform.setup_env(&project, &setup_args)?;
 
-                let build = Build {
+                let mut build = Build {
                     setup_args,
                     // TODO these should be probably read from the executable file
                     dynamic_libraries: vec![],
@@ -129,7 +129,7 @@ fn run_command(cli: DinghyCli) -> Result<()> {
 
                 // TODO make the run of the app use the stripped binary
                 if cli.args.strip {
-                    platform.strip(&build)?;
+                    platform.strip(&mut build)?;
                 }
 
                 let bundle = device.run_app(

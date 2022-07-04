@@ -78,9 +78,9 @@ impl Platform for HostPlatform {
         std::env!("TARGET")
     }
 
-    fn strip(&self, build: &Build) -> Result<()> {
+    fn strip(&self, build: &mut Build) -> Result<()> {
         log::info!("Stripping {}", build.runnable.exe.display());
-        platform::strip_runnable(&build.runnable, Command::new("strip"))?;
+        build.runnable = platform::strip_runnable(&build.runnable, Command::new("strip"))?;
 
         Ok(())
     }

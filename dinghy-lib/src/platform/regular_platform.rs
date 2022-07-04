@@ -195,8 +195,8 @@ impl Platform for RegularPlatform {
         &self.toolchain.rustc_triple
     }
 
-    fn strip(&self, build: &Build) -> Result<()> {
-        platform::strip_runnable(
+    fn strip(&self, build: &mut Build) -> Result<()> {
+        build.runnable = platform::strip_runnable(
             &build.runnable,
             Command::new(self.toolchain.binutils_executable("strip")),
         )?;
