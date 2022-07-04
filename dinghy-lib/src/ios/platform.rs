@@ -86,10 +86,10 @@ impl Platform for IosPlatform {
         &self.toolchain.rustc_triple
     }
 
-    fn strip(&self, build: &Build) -> Result<()> {
+    fn strip(&self, build: &mut Build) -> Result<()> {
         let mut command = ::std::process::Command::new("xcrun");
         command.arg("strip");
-        crate::platform::strip_runnable(&build.runnable, command)?;
+        build.runnable = crate::platform::strip_runnable(&build.runnable, command)?;
         Ok(())
     }
 

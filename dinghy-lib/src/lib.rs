@@ -180,7 +180,7 @@ pub trait Platform: std::fmt::Debug {
     fn is_host(&self) -> bool;
     fn rustc_triple(&self) -> &str;
 
-    fn strip(&self, build: &Build) -> Result<()>;
+    fn strip(&self, build: &mut Build) -> Result<()>;
     fn sysroot(&self) -> Result<Option<path::PathBuf>>;
 }
 
