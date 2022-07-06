@@ -40,6 +40,7 @@ then
         && cargo clean \
         && $CARGO_DINGHY -d $SIM_ID test -p test-app pass \
         && ! $CARGO_DINGHY -d $SIM_ID test -p test-app fails \
+        && ! $CARGO_DINGHY -d $SIM_ID test -p test-app \
     )
     echo "##"
     echo "## latest failure was expected ##"
@@ -51,6 +52,7 @@ then
         && cargo clean \
         && $CARGO_DINGHY -d $SIM_ID test pass \
         && ! $CARGO_DINGHY -d $SIM_ID test fails \
+        && ! $CARGO_DINGHY -d $SIM_ID test \
     )
     echo "##"
     echo "## latest failure was expected ##"
@@ -71,6 +73,7 @@ else
       && cargo clean \
       && $CARGO_DINGHY -d android test pass \
       && ! $CARGO_DINGHY -d android test fails \
+      && ! $CARGO_DINGHY -d android test \
   )
   echo "##"
   echo "## latest failure was expected ##"
@@ -82,6 +85,7 @@ else
       && cargo clean \
       && $CARGO_DINGHY -d android test pass \
       && ! $CARGO_DINGHY -d android test fails \
+      && ! $CARGO_DINGHY -d android test \
   )
   echo "##"
   echo "## latest failure was expected ##"
@@ -93,6 +97,7 @@ else
       && cargo clean \
       && $CARGO_DINGHY -d android test -p test-app pass \
       && ! $CARGO_DINGHY -d android test -p test-app fails \
+      && ! $CARGO_DINGHY -d android test -p test-app \
   )
   echo "##"
   echo "## latest failure was expected ##"
