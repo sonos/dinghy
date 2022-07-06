@@ -110,7 +110,7 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                     .to_str()
                     .unwrap()
                     .to_string();
-                let args_ref = args.iter().map(|s| &s[..]).collect::<Vec<_>>();
+                let args_ref = args.iter().skip(1).map(|s| &s[..]).collect::<Vec<_>>();
                 let envs_ref = cli.args.env.iter().map(|s| &s[..]).collect::<Vec<_>>();
                 platform.setup_env(&project, &setup_args)?;
 
