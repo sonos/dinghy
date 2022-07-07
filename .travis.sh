@@ -112,17 +112,19 @@ else
    echo "##"
 
   rustup target add aarch64-unknown-linux-musl
-  sudo apt-get -y install --no-install-recommends qemu-system-arm qemu-user
+  sudo apt-get -y install --no-install-recommends qemu-system-arm qemu-user binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu
+  echo "[platforms.qemu]\nrustc_triple='aarch64-unknown-linux-musl'\ndeb_multiarch='aarch64-linux-gnu'"  >> .dinghy.toml
   echo "[script_devices.qemu]\nplatform='qemu'\npath='/tmp/qemu'" >> .dinghy.toml
-  echo "#!/bin/sh\nexe=\$1\nshift\n/usr/bin/qemu -L /usr/aarch64-linux-gnu/ \$exe --test-threads 1 \"\$@\"" > /tmp/qemu
+  echo "#!/bin/sh\nexe=\$1\nshift\n/usr/bin/qemu-aarch64 -L /usr/aarch64-linux-gnu/ \$exe --test-threads 1 \"\$@\"" > /tmp/qemu
+  chmod +x /tmp/qemu
 
    # Test cargo from workspace dir
    ( \
        cd test-ws \
        && cargo clean \
-       && $CARGO_DINGHY -d aarch64 test pass \
-       && ! $CARGO_DINGHY -d aarch64 test fails \
-       && ! $CARGO_DINGHY -d aarch64 test \
+       && $CARGO_DINGHY -d qemu test pass \
+       && ! $CARGO_DINGHY -d qemu test fails \
+       && ! $CARGO_DINGHY -d qemu test \
    )
    echo "##"
    echo "## latest failure was expected ##"
@@ -132,9 +134,9 @@ else
    ( \
        cd test-ws/test-app \
        && cargo clean \
-       && $CARGO_DINGHY -d aarch64 test pass \
-       && ! $CARGO_DINGHY -d aarch64 test fails \
-       && ! $CARGO_DINGHY -d aarch64 test \
+       && $CARGO_DINGHY -d qemu test pass \
+       && ! $CARGO_DINGHY -d qemu test fails \
+       && ! $CARGO_DINGHY -d qemu test \
    )
    echo "##"
    echo "## latest failure was expected ##"
@@ -144,9 +146,9 @@ else
    ( \
        cd test-ws \
        && cargo clean \
-       && $CARGO_DINGHY -d aarch64 test -p test-app pass \
-       && ! $CARGO_DINGHY -d aarch64 test -p test-app fails \
-       && ! $CARGO_DINGHY -d aarch64 test -p test-app \
+       && $CARGO_DINGHY -d qemu test -p test-app pass \
+       && ! $CARGO_DINGHY -d qemu test -p test-app fails \
+       && ! $CARGO_DINGHY -d qemu test -p test-app \
    )
    echo "##"
    echo "## latest failure was expected ##"
