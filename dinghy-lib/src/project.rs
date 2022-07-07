@@ -1,4 +1,3 @@
-use crate::config::dinghy_config;
 use crate::config::Configuration;
 use crate::utils::copy_and_sync_file;
 use crate::Platform;
@@ -48,27 +47,22 @@ impl Project {
             .join(triple))
     }
 
-    pub fn for_runnable(&self, runnable: &Runnable) -> Result<Self> {
-        Ok(Project {
-            conf: Arc::new(dinghy_config(&runnable.source)?),
-            metadata: self.metadata.clone(),
-        })
-    }
+    pub fn link_test_data(&self, runnable: &Runnable) -> Result<PathBuf> {
+        let test_data_path = runnable
+            .exe
+            .parent()
+            .and_then(|it| it.parent())
+            .map(|it| it.join("dinghy"))
+            .map(|it| it.join(runnable.exe.file_name().unwrap()))
+            .map(|it| it.join("test_data"))
+            .unwrap();
 
-    pub fn link_test_data<T: AsRef<Path>>(
-        &self,
-        runnable: &Runnable,
-        app_path: T,
-    ) -> Result<PathBuf> {
-        let app_path = app_path.as_ref();
-        let sub_project = self.for_runnable(runnable)?;
-        let test_data_path = app_path.join("test_data");
         fs::create_dir_all(&test_data_path)?;
         let test_data_cfg_path = test_data_path.join("test_data.cfg");
         let mut test_data_cfg = File::create(&test_data_cfg_path)?;
         debug!("Generating {}", test_data_cfg_path.display());
 
-        for td in sub_project.conf.test_data.iter() {
+        for td in self.conf.test_data.iter() {
             let target_path = td
                 .base
                 .parent()

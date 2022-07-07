@@ -30,8 +30,6 @@ pub fn make_remote_app_with_name(
                 && !path.to_str().unwrap().contains("android"))
     }
 
-    // TODO this is probably useless
-    let project = project.for_runnable(&build.runnable)?;
     let root_dir = build.target_path.join("dinghy");
     let bundle_path = match bundle_name {
         Some(name) => root_dir.join(&build.runnable.id).join(name),

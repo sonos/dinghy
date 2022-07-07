@@ -58,7 +58,7 @@ impl Device for ScriptDevice {
         let bundle_path = &build.runnable.source;
 
         log::trace!("About to start runner script...");
-        let test_data_path = project.link_test_data(&build.runnable, &bundle_path)?;
+        let test_data_path = project.link_test_data(&build.runnable)?;
 
         let status = self
             .command(build)?
