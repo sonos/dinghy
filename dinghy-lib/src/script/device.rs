@@ -20,12 +20,7 @@ impl ScriptDevice {
         if let Some(ref pf) = self.conf.platform {
             cmd.env("DINGHY_PLATFORM", &*pf);
         }
-        todo!("What is your usage of script the script device, this do you need the DINGHY_COMPILE_MODE env var to be set ? (this notion doesn't exist anymore in dinghy and is handled by cargo directly)");
-        // cmd.env(
-        //     "DINGHY_COMPILE_MODE",
-        //     &*format!("{:?}", _build.build_args.compile_mode),
-        // );
-        //Ok(cmd)
+        Ok(cmd)
     }
 }
 
@@ -63,7 +58,7 @@ impl Device for ScriptDevice {
         let bundle_path = &build.runnable.source;
 
         log::trace!("About to start runner script...");
-        let test_data_path = project.link_test_data(&build.runnable, &bundle_path)?;
+        let test_data_path = project.link_test_data(&build.runnable)?;
 
         let status = self
             .command(build)?

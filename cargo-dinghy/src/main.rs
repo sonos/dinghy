@@ -110,9 +110,15 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                     .to_str()
                     .unwrap()
                     .to_string();
-                let args_ref = args.iter().map(|s| &s[..]).collect::<Vec<_>>();
+                let args_ref = args.iter().skip(1).map(|s| &s[..]).collect::<Vec<_>>();
                 let envs_ref = cli.args.env.iter().map(|s| &s[..]).collect::<Vec<_>>();
                 platform.setup_env(&project, &setup_args)?;
+
+                dbg!(project
+                    .metadata
+                    .target_directory
+                    .clone()
+                    .join(platform.rustc_triple()));
 
                 let mut build = Build {
                     setup_args,
@@ -127,7 +133,6 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                     target_path: project.metadata.target_directory.clone().into(),
                 };
 
-                // TODO make the run of the app use the stripped binary
                 if cli.args.strip {
                     platform.strip(&mut build)?;
                 }
