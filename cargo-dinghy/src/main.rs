@@ -114,12 +114,6 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                 let envs_ref = cli.args.env.iter().map(|s| &s[..]).collect::<Vec<_>>();
                 platform.setup_env(&project, &setup_args)?;
 
-                dbg!(project
-                    .metadata
-                    .target_directory
-                    .clone()
-                    .join(platform.rustc_triple()));
-
                 let mut build = Build {
                     setup_args,
                     // TODO these should be probably read from the executable file

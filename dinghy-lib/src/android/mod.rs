@@ -1,18 +1,18 @@
 use crate::config::PlatformConfiguration;
-use crate::platform::regular_platform::RegularPlatform;
 use crate::toolchain::ToolchainConfig;
 use crate::{Device, Platform, PlatformManager, Result};
 use std::{env, fs, path, process};
 
 pub use self::device::AndroidDevice;
 
+use crate::android::platform::AndroidPlatform;
 use anyhow::{anyhow, bail, Context};
 use log::debug;
 
 mod device;
+mod platform;
 
 pub struct AndroidManager {
-    //compiler: sync::Arc<Compiler>,
     adb: path::PathBuf,
 }
 
@@ -94,7 +94,7 @@ impl PlatformManager for AndroidManager {
                             binutils_prefix: format!("{}-linux-{}", binutils_cpu, abi_kind),
                             cc_prefix: format!("{}-linux-{}{}", cc_cpu, abi_kind, api),
                         };
-                        RegularPlatform::new_with_tc(PlatformConfiguration::default(), id, tc)
+                        AndroidPlatform::new(PlatformConfiguration::default(), id, tc, major)
                     };
                     for api in api_levels.iter() {
                         platforms.push(create_platform(&api, &format!("-api{}", api))?);

@@ -148,22 +148,11 @@ impl Platform for RegularPlatform {
                 .setup_tool("FC", &self.toolchain.binutils_executable("gfortran"))?;
         }
         trace!("Setup linker...");
-
-        let mut linker_cmd = self.toolchain.cc_executable(&*self.toolchain.cc);
-        linker_cmd.push_str(" ");
-        if setup_args.verbosity > 0 {
-            linker_cmd.push_str("-Wl,--verbose -v")
-        }
-        if let Some(sr) = &self.toolchain.sysroot {
-            linker_cmd.push_str(&format!(" --sysroot {}", sr.display()));
-        }
-        for forced_overlay in &setup_args.forced_overlays {
-            linker_cmd.push_str(" -l");
-            linker_cmd.push_str(&forced_overlay);
-            // TODO Add -L
-        }
-        self.toolchain
-            .setup_linker(&self.id, &linker_cmd, &project.metadata.workspace_root)?;
+        self.toolchain.setup_linker(
+            &self.id,
+            &self.toolchain.generate_linker_command(&setup_args),
+            &project.metadata.workspace_root,
+        )?;
 
         trace!("Setup pkg-config");
         self.toolchain.setup_pkg_config()?;
