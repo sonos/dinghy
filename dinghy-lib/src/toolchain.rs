@@ -102,6 +102,10 @@ impl ToolchainConfig {
             .to_string()
     }
 
+    pub fn naked_executable(&self, name: &str) -> String {
+        self.bin_dir.join(name).to_string_lossy().to_string()
+    }
+
     pub fn setup_pkg_config(&self) -> Result<()> {
         self.as_toolchain().setup_pkg_config()?;
 
@@ -136,6 +140,24 @@ impl ToolchainConfig {
 
     pub fn setup_cc(&self, id: &str, compiler_command: &str) -> Result<()> {
         self.as_toolchain().setup_cc(id, compiler_command)
+    }
+
+    pub fn generate_linker_command(&self, setup_args: &SetupArgs) -> String {
+        let mut linker_cmd = self.cc_executable(&*self.cc);
+        linker_cmd.push_str(" ");
+        if setup_args.verbosity > 0 {
+            linker_cmd.push_str("-Wl,--verbose -v")
+        }
+        if let Some(sr) = &self.sysroot {
+            linker_cmd.push_str(&format!(" --sysroot {}", sr.display()));
+        }
+        for forced_overlay in &setup_args.forced_overlays {
+            linker_cmd.push_str(" -l");
+            linker_cmd.push_str(&forced_overlay);
+            // TODO Add -L
+        }
+
+        linker_cmd
     }
 
     pub fn setup_linker<P: AsRef<path::Path>>(

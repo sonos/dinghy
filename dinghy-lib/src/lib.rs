@@ -171,7 +171,7 @@ pub trait DeviceCompatibility {
 }
 
 pub trait Platform: std::fmt::Debug {
-    fn setup_env(&self, project: &Project, build_args: &SetupArgs) -> Result<()>;
+    fn setup_env(&self, project: &Project, setup_args: &SetupArgs) -> Result<()>;
 
     fn id(&self) -> String;
 
