@@ -291,6 +291,7 @@ impl BuildBundle {
 #[derive(Clone, Debug, Default)]
 pub struct Runnable {
     pub id: String,
+    pub package_name: String,
     pub exe: path::PathBuf,
     pub source: path::PathBuf,
 }
