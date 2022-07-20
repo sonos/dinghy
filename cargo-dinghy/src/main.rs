@@ -120,6 +120,7 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                     dynamic_libraries: vec![],
                     runnable: Runnable {
                         id: exe_id,
+                        package_name: std::env::var("CARGO_PKG_NAME")?,
                         exe: PathBuf::from(exe).canonicalize()?,
                         // cargo launches the runner inside the dir of the crate
                         source: PathBuf::from(".").canonicalize()?,

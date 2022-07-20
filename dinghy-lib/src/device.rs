@@ -32,8 +32,8 @@ pub fn make_remote_app_with_name(
 
     let root_dir = build.target_path.join("dinghy");
     let bundle_path = match bundle_name {
-        Some(name) => root_dir.join(&build.runnable.id).join(name),
-        None => root_dir.join(&build.runnable.id),
+        Some(name) => root_dir.join(&build.runnable.package_name).join(name),
+        None => root_dir.join(&build.runnable.package_name),
     };
     let bundle_libs_path = root_dir.join("overlay");
     let bundle_target_path = &bundle_path;

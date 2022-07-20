@@ -97,7 +97,7 @@ impl Project {
                 if metadata.is_dir() {
                     rec_copy(file, dst, td.copy_git_ignored)?;
                 } else {
-                    fs::copy(file, dst)?;
+                    copy_and_sync_file(file, dst)?;
                 }
             } else {
                 log::warn!(
