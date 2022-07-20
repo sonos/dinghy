@@ -55,26 +55,44 @@ impl SshDevice {
         Ok(command)
     }
 
-    fn sync_rsync(&self, rsync: Option<String>) -> Result<String> {
-        match rsync {
+    fn sync_rsync(&self) -> Result<String> {
+        match &self.conf.install_adhoc_rsync_local_path {
             Some(rsync) => {
-                let rsync_path = "/tmp/rsync";
-                let mut command = Command::new("scp");
-                if let Some(true) = self.conf.use_legacy_scp_protocol_for_adhoc_rsync_copy {
-                    command.arg("-O");
-                }
-                command.arg("-q");
-                if let Some(port) = self.conf.port {
-                    command.arg("-P").arg(&format!("{}", port));
-                }
-                command.arg(format!("{}", rsync));
-                command.arg(format!(
-                    "{}@{}:{}",
-                    self.conf.username, self.conf.hostname, rsync_path
-                ));
-                log::debug!("Running {:?}", command);
-                if !command.status()?.success() {
-                    bail!("Error copying rsync binary ({:?})", command)
+                let rsync_path = PathBuf::from(self.conf.path.clone().unwrap_or("/tmp".into()))
+                    .join("dinghy")
+                    .join("rsync");
+                let rsync_path = rsync_path
+                    .to_str()
+                    .ok_or_else(|| anyhow!("Could not format rsync remote path"))?;
+
+                if self
+                    .ssh_command()?
+                    .arg("[")
+                    .arg("-f")
+                    .arg(rsync_path)
+                    .arg("]")
+                    .status()?
+                    .success()
+                {
+                    log::debug!("ad-hoc rsync already present on device, skipping copy")
+                } else {
+                    let mut command = Command::new("scp");
+                    if let Some(true) = self.conf.use_legacy_scp_protocol_for_adhoc_rsync_copy {
+                        command.arg("-O");
+                    }
+                    command.arg("-q");
+                    if let Some(port) = self.conf.port {
+                        command.arg("-P").arg(&format!("{}", port));
+                    }
+                    command.arg(format!("{}", rsync));
+                    command.arg(format!(
+                        "{}@{}:{}",
+                        self.conf.username, self.conf.hostname, rsync_path
+                    ));
+                    log::debug!("Running {:?}", command);
+                    if !command.status()?.success() {
+                        bail!("Error copying rsync binary ({:?})", command)
+                    }
                 }
                 Ok(rsync_path.to_string())
             }
@@ -83,7 +101,7 @@ impl SshDevice {
     }
 
     fn sync<FP: AsRef<Path>, TP: AsRef<Path>>(&self, from_path: FP, to_path: TP) -> Result<()> {
-        let rsync = self.sync_rsync(self.conf.install_adhoc_rsync_local_path.clone());
+        let rsync = self.sync_rsync();
         let rsync = match rsync {
             Ok(rsync_path) => rsync_path,
             Err(error) => bail!("Problem with rsync on the target: {:?}", error),
