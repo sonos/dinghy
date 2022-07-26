@@ -19,14 +19,14 @@ jobs:
     - name: build and test
       env:
         RUST_VERSION: ${{matrix.rust}}
-      run: sh .travis.sh
+      run: ./.travis.sh
 
   macos:
     runs-on: macOS-latest
 
     steps:
     - uses: actions/checkout@v1
-    - name: cargo test
+    - name: build and test
       run: ./.travis.sh
 
       #  windows:
@@ -41,5 +41,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
-    - name: cargo test
+    - name: build and test
       run: ./musl_build.sh
