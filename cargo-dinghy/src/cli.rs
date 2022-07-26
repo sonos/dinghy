@@ -62,9 +62,6 @@ pub enum DinghySubcommand {
     #[clap(name = "all-dinghy-subcommands")]
     /// List all available dinghy subcommands
     AllDinghySubcommands {},
-    #[clap(name = "lldbproxy")]
-    /// Debug through lldb
-    LldbProxy {},
     #[clap(name = "runner")]
     /// Dinghy runner, used internally to run executables on targets
     Runner { args: Vec<String> },

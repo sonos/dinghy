@@ -160,10 +160,6 @@ impl Device for IosDevice {
         self.run_remote(&bundle, args, envs, false)?;
         Ok(build_bundle)
     }
-
-    fn start_remote_lldb(&self) -> Result<String> {
-        unreachable!();
-    }
 }
 
 impl IosSimDevice {
@@ -246,10 +242,6 @@ impl Device for IosSimDevice {
         let build_bundle = self.install_app(&project, &build, &build.runnable)?;
         launch_app(&self, args, envs)?;
         Ok(build_bundle)
-    }
-
-    fn start_remote_lldb(&self) -> Result<String> {
-        unimplemented!()
     }
 }
 

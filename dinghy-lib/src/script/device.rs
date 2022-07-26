@@ -93,10 +93,6 @@ impl Device for ScriptDevice {
             root_dir: root_dir.clone(),
         })
     }
-
-    fn start_remote_lldb(&self) -> Result<String> {
-        unimplemented!()
-    }
 }
 
 impl DeviceCompatibility for ScriptDevice {
