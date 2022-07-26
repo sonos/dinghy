@@ -33,7 +33,7 @@ use crate::config::PlatformConfiguration;
 use crate::ios::IosManager;
 use crate::platform::regular_platform::RegularPlatform;
 use crate::project::Project;
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use dyn_clone::DynClone;
 use std::fmt::Display;
 use std::{path, sync};
@@ -63,7 +63,7 @@ impl Dinghy {
         #[cfg(target_os = "macos")]
         {
             std::thread::sleep(std::time::Duration::from_millis(100));
-            if let Some(man) = IosManager::new()? {
+            if let Some(man) = IosManager::new().context("Could not initialize iOS manager")? {
                 managers.push(Box::new(man));
             }
         }
@@ -71,9 +71,15 @@ impl Dinghy {
         let mut devices = vec![];
         let mut platforms = vec![];
         for man in managers.into_iter() {
-            devices.extend(man.devices()?.into_iter().map(|it| sync::Arc::new(it)));
+            devices.extend(
+                man.devices()
+                    .context("Could not list devices")?
+                    .into_iter()
+                    .map(|it| sync::Arc::new(it)),
+            );
             platforms.extend(
-                man.platforms()?
+                man.platforms()
+                    .context("Could not list platforms")?
                     .into_iter()
                     .map(|it| (it.id(), sync::Arc::new(it))),
             );
@@ -96,8 +102,9 @@ impl Dinghy {
                     .map(|it| path::PathBuf::from(it))
                     .or(dirs::home_dir()
                         .map(|it| it.join(".dinghy").join("toolchain").join(platform_name)))
-                    .ok_or_else(|| anyhow!("Toolchain missing for platform {}", platform_name))?,
-            )?;
+                    .with_context(|| format!("Toolchain missing for platform {}", platform_name))?,
+            )
+            .with_context(|| format!("Could not assemble platform {}", platform_name))?;
             platforms.push((pf.id(), sync::Arc::new(pf)));
         }
         Ok(Dinghy { devices, platforms })

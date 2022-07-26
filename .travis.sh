@@ -13,7 +13,7 @@ if [ -z "$CARGO_DINGHY" ]
 then
     title "••• build cargo-dinghy •••"
     cargo build -p cargo-dinghy
-    CARGO_DINGHY="`pwd`/target/debug/cargo-dinghy -vvvv"
+    CARGO_DINGHY="`pwd`/target/debug/cargo-dinghy -vv"
 fi
 echo RUST_VERSION: ${RUST_VERSION:=1.61.0}
 
