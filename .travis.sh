@@ -81,27 +81,30 @@ then
         tests_sequence $device
     fi
 else
-    title "••••• Linux: android tests •••••"
-    title "setup simulator"
-    rustup target add armv7-linux-androideabi
+    if [ -n "$ANDROID_SDK_ROOT" ]
+    then
+        title "••••• Linux: android tests •••••"
+        title "setup simulator"
+        rustup target add armv7-linux-androideabi
 
-    $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-24;default;armeabi-v7a" "ndk;22.1.7171670"
-    echo no | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager create avd -n testdinghy -k "system-images;android-24;default;armeabi-v7a"
-    $ANDROID_SDK_ROOT/emulator/emulator @testdinghy -no-audio -no-boot-anim -no-window -accel on -gpu off &
-    timeout 180 $ANDROID_SDK_ROOT/platform-tools/adb wait-for-device
- 
-    export ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/22.1.7171670
+        $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-24;default;armeabi-v7a" "ndk;22.1.7171670"
+        echo no | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager create avd -n testdinghy -k "system-images;android-24;default;armeabi-v7a"
+        $ANDROID_SDK_ROOT/emulator/emulator @testdinghy -no-audio -no-boot-anim -no-window -accel on -gpu off &
+        timeout 180 $ANDROID_SDK_ROOT/platform-tools/adb wait-for-device
+     
+        export ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/22.1.7171670
 
-    tests_sequence android
+        tests_sequence android
+    fi
 
     title "••••• Linux: script tests (with qemu) •••••"
     title "setup qemu"
 
     rustup target add aarch64-unknown-linux-musl
     sudo apt-get -y install --no-install-recommends qemu-system-arm qemu-user binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu
-    echo "[platforms.qemu]\nrustc_triple='aarch64-unknown-linux-musl'\ndeb_multiarch='aarch64-linux-gnu'"  >> .dinghy.toml
-    echo "[script_devices.qemu]\nplatform='qemu'\npath='/tmp/qemu'" >> .dinghy.toml
-    echo "#!/bin/sh\nexe=\$1\nshift\n/usr/bin/qemu-aarch64 -L /usr/aarch64-linux-gnu/ \$exe --test-threads 1 \"\$@\"" > /tmp/qemu
+    echo -e "[platforms.qemu]\nrustc_triple='aarch64-unknown-linux-musl'\ndeb_multiarch='aarch64-linux-gnu'" > .dinghy.toml
+    echo -e "[script_devices.qemu]\nplatform='qemu'\npath='/tmp/qemu'" >> .dinghy.toml
+    echo -e "#!/bin/sh\nexe=\$1\nshift\n/usr/bin/qemu-aarch64 -L /usr/aarch64-linux-gnu/ \$exe --test-threads 1 \"\$@\"" > /tmp/qemu
     chmod +x /tmp/qemu
 
     tests_sequence qemu
