@@ -150,6 +150,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "colored"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3616f750b84d8f0de8a58bda93e08e2a81ad3f523089b05f1dffecab48c6cbd"
+dependencies = [
+ "atty",
+ "lazy_static",
+ "winapi",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -191,6 +202,7 @@ dependencies = [
  "anyhow",
  "atty",
  "cargo_metadata",
+ "colored",
  "core-foundation",
  "core-foundation-sys",
  "dinghy-build",
@@ -200,6 +212,7 @@ dependencies = [
  "ignore",
  "itertools",
  "json",
+ "lazy_static",
  "libc",
  "log",
  "plist",

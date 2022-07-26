@@ -2,9 +2,12 @@ use crate::errors::Result;
 use anyhow::{anyhow, bail};
 use filetime::set_file_times;
 use filetime::FileTime;
+use lazy_static::lazy_static;
 use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
+use std::process::Command;
+use std::sync::atomic::{AtomicI8, Ordering};
 
 pub fn copy_and_sync_file<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Result<()> {
     let from = &from.as_ref();
@@ -118,4 +121,56 @@ pub fn file_name_as_str(file_path: &Path) -> Result<&str> {
         .file_name()
         .and_then(|it| it.to_str())
         .ok_or_else(|| anyhow!("'{}' is not a valid file name", file_path.display()))?)
+}
+
+lazy_static! {
+    static ref CURRENT_VERBOSITY: AtomicI8 = AtomicI8::new(0);
+}
+
+pub fn set_current_verbosity(verbosity: i8) {
+    CURRENT_VERBOSITY.store(verbosity, Ordering::SeqCst)
+}
+pub fn get_current_verbosity() -> i8 {
+    CURRENT_VERBOSITY.load(Ordering::SeqCst)
+}
+
+pub fn user_facing_log(category: &str, message: &str, verbosity: i8) {
+    use colored::Colorize;
+    if verbosity <= get_current_verbosity() {
+        eprintln!("{:>12} {}", category.blue().bold(), message)
+    }
+}
+
+pub trait LogCommandExt {
+    fn log_invocation(&mut self, verbosity: i8) -> &mut Self;
+}
+
+impl LogCommandExt for Command {
+    fn log_invocation(&mut self, verbosity: i8) -> &mut Self {
+        user_facing_log(
+            "Running",
+            &format!(
+                "{}{:?}",
+                if verbosity + 1 < get_current_verbosity() {
+                    self.get_envs()
+                        .map(|(var_name, var_value)| {
+                            format!(
+                                "{}={:?} ",
+                                var_name.to_str().unwrap(),
+                                var_value.and_then(|it| it.to_str()).unwrap_or("")
+                            )
+                        })
+                        .fold(String::new(), |mut result, env| {
+                            result.push_str(&env);
+                            result
+                        })
+                } else {
+                    String::new()
+                },
+                self
+            ),
+            verbosity,
+        );
+        self
+    }
 }

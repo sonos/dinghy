@@ -2,7 +2,7 @@ use crate::device::make_remote_app;
 use crate::errors::*;
 use crate::platform::regular_platform::RegularPlatform;
 use crate::project::Project;
-use crate::utils::path_to_str;
+use crate::utils::{get_current_verbosity, path_to_str, user_facing_log, LogCommandExt};
 use crate::Build;
 use crate::BuildBundle;
 use crate::Device;
@@ -29,6 +29,7 @@ impl AndroidDevice {
         ] {
             let getprop_output = process::Command::new(&adb)
                 .args(&["-s", id, "shell", "getprop", prop])
+                .log_invocation(3)
                 .output()?;
             let abilist = String::from_utf8(getprop_output.stdout)?;
             debug!(
@@ -71,12 +72,18 @@ impl AndroidDevice {
 
     fn install_app(&self, project: &Project, build: &Build) -> Result<(BuildBundle, BuildBundle)> {
         info!("Install {} to {}", build.runnable.id, self.id);
+        user_facing_log(
+            "Installing",
+            &format!("{} to {}", build.runnable.id, self.id),
+            0,
+        );
         if !self
             .adb()?
             .arg("shell")
             .arg("mkdir")
             .arg("-p")
             .arg(ANDROID_WORK_DIR)
+            .log_invocation(2)
             .status()?
             .success()
         {
@@ -111,6 +118,7 @@ impl AndroidDevice {
             .arg("chmod")
             .arg("755")
             .arg(&remote_bundle.bundle_exe)
+            .log_invocation(2)
             .status()?
             .success()
         {
@@ -139,7 +147,7 @@ impl AndroidDevice {
             command.stderr(::std::process::Stdio::null());
         }
         debug!("Running {:?}", command);
-        if !command.status()?.success() {
+        if !command.log_invocation(2).status()?.success() {
             bail!("Error syncing android directory ({:?})", command)
         } else {
             Ok(())
@@ -175,6 +183,7 @@ impl Device for AndroidDevice {
             .arg("rm")
             .arg("-rf")
             .arg(&remote_bundle.bundle_dir)
+            .log_invocation(1)
             .status()?
             .success()
         {
@@ -186,6 +195,7 @@ impl Device for AndroidDevice {
             .arg("rm")
             .arg("-rf")
             .arg(&remote_bundle.lib_dir)
+            .log_invocation(1)
             .status()?
             .success()
         {
@@ -233,10 +243,21 @@ impl Device for AndroidDevice {
                 args.join(" "));
         info!("Run {} on {}", build.runnable.id, self.id);
 
+        if get_current_verbosity() < 1 {
+            // we log the full command for verbosity > 1, just log a short message when the user
+            // didn't ask for verbose output
+            user_facing_log(
+                "Running",
+                &format!("{} on {}", build.runnable.id, self.id),
+                0,
+            );
+        }
+
         if !self
             .adb()?
             .arg("shell")
             .arg(&command)
+            .log_invocation(1)
             .output()
             .with_context(|| format!("Couldn't run {} using adb.", build.runnable.exe.display()))
             .and_then(|output| {
