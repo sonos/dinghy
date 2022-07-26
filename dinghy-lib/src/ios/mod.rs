@@ -120,7 +120,7 @@ fn devices() -> Result<Vec<Box<dyn Device>>> {
         Ok(l) => l,
         Err(e) => {
             info!(
-                "Failed to execute ios-deploy to look for ios devices {}. It this is not expected, you need to make sure `ios-deploy --json -c -t 1` works as expected.",e );
+                "Could not execute ios-deploy to look for iOS devices ({}), so iOS device support is disabled. Consider installing ios-deploy (`brew install ios-deploy`...) for iOS support.", e);
             return Ok(vec![]);
         }
     };
