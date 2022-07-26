@@ -16,7 +16,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
-    - name: cargo test
+    - name: build and test
       env:
         RUST_VERSION: ${{matrix.rust}}
       run: sh .travis.sh
