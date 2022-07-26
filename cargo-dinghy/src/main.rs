@@ -11,8 +11,6 @@ use std::env::current_dir;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
-use std::thread;
-use std::time;
 
 use log::{debug, error, info};
 mod cli;
@@ -162,10 +160,6 @@ fn run_command(cli: DinghyCli) -> Result<()> {
         DinghyMode::DinghySubcommand(DinghySubcommand::AllPlatforms {}) => {
             show_all_platforms(&dinghy)
         }
-        DinghyMode::DinghySubcommand(DinghySubcommand::LldbProxy {}) => {
-            let (_platform, device) = select_platform_and_device_from_cli(&cli, &dinghy)?;
-            run_lldb(device)
-        }
         DinghyMode::DinghySubcommand(DinghySubcommand::AllDinghySubcommands {}) => {
             use clap::CommandFactory;
             for sub in SubCommandWrapper::command().get_subcommands() {
@@ -176,15 +170,6 @@ fn run_command(cli: DinghyCli) -> Result<()> {
         DinghyMode::Naked => {
             anyhow::bail!("Naked mode") // what should we do?
         }
-    }
-}
-
-fn run_lldb(device: Option<Arc<Box<dyn Device>>>) -> Result<()> {
-    let device = device.ok_or_else(|| anyhow!("No device found"))?;
-    let lldb = device.start_remote_lldb()?;
-    info!("lldb running at: {}", lldb);
-    loop {
-        thread::sleep(time::Duration::from_millis(100));
     }
 }
 

@@ -159,8 +159,6 @@ pub trait Device: std::fmt::Debug + Display + DeviceCompatibility + DynClone {
         args: &[&str],
         envs: &[&str],
     ) -> Result<BuildBundle>;
-
-    fn start_remote_lldb(&self) -> Result<String>;
 }
 
 dyn_clone::clone_trait_object!(Device);

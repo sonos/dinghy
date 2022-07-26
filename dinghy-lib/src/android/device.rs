@@ -260,10 +260,6 @@ impl Device for AndroidDevice {
 
         Ok(build_bundle)
     }
-
-    fn start_remote_lldb(&self) -> Result<String> {
-        unimplemented!()
-    }
 }
 
 impl fmt::Display for AndroidDevice {

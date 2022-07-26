@@ -235,10 +235,6 @@ impl Device for SshDevice {
 
         Ok(build_bundle)
     }
-
-    fn start_remote_lldb(&self) -> Result<String> {
-        unimplemented!()
-    }
 }
 
 impl Debug for SshDevice {
