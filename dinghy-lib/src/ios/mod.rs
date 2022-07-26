@@ -1,13 +1,8 @@
-use libc::c_void;
-use std::{mem, ptr, sync, thread};
-
 pub use self::device::{IosDevice, IosSimDevice};
-use self::mobiledevice_sys::*;
 pub use self::platform::IosPlatform;
 use crate::{Device, Platform, PlatformManager, Result};
 
 mod device;
-mod mobiledevice_sys;
 mod platform;
 mod xcode;
 
@@ -31,87 +26,22 @@ pub struct SigningIdentity {
 }
 
 pub struct IosManager {
-    devices: sync::Arc<sync::Mutex<Vec<IosDevice>>>,
+    devices: Vec<Box<dyn Device>>,
 }
 
 impl IosManager {
     pub fn new() -> Result<Option<IosManager>> {
-        let devices = sync::Arc::new(sync::Mutex::new(vec![]));
-
-        let devices_to_take_away = Box::new(devices.clone());
-        thread::spawn(move || {
-            let notify: *const am_device_notification = ptr::null();
-            unsafe {
-                AMDeviceNotificationSubscribe(
-                    device_callback,
-                    0,
-                    0,
-                    Box::into_raw(devices_to_take_away) as *mut c_void,
-                    &mut notify.into(),
-                );
-            }
-            ::core_foundation::runloop::CFRunLoop::run_current();
-        });
-
-        extern "C" fn device_callback(
-            info: *mut am_device_notification_callback_info,
-            devices: *mut c_void,
-        ) {
-            let device: *const am_device = unsafe { (*info).dev };
-            let devices: &sync::Arc<sync::Mutex<Vec<IosDevice>>> =
-                unsafe { mem::transmute(devices) };
-            // FIXME: unwrap -> panic in FFI callback
-            let _ = devices
-                .lock()
-                .map(|mut devices| devices.push(IosDevice::new(device).unwrap()));
-        }
-
+        let devices = devices()?
+            .into_iter()
+            .chain(simulators()?.into_iter())
+            .collect();
         Ok(Some(IosManager { devices }))
     }
 }
 
 impl PlatformManager for IosManager {
     fn devices(&self) -> Result<Vec<Box<dyn Device>>> {
-        let sims_list = ::std::process::Command::new("xcrun")
-            .args(&["simctl", "list", "--json", "devices"])
-            .output()?;
-        if !sims_list.status.success() {
-            info!(
-                "Failed while looking for ios simulators. It this is not expected, you need to make sure `xcrun simctl list --json` works."
-            );
-            return Ok(vec![]);
-        }
-        let sims_list = String::from_utf8(sims_list.stdout)?;
-        let sims_list = ::json::parse(&sims_list)
-               .with_context(|| "Could not parse output for: `xcrun simctl list --json devices` as json. Please try to make this command work and retry.")?;
-        let mut sims: Vec<Box<dyn Device>> = vec![];
-        for (ref k, ref v) in sims_list["devices"].entries() {
-            for ref sim in v.members() {
-                if sim["state"] == "Booted" {
-                    sims.push(Box::new(IosSimDevice {
-                        name: sim["name"]
-                            .as_str()
-                            .ok_or_else(|| {
-                                anyhow!("unexpected simulator list format (missing name)")
-                            })?
-                            .to_string(),
-                        id: sim["udid"]
-                            .as_str()
-                            .ok_or_else(|| {
-                                anyhow!("unexpected simulator list format (missing udid)")
-                            })?
-                            .to_string(),
-                        os: k.split(" ").last().unwrap().to_string(),
-                    }))
-                }
-            }
-        }
-        let devices = self.devices.lock().map_err(|_| anyhow!("poisoned lock"))?;
-        Ok(devices
-            .iter()
-            .map(|d| Box::new(d.clone()) as Box<dyn Device>)
-            .chain(sims.into_iter())
-            .collect())
+        Ok(self.devices.clone())
     }
 
     fn platforms(&self) -> Result<Vec<Box<dyn Platform>>> {
@@ -140,4 +70,59 @@ impl PlatformManager for IosManager {
         })
         .collect()
     }
+}
+
+fn simulators() -> Result<Vec<Box<dyn Device>>> {
+    let sims_list = ::std::process::Command::new("xcrun")
+        .args(&["simctl", "list", "--json", "devices"])
+        .output()?;
+    if !sims_list.status.success() {
+        info!(
+                "Failed while looking for ios simulators. It this is not expected, you need to make sure `xcrun simctl list --json` works."
+            );
+        return Ok(vec![]);
+    }
+    let sims_list = String::from_utf8(sims_list.stdout)?;
+    let sims_list = json::parse(&sims_list)
+               .with_context(|| "Could not parse output for: `xcrun simctl list --json devices` as json. Please try to make this command work and retry.")?;
+    let mut sims: Vec<Box<dyn Device>> = vec![];
+    for (ref k, ref v) in sims_list["devices"].entries() {
+        for ref sim in v.members() {
+            if sim["state"] == "Booted" {
+                sims.push(Box::new(IosSimDevice {
+                    name: sim["name"]
+                        .as_str()
+                        .ok_or_else(|| anyhow!("unexpected simulator list format (missing name)"))?
+                        .to_string(),
+                    id: sim["udid"]
+                        .as_str()
+                        .ok_or_else(|| anyhow!("unexpected simulator list format (missing udid)"))?
+                        .to_string(),
+                    os: k.split(" ").last().unwrap().to_string(),
+                }))
+            }
+        }
+    }
+    Ok(sims)
+}
+
+fn devices() -> Result<Vec<Box<dyn Device>>> {
+    let list = ::std::process::Command::new("ios-deploy")
+        .args(&["-c", "--json", "-t", "1"])
+        .output()?;
+    if !list.status.success() {
+        info!(
+                "Failed while looking for ios devices. It this is not expected, you need to make sure `ios-deploy --json -c -t 1` works as expected."
+            );
+        return Ok(vec![]);
+    }
+    // ios-deploy outputs each device as a multiline json dict, with separator or delimiter. make
+    // it a json array.
+    let list = String::from_utf8(list.stdout)?.replace("}{", "},{");
+    let list = format!("[{}]", list);
+    let list = ::json::parse(&list)
+               .with_context(|| "Could not parse output for: `ios-deploy --json -c -t 1` as json. Please try to make this command work and retry.")?;
+    list.members()
+        .map(|json| Ok(Box::new(IosDevice::new(&json)?) as Box<dyn Device>))
+        .collect::<Result<Vec<Box<dyn Device>>>>()
 }

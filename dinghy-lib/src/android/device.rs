@@ -13,6 +13,7 @@ use std::{fmt, io, path, process};
 
 static ANDROID_WORK_DIR: &str = "/data/local/tmp/dinghy";
 
+#[derive(Clone)]
 pub struct AndroidDevice {
     pub adb: path::PathBuf,
     pub id: String,

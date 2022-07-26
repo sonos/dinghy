@@ -3,7 +3,7 @@ use crate::*;
 use anyhow::bail;
 use std::{fmt, fs, process};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ScriptDevice {
     pub id: String,
     pub conf: ScriptDeviceConfiguration,

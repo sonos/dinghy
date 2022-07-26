@@ -195,6 +195,7 @@ dependencies = [
  "core-foundation-sys",
  "dinghy-build",
  "dirs",
+ "dyn-clone",
  "filetime",
  "ignore",
  "itertools",
@@ -259,6 +260,12 @@ dependencies = [
  "redox_users",
  "winapi",
 ]
+
+[[package]]
+name = "dyn-clone"
+version = "1.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9d07a982d1fb29db01e5a59b1918e03da4df7297eaeee7686ac45542fd4e59c8"
 
 [[package]]
 name = "either"
