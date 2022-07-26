@@ -27,7 +27,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: cargo test
-      run: sh .travis.sh
+      run: ./.travis.sh
 
       #  windows:
       #    runs-on: windows-2019
