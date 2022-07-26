@@ -16,6 +16,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
+#[derive(Clone)]
 pub struct SshDevice {
     pub id: String,
     pub conf: SshDeviceConfiguration,

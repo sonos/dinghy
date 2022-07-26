@@ -34,6 +34,7 @@ use crate::ios::IosManager;
 use crate::platform::regular_platform::RegularPlatform;
 use crate::project::Project;
 use anyhow::anyhow;
+use dyn_clone::DynClone;
 use std::fmt::Display;
 use std::{path, sync};
 
@@ -129,7 +130,7 @@ impl Dinghy {
     }
 }
 
-pub trait Device: std::fmt::Debug + Display + DeviceCompatibility {
+pub trait Device: std::fmt::Debug + Display + DeviceCompatibility + DynClone {
     fn clean_app(&self, build_bundle: &BuildBundle) -> Result<()>;
 
     fn debug_app(
@@ -154,6 +155,8 @@ pub trait Device: std::fmt::Debug + Display + DeviceCompatibility {
 
     fn start_remote_lldb(&self) -> Result<String>;
 }
+
+dyn_clone::clone_trait_object!(Device);
 
 pub trait DeviceCompatibility {
     fn is_compatible_with_regular_platform(&self, _platform: &RegularPlatform) -> bool {
