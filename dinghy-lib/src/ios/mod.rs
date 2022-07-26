@@ -31,9 +31,14 @@ pub struct IosManager {
 
 impl IosManager {
     pub fn new() -> Result<Option<IosManager>> {
-        let devices = devices()?
+        let devices = devices()
+            .context("Could not list iOS devices")?
             .into_iter()
-            .chain(simulators()?.into_iter())
+            .chain(
+                simulators()
+                    .context("Could not list iOS simulators")?
+                    .into_iter(),
+            )
             .collect();
         Ok(Some(IosManager { devices }))
     }
@@ -108,11 +113,20 @@ fn simulators() -> Result<Vec<Box<dyn Device>>> {
 
 fn devices() -> Result<Vec<Box<dyn Device>>> {
     let list = ::std::process::Command::new("ios-deploy")
+        .stderr(std::process::Stdio::inherit())
         .args(&["-c", "--json", "-t", "1"])
-        .output()?;
+        .output();
+    let list = match list {
+        Ok(l) => l,
+        Err(e) => {
+            info!(
+                "Failed to execute ios-deploy to look for ios devices {}. It this is not expected, you need to make sure `ios-deploy --json -c -t 1` works as expected.",e );
+            return Ok(vec![]);
+        }
+    };
     if !list.status.success() {
         info!(
-                "Failed while looking for ios devices. It this is not expected, you need to make sure `ios-deploy --json -c -t 1` works as expected."
+                "ios-deploy returned an error while listing devices. It this is not expected, you need to make sure `ios-deploy --json -c -t 1` works as expected."
             );
         return Ok(vec![]);
     }
