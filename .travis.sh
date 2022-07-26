@@ -70,6 +70,8 @@ then
      export SIM_ID=$(xcrun simctl create My-iphone7 com.apple.CoreSimulator.SimDeviceType.iPhone-7 $RUNTIME_ID)
      xcrun simctl boot $SIM_ID
      tests_sequence $SIM_ID
+
+     xcrun simctl delete $SIM_ID
     
     if ios-deploy -c -t 1 > /tmp/ios_devices
     then
