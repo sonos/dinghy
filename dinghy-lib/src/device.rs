@@ -1,6 +1,6 @@
 use crate::errors::*;
 use crate::project;
-use crate::project::Project;
+use crate::project::{rec_copy, Project};
 use crate::utils::copy_and_sync_file;
 use crate::Build;
 use crate::BuildBundle;
@@ -89,6 +89,25 @@ pub fn make_remote_app_with_name(
                 "Dynamic lib {} will not be copied as it is a sysroot library",
                 src_lib_path.display()
             );
+        }
+    }
+
+    for file_in_run_args in &build.files_in_run_args {
+        let dst = bundle_target_path.join(
+            file_in_run_args
+                .file_name()
+                .ok_or_else(|| anyhow!("no file name"))?,
+        );
+        if file_in_run_args.is_dir() {
+            rec_copy(file_in_run_args, dst, true)?;
+        } else {
+            copy_and_sync_file(&file_in_run_args, &dst).with_context(|| {
+                format!(
+                    "Couldn't copy {} to {}",
+                    file_in_run_args.display(),
+                    &root_dir.display()
+                )
+            })?;
         }
     }
 

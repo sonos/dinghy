@@ -1,7 +1,7 @@
 use clap::{CommandFactory, Parser, Subcommand};
 use std::collections::HashSet;
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[clap(author, version, about, long_about = None)]
 pub struct DinghyGeneralArgs {
     /// Use a specific platform
@@ -65,6 +65,19 @@ pub enum DinghySubcommand {
     #[clap(name = "runner")]
     /// Dinghy runner, used internally to run executables on targets
     Runner { args: Vec<String> },
+    #[clap(name = "run-with")]
+    /// Build an artifact and run it on a target device using the provided wrapper
+    RunWith {
+        /// Wrapper crate to use to run the lib
+        #[clap(long, short('c'))]
+        wrapper_crate: String,
+        // TODO support executables / scripts as wrappers
+        // /// Wrapper executable to use to run the lib
+        // #[clap(long, short('e'))]
+        // wrapper_executable: Option<String>,
+        /// Arguments to cargo build for the artifact
+        lib_build_args: Vec<String>,
+    },
 }
 
 #[derive(Debug)]

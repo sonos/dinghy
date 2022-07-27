@@ -1,4 +1,5 @@
 use crate::cli::{DinghyCli, DinghyMode, DinghySubcommand, SubCommandWrapper};
+use cargo_metadata::Message;
 use dinghy_lib::config::dinghy_config;
 use dinghy_lib::errors::*;
 use dinghy_lib::project::Project;
@@ -6,10 +7,12 @@ use dinghy_lib::Dinghy;
 use dinghy_lib::Platform;
 use dinghy_lib::{Build, SetupArgs};
 use dinghy_lib::{Device, Runnable};
+use std::convert::identity;
 use std::env;
 use std::env::current_dir;
+use std::io::Cursor;
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::Arc;
 
 use log::{debug, error, info};
@@ -69,22 +72,7 @@ fn run_command(cli: DinghyCli) -> Result<()> {
 
     match cli.mode {
         DinghyMode::CargoSubcommand { ref args } => {
-            info!(
-                "Targeting platform '{}' and device '{}'",
-                platform.id(),
-                device.as_ref().map(|it| it.id()).unwrap_or("<none>")
-            );
-            let cargo = env::var("CARGO")
-                .map(PathBuf::from)
-                .ok()
-                .unwrap_or_else(|| PathBuf::from("cargo"));
-            let mut cmd = Command::new(cargo);
-
-            for arg in args {
-                cmd.arg(arg);
-            }
-
-            platform.setup_env(&project, &setup_args)?;
+            let mut cmd = create_cargo_subcomand(&platform, &device, &project, &setup_args, args)?;
 
             log::debug!("Launching {:?}", cmd);
             let status = cmd.status()?;
@@ -95,10 +83,8 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                 -1
             }));
         }
-        DinghyMode::DinghySubcommand(DinghySubcommand::Runner { ref args }) => {
+        DinghyMode::DinghySubcommand(DinghySubcommand::Runner { args }) => {
             debug!("starting dinghy runner, args {:?}", args);
-
-            //let (platform, device) = select_platform_and_device_from_cli(&cli, &dinghy)?;
 
             if let Some(device) = device {
                 let exe = args.first().cloned().unwrap();
@@ -108,7 +94,35 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                     .to_str()
                     .unwrap()
                     .to_string();
-                let args_ref = args.iter().skip(1).map(|s| &s[..]).collect::<Vec<_>>();
+
+                let (args, files_in_run_args): (Vec<String>, Vec<Option<PathBuf>>) = args
+                    .into_iter()
+                    .skip(1)
+                    .map(|arg| {
+                        if arg.contains(std::path::MAIN_SEPARATOR) {
+                            let path_buf = PathBuf::from(&arg);
+                            if path_buf.exists() {
+                                (
+                                    PathBuf::from(".")
+                                        .join(path_buf.file_name().unwrap())
+                                        .to_str()
+                                        .unwrap()
+                                        .to_string(),
+                                    Some(path_buf),
+                                )
+                            } else {
+                                (arg, None)
+                            }
+                        } else {
+                            (arg, None)
+                        }
+                    })
+                    .unzip();
+
+                let files_in_run_args =
+                    files_in_run_args.into_iter().filter_map(identity).collect();
+
+                let args_ref = args.iter().map(|s| &s[..]).collect::<Vec<_>>();
                 let envs_ref = cli.args.env.iter().map(|s| &s[..]).collect::<Vec<_>>();
                 platform.setup_env(&project, &setup_args)?;
 
@@ -124,6 +138,7 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                         source: PathBuf::from(".").canonicalize()?,
                     },
                     target_path: project.metadata.target_directory.clone().into(),
+                    files_in_run_args,
                 };
 
                 if cli.args.strip {
@@ -167,10 +182,124 @@ fn run_command(cli: DinghyCli) -> Result<()> {
             }
             Ok(())
         }
+        DinghyMode::DinghySubcommand(DinghySubcommand::RunWith {
+            wrapper_crate,
+            mut lib_build_args,
+        }) => {
+            let mut build_command = vec!["build".to_string(), "--message-format=json".to_string()];
+            build_command.append(&mut lib_build_args);
+
+            let mut build_cargo_cmd =
+                create_cargo_subcomand(&platform, &device, &project, &setup_args, &build_command)?;
+
+            log::debug!("Launching {:?}", build_cargo_cmd);
+            let output = build_cargo_cmd
+                .stdout(Stdio::piped())
+                .stderr(Stdio::inherit())
+                .output()?;
+            log::debug!("done");
+
+            let mut lib_file = cargo_metadata::Message::parse_stream(Cursor::new(output.stdout))
+                .filter_map(|message| match message {
+                    Ok(Message::CompilerArtifact(artifact)) => Some(artifact),
+                    _ => None,
+                })
+                .last()
+                .ok_or_else(|| anyhow!("cargo did not produce an artifact"))?
+                .filenames
+                .into_iter()
+                .next()
+                .ok_or_else(|| anyhow!("no file in cargo artifact"))?;
+
+            if cli.args.strip {
+                let stripped_dir = lib_file
+                    .parent()
+                    .ok_or_else(|| anyhow!("failed to get lib dir"))?
+                    .join("stripped");
+
+                std::fs::create_dir_all(&stripped_dir)?;
+
+                let stripped_lib_file = stripped_dir.join(
+                    lib_file
+                        .file_name()
+                        .ok_or_else(|| anyhow!("failed to get lib name"))?,
+                );
+
+                std::fs::copy(lib_file, &stripped_lib_file)?;
+
+                let mut lib_build = Build {
+                    setup_args: setup_args.clone(),
+                    dynamic_libraries: vec![],
+                    runnable: Runnable {
+                        id: "".to_string(),
+                        package_name: "".to_string(),
+                        exe: stripped_lib_file.to_path_buf().into(),
+                        source: Default::default(),
+                    },
+                    target_path: Default::default(),
+                    files_in_run_args: vec![],
+                };
+                platform.strip(&mut lib_build)?;
+
+                std::fs::copy(lib_build.runnable.exe, &stripped_lib_file)?;
+
+                lib_file = stripped_lib_file;
+            }
+
+            let mut run_cargo_cmd = create_cargo_subcomand(
+                &platform,
+                &device,
+                &project,
+                &setup_args,
+                &vec![
+                    "run".to_string(),
+                    "-p".to_string(),
+                    wrapper_crate,
+                    "--release".to_string(),
+                    "--".to_string(),
+                    lib_file.to_string(),
+                ],
+            )?;
+
+            log::debug!("Launching {:?}", run_cargo_cmd);
+            let status = run_cargo_cmd.status()?;
+            log::debug!("done");
+
+            std::process::exit(status.code().unwrap_or_else(|| {
+                log::error!("Could not get cargo exit code");
+                -1
+            }));
+        }
         DinghyMode::Naked => {
             anyhow::bail!("Naked mode") // what should we do?
         }
     }
+}
+
+fn create_cargo_subcomand(
+    platform: &Arc<Box<dyn Platform>>,
+    device: &Option<Arc<Box<dyn Device>>>,
+    project: &Project,
+    setup_args: &SetupArgs,
+    args: &Vec<String>,
+) -> Result<Command> {
+    info!(
+        "Targeting platform '{}' and device '{}'",
+        platform.id(),
+        device.as_ref().map(|it| it.id()).unwrap_or("<none>")
+    );
+    let cargo = env::var("CARGO")
+        .map(PathBuf::from)
+        .ok()
+        .unwrap_or_else(|| PathBuf::from("cargo"));
+    let mut cmd = Command::new(cargo);
+
+    for arg in args {
+        cmd.arg(arg);
+    }
+
+    platform.setup_env(&project, &setup_args)?;
+    Ok(cmd)
 }
 
 fn show_all_platforms(dinghy: &Dinghy) -> Result<()> {

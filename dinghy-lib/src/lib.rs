@@ -209,6 +209,7 @@ pub struct Build {
     pub dynamic_libraries: Vec<path::PathBuf>,
     pub runnable: Runnable,
     pub target_path: path::PathBuf,
+    pub files_in_run_args: Vec<path::PathBuf>,
 }
 
 #[derive(Clone, Debug)]
