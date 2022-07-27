@@ -4,6 +4,7 @@ use log::{debug, trace};
 use std::io::Write;
 use std::{fs, io, process};
 
+use crate::utils::LogCommandExt;
 use crate::BuildBundle;
 
 pub fn add_plist_to_app(bundle: &BuildBundle, arch: &str, app_bundle_id: &str) -> Result<()> {
@@ -46,20 +47,20 @@ pub fn add_plist_to_app(bundle: &BuildBundle, arch: &str, app_bundle_id: &str) -
     writeln!(plist, r#"<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">"#)?;
     writeln!(plist, r#"<plist version="1.0"><dict>"#)?;
     writeln!(
-        plist,
-        "<key>CFBundleExecutable</key><string>{}</string>",
-        app_name
+    plist,
+    "<key>CFBundleExecutable</key><string>{}</string>",
+    app_name
     )?;
     writeln!(
-        plist,
-        "<key>CFBundleIdentifier</key><string>{}</string>",
-        app_bundle_id
+    plist,
+    "<key>CFBundleIdentifier</key><string>{}</string>",
+    app_bundle_id
     )?;
     writeln!(plist, "<key>UIRequiredDeviceCapabilities</key>")?;
     writeln!(
-        plist,
-        "<array><string>{}</string></array>",
-        target.split("-").next().unwrap()
+    plist,
+    "<array><string>{}</string></array>",
+    target.split("-").next().unwrap()
     )?;
     writeln!(plist, r#"</dict></plist>"#)?;
 
@@ -87,11 +88,15 @@ pub fn sign_app(bundle: &BuildBundle, settings: &SignatureSettings) -> Result<()
     writeln!(plist, "{}", settings.entitlements)?;
     writeln!(plist, r#"</dict></plist>"#)?;
 
-    process::Command::new("codesign")
+    let result = process::Command::new("codesign")
         .args(&["-s", &*settings.identity.name, "--entitlements"])
         .arg(entitlements)
         .arg(&bundle.bundle_dir)
+        .log_invocation(2)
         .status()?;
+    if !result.success() {
+        bail!("Failure to sign application: codesign utility returned non-zero");
+    }
     Ok(())
 }
 
@@ -101,6 +106,7 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
     let mut identities: Vec<SigningIdentity> = vec![];
     let find_identities = process::Command::new("security")
         .args(&["find-identity", "-v", "-p", "codesigning"])
+        .log_invocation(3)
         .output()?;
     for line in String::from_utf8(find_identities.stdout)?.split("\n") {
         if let Some(caps) = identity_regex.captures(&line) {
@@ -115,6 +121,7 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
                      grep Subject:",
                     name
                 ))
+                .log_invocation(3)
                 .output()?;
             let subject = String::from_utf8(subject.stdout)?;
             if let Some(ou) = subject_regex.captures(&subject) {
@@ -126,13 +133,13 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
             }
         }
     }
-    debug!("signing identities: {:?}", identities);
+    debug!("Possible signing identities: {:?}", identities);
     let mut settings = vec![];
-    for file in fs::read_dir(
-        dirs::home_dir()
-            .expect("can't get HOME dir")
-            .join("Library/MobileDevice/Provisioning Profiles"),
-    )? {
+    let profile_dir = dirs::home_dir()
+        .expect("can't get HOME dir")
+        .join("Library/MobileDevice/Provisioning Profiles");
+    trace!("Scanning profiles in {:?}", profile_dir);
+    for file in fs::read_dir(profile_dir)? {
         let file = file?;
         if file.path().starts_with(".")
             || file
@@ -141,15 +148,18 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
                 .map(|ext| ext.to_string_lossy() != "mobileprovision")
                 .unwrap_or(true)
         {
-            trace!("skipping profile (?) {:?}", file.path());
+            trace!(
+                " - skipping {:?} (not a mobileprovision profile)",
+                file.path()
+            );
             continue;
         }
-        debug!("considering profile {:?}", file.path());
         let decoded = process::Command::new("security")
             .arg("cms")
             .arg("-D")
             .arg("-i")
             .arg(file.path())
+            .log_invocation(3)
             .output()?;
         let plist = plist::Value::from_reader(io::Cursor::new(&decoded.stdout))
             .with_context(|| format!("While trying to read profile {:?}", file.path()))?;
@@ -159,7 +169,7 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
         let devices = if let Some(d) = dict.get("ProvisionedDevices") {
             d
         } else {
-            debug!("  no devices in profile");
+            trace!(" - skipping {:?} (no devices)", file.path());
             continue;
         };
         let devices = if let Some(ds) = devices.as_array() {
@@ -168,7 +178,7 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
             bail!("ProvisionedDevices expected to be array")
         };
         if !devices.contains(&plist::Value::String(device_id.into())) {
-            debug!("  no device match in profile");
+            trace!(" - skipping {:?} (not matching target device)", file.path());
             continue;
         }
         let name = dict
@@ -178,7 +188,7 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
             .as_string()
             .ok_or_else(|| anyhow!("Name should have been a string in {:?}", file.path()))?;
         if !name.ends_with("Dinghy") && !name.ends_with(" *") {
-            debug!("  app in profile does not match ({})", name);
+            trace!(" - skipping {:?} (wrong app)", file.path());
             continue;
         }
         // TODO: check date in future
@@ -196,10 +206,14 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
             .to_string();
         let identity = identities.iter().find(|i| i.team == team);
         if identity.is_none() {
-            debug!("no identity for team");
+            trace!(
+                " - skipping {:?} (no identity in profile for team)",
+                file.path()
+            );
             continue;
         }
         let identity = identity.unwrap();
+        trace!(" - accepting {:?}", file.path());
         let entitlements = String::from_utf8(decoded.stdout)?
             .split("\n")
             .skip_while(|line| !line.contains("<key>Entitlements</key>"))
