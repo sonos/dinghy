@@ -3,6 +3,8 @@ use crate::device::make_remote_app_with_name;
 use crate::errors::*;
 use crate::ios::IosPlatform;
 use crate::project::Project;
+use crate::utils::LogCommandExt;
+use crate::utils::{get_current_verbosity, user_facing_log};
 use crate::Build;
 use crate::BuildBundle;
 use crate::Device;
@@ -86,10 +88,16 @@ impl IosDevice {
         build: &Build,
         runnable: &Runnable,
     ) -> Result<BuildBundle> {
+        user_facing_log(
+            "Installing",
+            &format!("{} to {}", build.runnable.id, self.id),
+            0,
+        );
         let build_bundle = self.make_app(project, build, runnable)?;
         let bundle = build_bundle.bundle_dir.to_string_lossy();
         let status = process::Command::new("ios-deploy")
             .args(&["-i", &self.id, "-b", &bundle, "-n"])
+            .log_invocation(1)
             .output()
             .context("Failed to run ios-deploy")?
             .status;
@@ -113,8 +121,11 @@ impl IosDevice {
         command.arg(if debugger { "-d" } else { "-I" });
         command.stderr(process::Stdio::inherit());
         command.stdout(process::Stdio::inherit());
-        dbg!(&command);
-        let status = command.output().context("Failed to run ios-deploy")?.status;
+        let status = command
+            .log_invocation(1)
+            .output()
+            .context("Failed to run ios-deploy")?
+            .status;
         if !status.success() {
             bail!("Run on device failed")
         }
@@ -136,6 +147,15 @@ impl Device for IosDevice {
     ) -> Result<BuildBundle> {
         let build_bundle = self.install_app(project, build, &build.runnable)?;
         let bundle = build_bundle.bundle_dir.to_string_lossy();
+        if get_current_verbosity() < 1 {
+            // we log the full command for verbosity > 1, just log a short message when the user
+            // didn't ask for verbose output
+            user_facing_log(
+                "Debugging",
+                &format!("{} on {}", build.runnable.id, self.id),
+                0,
+            );
+        }
         self.run_remote(&bundle, args, envs, true)?;
         Ok(build_bundle)
     }
@@ -157,6 +177,15 @@ impl Device for IosDevice {
     ) -> Result<BuildBundle> {
         let build_bundle = self.install_app(project, build, &build.runnable)?;
         let bundle = build_bundle.bundle_dir.to_string_lossy();
+        if get_current_verbosity() < 1 {
+            // we log the full command for verbosity > 1, just log a short message when the user
+            // didn't ask for verbose output
+            user_facing_log(
+                "Running",
+                &format!("{} on {}", build.runnable.id, self.id),
+                0,
+            );
+        }
         self.run_remote(&bundle, args, envs, false)?;
         Ok(build_bundle)
     }
@@ -169,9 +198,15 @@ impl IosSimDevice {
         build: &Build,
         runnable: &Runnable,
     ) -> Result<BuildBundle> {
+        user_facing_log(
+            "Installing",
+            &format!("{} to {}", build.runnable.id, self.id),
+            0,
+        );
         let build_bundle = IosSimDevice::make_app(project, build, runnable)?;
         let _ = process::Command::new("xcrun")
             .args(&["simctl", "uninstall", &self.id, "Dinghy"])
+            .log_invocation(2)
             .status()?;
         let stat = process::Command::new("xcrun")
             .args(&[
@@ -183,6 +218,7 @@ impl IosSimDevice {
                     .to_str()
                     .ok_or_else(|| anyhow!("conversion to string"))?,
             ])
+            .log_invocation(1)
             .status()?;
         if stat.success() {
             Ok(build_bundle)
@@ -217,9 +253,19 @@ impl Device for IosSimDevice {
         let install_path = String::from_utf8(
             process::Command::new("xcrun")
                 .args(&["simctl", "get_app_container", &self.id, "Dinghy"])
+                .log_invocation(2)
                 .output()?
                 .stdout,
         )?;
+        if get_current_verbosity() < 1 {
+            // we log the full command for verbosity > 1, just log a short message when the user
+            // didn't ask for verbose output
+            user_facing_log(
+                "Debugging",
+                &format!("{} on {}", build.runnable.id, self.id),
+                0,
+            );
+        }
         launch_lldb_simulator(&self, &install_path, args, envs, true)?;
         Ok(build_bundle)
     }
@@ -240,6 +286,15 @@ impl Device for IosSimDevice {
         envs: &[&str],
     ) -> Result<BuildBundle> {
         let build_bundle = self.install_app(&project, &build, &build.runnable)?;
+        if get_current_verbosity() < 1 {
+            // we log the full command for verbosity > 1, just log a short message when the user
+            // didn't ask for verbose output
+            user_facing_log(
+                "Running",
+                &format!("{} on {}", build.runnable.id, self.id),
+                0,
+            );
+        }
         launch_app(&self, args, envs)?;
         Ok(build_bundle)
     }
@@ -306,6 +361,7 @@ fn make_ios_app(
                 .to_str()
                 .ok_or_else(|| anyhow!("path conversion to string: {:?}", runnable.exe))?,
         )
+        .log_invocation(2)
         .output()?;
     let magic = String::from_utf8(magic.stdout)?;
     let target = magic
@@ -323,6 +379,7 @@ fn launch_app(dev: &IosSimDevice, app_args: &[&str], _envs: &[&str]) -> Result<(
     let mut install_path = String::from_utf8(
         process::Command::new("xcrun")
             .args(&["simctl", "get_app_container", &dev.id, "Dinghy"])
+            .log_invocation(2)
             .output()?
             .stdout,
     )?;
@@ -335,7 +392,10 @@ fn launch_app(dev: &IosSimDevice, app_args: &[&str], _envs: &[&str]) -> Result<(
     let mut xcrun_args: Vec<&str> = vec!["simctl", "launch", "-w", stdout_param, &dev.id, "Dinghy"];
     xcrun_args.extend(app_args);
     debug!("Launching app via xcrun using args: {:?}", xcrun_args);
-    let launch_output = process::Command::new("xcrun").args(&xcrun_args).output()?;
+    let launch_output = process::Command::new("xcrun")
+        .args(&xcrun_args)
+        .log_invocation(1)
+        .output()?;
     let launch_output = String::from_utf8_lossy(&launch_output.stdout);
 
     // Output from the launch command should be "Dinghy: $PID" which is after the 8th character.
@@ -444,6 +504,7 @@ fn launch_lldb_simulator(
         .arg("-Q")
         .arg("-s")
         .arg(lldb_script_filename)
+        .log_invocation(1)
         .status()?;
     if stat.success() {
         Ok(())

@@ -2,6 +2,7 @@ use crate::config::PlatformConfiguration;
 use crate::overlay::Overlayer;
 use crate::platform;
 use crate::project::Project;
+use crate::utils::LogCommandExt;
 use crate::Build;
 use crate::Device;
 use crate::Platform;
@@ -42,8 +43,8 @@ impl Platform for HostPlatform {
         let triple = std::process::Command::new("rustc")
             .arg("-vV")
             .stdout(Stdio::piped())
-            .spawn()?
-            .wait_with_output()?
+            .log_invocation(3)
+            .output()?
             .stdout
             .lines()
             .find_map(|line| {

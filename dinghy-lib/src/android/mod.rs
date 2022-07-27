@@ -6,6 +6,7 @@ use std::{env, fs, path, process};
 pub use self::device::AndroidDevice;
 
 use crate::android::platform::AndroidPlatform;
+use crate::utils::LogCommandExt;
 use anyhow::{anyhow, bail, Context};
 use log::debug;
 
@@ -18,7 +19,10 @@ pub struct AndroidManager {
 
 impl PlatformManager for AndroidManager {
     fn devices(&self) -> Result<Vec<Box<dyn Device>>> {
-        let result = process::Command::new(&self.adb).arg("devices").output()?;
+        let result = process::Command::new(&self.adb)
+            .arg("devices")
+            .log_invocation(3)
+            .output()?;
         let mut devices = vec![];
         let device_regex = ::regex::Regex::new(r#"^(\S+)\tdevice\r?$"#)?;
         for line in String::from_utf8(result.stdout)?.split("\n").skip(1) {
@@ -213,6 +217,7 @@ fn adb() -> Result<path::PathBuf> {
             .arg("--version")
             .stdout(process::Stdio::null())
             .stderr(process::Stdio::null())
+            .log_invocation(3)
             .status()
         {
             Ok(_) => true,

@@ -4,7 +4,7 @@ use crate::errors::*;
 use crate::host::HostPlatform;
 use crate::platform::regular_platform::RegularPlatform;
 use crate::project::Project;
-use crate::utils::path_to_str;
+use crate::utils::{get_current_verbosity, path_to_str, user_facing_log, LogCommandExt};
 use crate::Build;
 use crate::BuildBundle;
 use crate::Device;
@@ -24,6 +24,12 @@ pub struct SshDevice {
 
 impl SshDevice {
     fn install_app(&self, project: &Project, build: &Build) -> Result<(BuildBundle, BuildBundle)> {
+        user_facing_log(
+            "Installing",
+            &format!("{} to {}", build.runnable.id, self.id),
+            0,
+        );
+
         log::debug!("make_remote_app {}", build.runnable.id);
         let build_bundle = make_remote_app(project, build)?;
 
@@ -36,6 +42,7 @@ impl SshDevice {
             .arg("mkdir")
             .arg("-p")
             .arg(&remote_bundle.bundle_dir)
+            .log_invocation(2)
             .status();
 
         log::info!("Install {} to {}", build.runnable.id, self.id);
@@ -72,6 +79,7 @@ impl SshDevice {
                     .arg("-f")
                     .arg(rsync_path)
                     .arg("]")
+                    .log_invocation(2)
                     .status()?
                     .success()
                 {
@@ -91,7 +99,7 @@ impl SshDevice {
                         self.conf.username, self.conf.hostname, rsync_path
                     ));
                     log::debug!("Running {:?}", command);
-                    if !command.status()?.success() {
+                    if !command.log_invocation(3).status()?.success() {
                         bail!("Error copying rsync binary ({:?})", command)
                     }
                 }
@@ -127,6 +135,7 @@ impl SshDevice {
             ));
         log::debug!("Running {:?}", command);
         if !command
+            .log_invocation(1)
             .status()
             .with_context(|| format!("failed to run '{:?}'", command))?
             .success()
@@ -168,6 +177,7 @@ impl Device for SshDevice {
                 "rm -rf {}",
                 path_to_str(&build_bundle.bundle_exe)?
             ))
+            .log_invocation(1)
             .status()?;
         if !status.success() {
             bail!("test fail.")
@@ -227,8 +237,21 @@ impl Device for SshDevice {
         );
         log::trace!("Ssh command: {}", command);
         log::info!("Run {} on {}", build.runnable.id, self.id,);
+        if get_current_verbosity() < 1 {
+            // we log the full command for verbosity > 1, just log a short message when the user
+            // didn't ask for verbose output
+            user_facing_log(
+                "Running",
+                &format!("{} on {}", build.runnable.id, self.id),
+                0,
+            );
+        }
 
-        let status = self.ssh_command()?.arg(&command).status()?;
+        let status = self
+            .ssh_command()?
+            .arg(&command)
+            .log_invocation(1)
+            .status()?;
         if !status.success() {
             bail!("Failed")
         }

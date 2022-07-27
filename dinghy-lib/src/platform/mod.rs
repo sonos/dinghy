@@ -1,4 +1,4 @@
-use crate::utils::file_name_as_str;
+use crate::utils::{file_name_as_str, LogCommandExt};
 use crate::Result;
 use crate::Runnable;
 use std::fs;
@@ -25,7 +25,7 @@ pub fn strip_runnable(runnable: &Runnable, mut command: Command) -> Result<Runna
     let command = command.arg(&stripped_runnable.exe);
     debug!("Running command {:?}", command);
 
-    let output = command.output()?;
+    let output = command.log_invocation(2).output()?;
     if !output.status.success() {
         bail!(
             "Error while stripping {}\nError: {}",

@@ -1,4 +1,5 @@
 use crate::config::ScriptDeviceConfiguration;
+use crate::utils::LogCommandExt;
 use crate::*;
 use anyhow::bail;
 use std::{fmt, fs, process};
@@ -80,6 +81,7 @@ impl Device for ScriptDevice {
                     })
                     .collect::<Result<Vec<_>>>()?,
             )
+            .log_invocation(1)
             .status()?;
         if !status.success() {
             bail!("Test failed")

@@ -15,30 +15,21 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::Arc;
 
+use dinghy_lib::utils::{set_current_verbosity, user_facing_log, LogCommandExt};
 use log::{debug, error, info};
+
 mod cli;
 
 fn main() {
     let cli = DinghyCli::parse();
 
-    if env::var("DINGHY_LOG").is_err() {
-        let level_filter = match cli.args.verbose - cli.args.quiet {
-            i8::MIN..=-1 => log::LevelFilter::Off,
-            0 => log::LevelFilter::Error,
-            1 => log::LevelFilter::Warn,
-            2 => log::LevelFilter::Info,
-            3 => log::LevelFilter::Debug,
-            4..=i8::MAX => log::LevelFilter::Trace,
-        };
+    env_logger::init_from_env(
+        env_logger::Env::new()
+            .filter("DINGHY_LOG")
+            .write_style("DINGHY_LOG_STYLE"),
+    );
 
-        env_logger::Builder::new().filter_level(level_filter).init();
-    } else {
-        env_logger::init_from_env(
-            env_logger::Env::new()
-                .filter("DINGHY_LOG")
-                .write_style("DINGHY_LOG_STYLE"),
-        );
-    }
+    set_current_verbosity(cli.args.verbose);
 
     if let Err(e) = run_command(cli) {
         error!("{:?}", e);
@@ -75,7 +66,7 @@ fn run_command(cli: DinghyCli) -> Result<()> {
             let mut cmd = create_cargo_subcomand(&platform, &device, &project, &setup_args, args)?;
 
             log::debug!("Launching {:?}", cmd);
-            let status = cmd.status()?;
+            let status = cmd.log_invocation(2).status()?;
             log::debug!("done");
 
             std::process::exit(status.code().unwrap_or_else(|| {
@@ -196,6 +187,7 @@ fn run_command(cli: DinghyCli) -> Result<()> {
             let output = build_cargo_cmd
                 .stdout(Stdio::piped())
                 .stderr(Stdio::inherit())
+                .log_invocation(2)
                 .output()?;
             log::debug!("done");
 
@@ -262,7 +254,7 @@ fn run_command(cli: DinghyCli) -> Result<()> {
             )?;
 
             log::debug!("Launching {:?}", run_cargo_cmd);
-            let status = run_cargo_cmd.status()?;
+            let status = run_cargo_cmd.log_invocation(2).status()?;
             log::debug!("done");
 
             std::process::exit(status.code().unwrap_or_else(|| {
@@ -288,6 +280,17 @@ fn create_cargo_subcomand(
         platform.id(),
         device.as_ref().map(|it| it.id()).unwrap_or("<none>")
     );
+
+    user_facing_log(
+        "Targeting",
+        &format!(
+            "platform {} and device {}",
+            platform.id(),
+            device.as_ref().map(|it| it.id()).unwrap_or("<none>")
+        ),
+        0,
+    );
+
     let cargo = env::var("CARGO")
         .map(PathBuf::from)
         .ok()
