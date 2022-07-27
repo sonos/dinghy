@@ -361,7 +361,7 @@ fn make_ios_app(
                 .to_str()
                 .ok_or_else(|| anyhow!("path conversion to string: {:?}", runnable.exe))?,
         )
-        .log_invocation(2)
+        .log_invocation(3)
         .output()?;
     let magic = String::from_utf8(magic.stdout)?;
     let target = magic
