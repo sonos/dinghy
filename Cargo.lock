@@ -200,7 +200,6 @@ dependencies = [
  "regex",
  "semver",
  "serde",
- "serde_derive",
  "shell-escape",
  "shellexpand",
  "tempdir",
