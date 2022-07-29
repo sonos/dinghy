@@ -161,22 +161,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "core-foundation"
-version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "194a7a9e6de53fa55116934067c844d9d749312f75c6f6d0980e8c252f8c2146"
-dependencies = [
- "core-foundation-sys",
- "libc",
-]
-
-[[package]]
-name = "core-foundation-sys"
-version = "0.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5827cebf4670468b8772dd191856768aedcb1b0278a04f989f7766351917b9dc"
-
-[[package]]
 name = "crossbeam-utils"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -203,8 +187,6 @@ dependencies = [
  "atty",
  "cargo_metadata",
  "colored",
- "core-foundation",
- "core-foundation-sys",
  "dinghy-build",
  "dirs",
  "dyn-clone",
@@ -213,7 +195,6 @@ dependencies = [
  "itertools",
  "json",
  "lazy_static",
- "libc",
  "log",
  "plist",
  "regex",
