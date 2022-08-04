@@ -1,11 +1,5 @@
 #![type_length_limit = "2149570"]
 #[cfg(target_os = "macos")]
-extern crate core_foundation;
-#[cfg(target_os = "macos")]
-extern crate core_foundation_sys;
-#[cfg(target_os = "macos")]
-extern crate libc;
-#[cfg(target_os = "macos")]
 extern crate tempdir;
 
 pub mod errors {
