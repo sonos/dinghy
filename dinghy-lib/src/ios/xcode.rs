@@ -102,7 +102,7 @@ pub fn sign_app(bundle: &BuildBundle, settings: &SignatureSettings) -> Result<()
 
 pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSettings>> {
     let identity_regex = ::regex::Regex::new(r#"^ *[0-9]+\) ([A-Z0-9]{40}) "(.+)"$"#)?;
-    let subject_regex = ::regex::Regex::new(r#"OU=([^,]+)"#)?;
+    let subject_regex = ::regex::Regex::new(r#"OU *= *([^,]+)"#)?;
     let mut identities: Vec<SigningIdentity> = vec![];
     let find_identities = process::Command::new("security")
         .args(&["find-identity", "-v", "-p", "codesigning"])
