@@ -10,7 +10,7 @@ use dinghy_lib::{Device, Runnable};
 use std::convert::identity;
 use std::env;
 use std::env::current_dir;
-use std::io::Cursor;
+use std::io::BufReader;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::Arc;
@@ -184,24 +184,49 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                 create_cargo_subcomand(&platform, &device, &project, &setup_args, &build_command)?;
 
             log::debug!("Launching {:?}", build_cargo_cmd);
-            let output = build_cargo_cmd
+            let mut child = build_cargo_cmd
                 .stdout(Stdio::piped())
                 .stderr(Stdio::inherit())
                 .log_invocation(2)
-                .output()?;
+                .spawn()?;
             log::debug!("done");
 
-            let mut lib_file = cargo_metadata::Message::parse_stream(Cursor::new(output.stdout))
-                .filter_map(|message| match message {
-                    Ok(Message::CompilerArtifact(artifact)) => Some(artifact),
-                    _ => None,
-                })
-                .last()
-                .ok_or_else(|| anyhow!("cargo did not produce an artifact"))?
-                .filenames
-                .into_iter()
-                .next()
-                .ok_or_else(|| anyhow!("no file in cargo artifact"))?;
+            let mut lib_file =
+                cargo_metadata::Message::parse_stream(BufReader::new(child.stdout.take().unwrap()))
+                    .filter_map(|message| match message {
+                        Ok(Message::CompilerArtifact(artifact)) => Some(artifact),
+                        Ok(Message::CompilerMessage(message)) => {
+                            // TODO would be really nice to get color there but current version of
+                            // TODO cargo-metadata doesn't seem to support it
+                            eprintln!("{}", message.message);
+                            None
+                        }
+                        Ok(Message::BuildFinished(build)) => {
+                            if !build.success {
+                                log::debug!("cargo reported a build failure");
+                            }
+                            None
+                        }
+                        Ok(Message::TextLine(text)) => {
+                            eprintln!("{}", text);
+                            None
+                        }
+                        _ => None,
+                    })
+                    .last()
+                    .ok_or_else(|| anyhow!("cargo did not produce an artifact"))?
+                    .filenames
+                    .into_iter()
+                    .next()
+                    .ok_or_else(|| anyhow!("no file in cargo artifact"))?;
+
+            let code = child.wait()?.code();
+
+            match code {
+                Some(0) => { /*expected*/ }
+                Some(c) => std::process::exit(c),
+                None => std::process::exit(-1),
+            }
 
             if cli.args.strip {
                 let stripped_dir = lib_file
