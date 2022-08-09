@@ -1,6 +1,7 @@
 use crate::config::PlatformConfiguration;
 use crate::toolchain::ToolchainConfig;
 use crate::{Device, Platform, PlatformManager, Result};
+use std::fs::FileType;
 use std::{env, fs, path, process};
 
 pub use self::device::AndroidDevice;
@@ -58,6 +59,13 @@ impl PlatformManager for AndroidManager {
                 let prebuilt = ndk.join("toolchains/llvm/prebuilt");
                 let tools = prebuilt
                     .read_dir()?
+                    .filter(|it| {
+                        // ensure we only check dirs as macOS may add pesky .DS_Store files...
+                        it.as_ref()
+                            .ok()
+                            .and_then(|it| it.file_type().ok().as_ref().map(FileType::is_dir))
+                            .unwrap_or(false)
+                    })
                     .next()
                     .ok_or_else(|| anyhow!("No tools in toolchain"))??;
                 let bin = tools.path().join("bin");
@@ -75,7 +83,8 @@ impl PlatformManager for AndroidManager {
                             "sysroot/usr/lib/{}-linux-{}",
                             binutils_cpu, abi_kind
                         ))
-                        .read_dir()?
+                        .read_dir()
+                        .with_context(|| format!("Reading tools dir {:?}", tools.path()))?
                     {
                         let entry = entry?;
                         if entry.file_type()?.is_dir() {
