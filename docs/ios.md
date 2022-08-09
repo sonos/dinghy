@@ -14,7 +14,7 @@ cargo install cargo-dinghy --force
 
 ### Additional Requirements
 
-In order to deploy to iOS one needs to install [ios-deploy](https://github.com/ios-control/ios-deploy). For example with:
+In order to deploy to iOS devices one needs to install [ios-deploy](https://github.com/ios-control/ios-deploy). For example with:
 `brew install ios-deploy`
 
 ### iOS phone
