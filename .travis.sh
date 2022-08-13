@@ -101,6 +101,7 @@ else
     title "setup qemu"
 
     rustup target add aarch64-unknown-linux-musl
+    sudo apt-get update
     sudo apt-get -y install --no-install-recommends qemu-system-arm qemu-user binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu
     echo -e "[platforms.qemu]\nrustc_triple='aarch64-unknown-linux-musl'\ndeb_multiarch='aarch64-linux-gnu'" > .dinghy.toml
     echo -e "[script_devices.qemu]\nplatform='qemu'\npath='/tmp/qemu'" >> .dinghy.toml
