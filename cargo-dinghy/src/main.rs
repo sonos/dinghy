@@ -1,4 +1,5 @@
 use crate::cli::{DinghyCli, DinghyMode, DinghySubcommand, SubCommandWrapper};
+use cargo_metadata::camino::Utf8PathBuf;
 use cargo_metadata::Message;
 use dinghy_lib::config::dinghy_config;
 use dinghy_lib::errors::*;
@@ -191,10 +192,17 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                 .spawn()?;
             log::debug!("done");
 
+            let mut extra_libs = vec![];
+
             let mut lib_file =
                 cargo_metadata::Message::parse_stream(BufReader::new(child.stdout.take().unwrap()))
                     .filter_map(|message| match message {
-                        Ok(Message::CompilerArtifact(artifact)) => Some(artifact),
+                        Ok(Message::CompilerArtifact(artifact)) => {
+                            if artifact.target.kind.contains(&"dylib".to_string()) {
+                                extra_libs.append(&mut artifact.filenames.clone())
+                            }
+                            Some(artifact)
+                        }
                         Ok(Message::CompilerMessage(message)) => {
                             // TODO would be really nice to get color there but current version of
                             // TODO cargo-metadata doesn't seem to support it
@@ -219,6 +227,61 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                     .into_iter()
                     .next()
                     .ok_or_else(|| anyhow!("no file in cargo artifact"))?;
+
+            if !extra_libs.is_empty() {
+                // if we have some extra libs, this means we're dealing with a dynamically linked
+                // lib and we need to include the rust stdlib as well, let's try and find it in the
+                // rustup home
+                if let (Ok(rustup_home), Ok(rustup_toolchain)) = (
+                    std::env::var("RUSTUP_HOME"),
+                    std::env::var("RUSTUP_TOOLCHAIN"),
+                ) {
+                    let stdlib_dir = PathBuf::from(rustup_home)
+                        .join("toolchains")
+                        .join(rustup_toolchain)
+                        .join("lib")
+                        .join("rustlib")
+                        .join(platform.rustc_triple())
+                        .join("lib");
+
+                    if let Ok(Some(stdlib)) = stdlib_dir.read_dir().map(|dir| {
+                        dir.filter_map(|entry| {
+                            entry
+                                .and_then(|entry| {
+                                    entry.file_type().map(|file_type| {
+                                        if file_type.is_file()
+                                            && entry
+                                                .path()
+                                                .file_stem()
+                                                .map(|stem| {
+                                                    stem.to_string_lossy().starts_with("libstd-")
+                                                })
+                                                .unwrap_or(false)
+                                            && entry
+                                                .path()
+                                                .extension()
+                                                .map(|ext| {
+                                                    ["so", "dll", "dylib"]
+                                                        .contains(&ext.to_string_lossy().as_ref())
+                                                })
+                                                .unwrap_or(false)
+                                        {
+                                            Some(entry.path())
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                })
+                                .unwrap_or(None)
+                        })
+                        .next()
+                    }) {
+                        if let Ok(stdlib_path_buf) = Utf8PathBuf::from_path_buf(stdlib) {
+                            extra_libs.push(stdlib_path_buf)
+                        }
+                    }
+                }
+            }
 
             let code = child.wait()?.code();
 
@@ -263,20 +326,19 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                 lib_file = stripped_lib_file;
             }
 
-            let mut run_cargo_cmd = create_cargo_subcomand(
-                &platform,
-                &device,
-                &project,
-                &setup_args,
-                &vec![
-                    "run".to_string(),
-                    "-p".to_string(),
-                    wrapper_crate,
-                    "--release".to_string(),
-                    "--".to_string(),
-                    lib_file.to_string(),
-                ],
-            )?;
+            let mut args = vec![
+                "run".to_string(),
+                "-p".to_string(),
+                wrapper_crate,
+                "--release".to_string(),
+                "--".to_string(),
+                lib_file.to_string(),
+            ];
+            for extra_lib in extra_libs {
+                args.push(extra_lib.to_string())
+            }
+            let mut run_cargo_cmd =
+                create_cargo_subcomand(&platform, &device, &project, &setup_args, &args)?;
 
             log::debug!("Launching {:?}", run_cargo_cmd);
             let status = run_cargo_cmd.log_invocation(2).status()?;
