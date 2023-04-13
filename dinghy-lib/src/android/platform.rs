@@ -62,6 +62,9 @@ impl Platform for AndroidPlatform {
                 &linker_cmd,
                 &project.metadata.workspace_root,
             )?;
+
+            self.toolchain_config.setup_tool("AR", &self.toolchain_config.naked_executable("llvm-ar"))?;
+
         }
 
         Ok(())
