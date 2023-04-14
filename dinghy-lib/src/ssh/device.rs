@@ -218,7 +218,7 @@ impl Device for SshDevice {
             .map(|&a| {
                 shellexpand::full_with_context_no_errors(
                     a,
-                    || remote_shell_vars_as_context("HOME").map(|s| PathBuf::from(&*s)),
+                    || remote_shell_vars_as_context("HOME"),
                     remote_shell_vars_as_context,
                 )
             })
