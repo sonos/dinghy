@@ -30,7 +30,7 @@ fn main() {
             .write_style("DINGHY_LOG_STYLE"),
     );
 
-    set_current_verbosity(cli.args.verbose);
+    set_current_verbosity(cli.args.verbose as i8);
 
     if let Err(e) = run_command(cli) {
         error!("{:?}", e);
@@ -54,7 +54,7 @@ fn run_command(cli: DinghyCli) -> Result<()> {
     let (platform, device) = select_platform_and_device_from_cli(&cli, &dinghy)?;
 
     let setup_args = SetupArgs {
-        verbosity: cli.args.verbose - cli.args.quiet,
+        verbosity: cli.args.verbose as i8 - cli.args.quiet as i8,
         forced_overlays: cli.args.overlay.clone(),
         envs: cli.args.env.clone(),
         cleanup: cli.args.cleanup,
@@ -170,7 +170,7 @@ fn run_command(cli: DinghyCli) -> Result<()> {
         DinghyMode::DinghySubcommand(DinghySubcommand::AllDinghySubcommands {}) => {
             use clap::CommandFactory;
             for sub in SubCommandWrapper::command().get_subcommands() {
-                println!("{}\n\t{}", sub.get_name(), sub.get_about().unwrap_or(""));
+                println!("{}\n\t{}", sub.get_name(), sub.get_about().unwrap_or_default());
             }
             Ok(())
         }
