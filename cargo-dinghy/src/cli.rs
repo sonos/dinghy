@@ -2,38 +2,38 @@ use clap::{CommandFactory, Parser, Subcommand};
 use std::collections::HashSet;
 
 #[derive(Parser, Debug, Clone)]
-#[clap(author, version, about, long_about = None)]
+#[command(author, version, about, long_about = None)]
 pub struct DinghyGeneralArgs {
     /// Use a specific platform
-    #[clap(long, short)]
+    #[arg(long, short)]
     pub platform: Option<String>,
 
     /// Make output more verbose, can be passed multiple times
-    #[clap(long, short, parse(from_occurrences))]
-    pub verbose: i8,
+    #[arg(long, short, action = clap::ArgAction::Count)]
+    pub verbose: u8,
 
     /// Make output less verbose, can be passed multiple times
-    #[clap(long, short, parse(from_occurrences))]
-    pub quiet: i8,
+    #[arg(long, short, action = clap::ArgAction::Count)]
+    pub quiet: u8,
 
     /// Force the use of an overlay during project build, can be passed multiple times
-    #[clap(long, short)]
+    #[arg(long, short)]
     pub overlay: Vec<String>,
 
     /// Env variables to set on target device e.g. RUST_TRACE=trace, can be passed multiple times
-    #[clap(long, short)]
+    #[arg(long, short)]
     pub env: Vec<String>,
 
     /// Cleanup target device after completion
-    #[clap(long, short)]
+    #[arg(long, short)]
     pub cleanup: bool,
 
     /// Strip executable before running it on target
-    #[clap(long, short)]
+    #[arg(long, short)]
     pub strip: bool,
 
     /// Device hint
-    #[clap(long, short)]
+    #[arg(long, short)]
     pub device: Option<String>,
 
     /// Either a dinghy subcommand (see cargo dinghy all-dinghy-subcommands) or a
@@ -44,32 +44,26 @@ pub struct DinghyGeneralArgs {
 
 #[derive(Parser, Debug)]
 pub struct SubCommandWrapper {
-    #[clap(subcommand)]
+    #[command(subcommand)]
     subcommand: DinghySubcommand,
 }
 
 #[derive(Subcommand, Debug)]
 pub enum DinghySubcommand {
-    #[clap(name = "devices")]
     /// List devices that can be used with Dinghy for the selected platform
     Devices {},
-    #[clap(name = "all-devices")]
     /// List all devices that can be used with Dinghy
     AllDevices {},
-    #[clap(name = "all-platforms")]
     /// List all platforms known to dinghy
     AllPlatforms {},
-    #[clap(name = "all-dinghy-subcommands")]
     /// List all available dinghy subcommands
     AllDinghySubcommands {},
-    #[clap(name = "runner")]
     /// Dinghy runner, used internally to run executables on targets
     Runner { args: Vec<String> },
-    #[clap(name = "run-with")]
     /// Build an artifact and run it on a target device using the provided wrapper
     RunWith {
         /// Wrapper crate to use to run the lib
-        #[clap(long, short('c'))]
+        #[arg(long, short('c'))]
         wrapper_crate: String,
         // TODO support executables / scripts as wrappers
         // /// Wrapper executable to use to run the lib
@@ -108,7 +102,7 @@ impl DinghyCli {
         let args_taking_value = DinghyGeneralArgs::command()
             .get_arguments()
             .filter_map(|arg| {
-                if arg.is_takes_value_set() {
+                if arg.get_value_names().is_some() {
                     let mut values = vec![];
                     if let Some(shorts) = arg.get_short_and_visible_aliases() {
                         values
