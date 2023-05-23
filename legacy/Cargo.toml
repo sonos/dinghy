@@ -1,0 +1,13 @@
+[package]
+name = "dinghy"
+version = "0.3.0"
+edition = "2021"
+authors = ["Mathieu Poumeyrol <mathieu.poumeyrol@sonos>", "Thibaut Lorrain <thibaut.lorrain@sonos.com>"]
+license = "MIT/Apache-2.0"
+description = "[Deprecated] use cargo-dinghy instead"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+[workspace]
