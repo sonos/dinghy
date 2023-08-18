@@ -104,6 +104,7 @@ impl PlatformManager for AndroidManager {
                             root: prebuilt.clone(),
                             sysroot: Some(tools.path().join("sysroot")),
                             cc: "clang".to_string(),
+                            cxx: "clang++".to_string(),
                             binutils_prefix: format!("{}-linux-{}", binutils_cpu, abi_kind),
                             cc_prefix: format!("{}-linux-{}{}", cc_cpu, abi_kind, api),
                         };

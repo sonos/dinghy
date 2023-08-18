@@ -46,6 +46,7 @@ impl RegularPlatform {
                     root: "/".into(),
                     sysroot: Some("/".into()),
                     cc: "gcc".to_string(),
+                    cxx: "c++".to_string(),
                     binutils_prefix: prefix.clone(),
                     cc_prefix: prefix.clone(),
                 },
@@ -88,6 +89,7 @@ impl RegularPlatform {
             root: toolchain_path.into(),
             sysroot,
             cc: "gcc".to_string(),
+            cxx: "c++".to_string(),
             binutils_prefix: tc_triple.clone(),
             cc_prefix: tc_triple,
         };
@@ -135,9 +137,9 @@ impl Platform for RegularPlatform {
             self.toolchain
                 .setup_tool("AS", &self.toolchain.binutils_executable("as"))?;
         }
-        if Path::new(&self.toolchain.binutils_executable("c++")).exists() {
+        if Path::new(&self.toolchain.cc_executable(&self.toolchain.cxx)).exists() {
             self.toolchain
-                .setup_tool("CXX", &self.toolchain.cc_executable("c++"))?;
+                .setup_tool("CXX", &self.toolchain.cc_executable(&self.toolchain.cxx))?;
         }
         if Path::new(&self.toolchain.cc_executable("cpp")).exists() {
             self.toolchain
