@@ -83,6 +83,7 @@ pub struct ToolchainConfig {
     pub rustc_triple: String,
     pub sysroot: Option<PathBuf>,
     pub cc: String,
+    pub cxx: String,
     pub binutils_prefix: String,
     pub cc_prefix: String,
 }
