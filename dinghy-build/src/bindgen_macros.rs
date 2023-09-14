@@ -43,8 +43,9 @@ macro_rules! dinghy_bindgen_pre_0_49 {
 
         fn libclang_path_patch(builder: bindgen::Builder) -> Result<bindgen::Builder> {
             if is_cross_compiling()? {
-                let libclang_path = env::var("DINGHY_BUILD_LIBCLANG_PATH")?;
-                env::set_var("LIBCLANG_PATH", libclang_path)
+                if let Ok(libclang_path) = env::var("DINGHY_BUILD_LIBCLANG_PATH") {
+                    env::set_var("LIBCLANG_PATH", libclang_path)
+                }
             }
             Ok(builder)
         }
