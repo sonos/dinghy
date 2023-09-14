@@ -70,6 +70,7 @@ impl PlatformManager for AndroidManager {
                     .ok_or_else(|| anyhow!("No tools in toolchain"))??;
                 let bin = tools.path().join("bin");
                 debug!("Android tools bin: {:?}", bin);
+                let libclang_path = tools.path().join("lib64");
                 for (rustc_cpu, cc_cpu, binutils_cpu, abi_kind) in &[
                     ("aarch64", "aarch64", "aarch64", "android"),
                     ("armv7", "armv7a", "arm", "androideabi"),
@@ -108,7 +109,7 @@ impl PlatformManager for AndroidManager {
                             binutils_prefix: format!("{}-linux-{}", binutils_cpu, abi_kind),
                             cc_prefix: format!("{}-linux-{}{}", cc_cpu, abi_kind, api),
                         };
-                        AndroidPlatform::new(PlatformConfiguration::default(), id, tc, major)
+                        AndroidPlatform::new(PlatformConfiguration::default(), id, tc, major, libclang_path.clone())
                     };
                     for api in api_levels.iter() {
                         platforms.push(create_platform(&api, &format!("-api{}", api))?);

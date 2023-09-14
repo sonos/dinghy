@@ -22,7 +22,7 @@ macro_rules! dinghy_bindgen_pre_0_49 {
         use $crate::build::is_cross_compiling;
         use $crate::build_env::sysroot_path;
         use $crate::utils::path_to_str;
-        use $crate::{Result, ResultExt};
+        use $crate::{Result, Context};
 
         fn apple_patch(builder: bindgen::Builder) -> Result<bindgen::Builder> {
             if is_cross_compiling()? {
@@ -37,6 +37,14 @@ macro_rules! dinghy_bindgen_pre_0_49 {
                         .clang_arg(format!("-arch"))
                         .clang_arg(format!("arm64")));
                 }
+            }
+            Ok(builder)
+        }
+
+        fn libclang_path_patch(builder: bindgen::Builder) -> Result<bindgen::Builder> {
+            if is_cross_compiling()? {
+                let libclang_path = env::var("DINGHY_BUILD_LIBCLANG_PATH")?;
+                env::set_var("LIBCLANG_PATH", libclang_path)
             }
             Ok(builder)
         }
@@ -65,7 +73,7 @@ macro_rules! dinghy_bindgen_pre_0_49 {
                     .to_command()
                     .arg("--print-file-name=include")
                     .output()
-                    .chain_err(|| "Couldn't find target GCC executable.")
+                    .with_context(|| "Couldn't find target GCC executable.")
                     .and_then(|output| {
                         if output.status.success() {
                             Ok(String::from_utf8(output.stdout)?)
@@ -80,11 +88,14 @@ macro_rules! dinghy_bindgen_pre_0_49 {
             }
         }
 
-        apple_patch(
-            include_gcc_system_headers(
-                detect_toolchain(bindgen::Builder::default().clang_arg("--verbose")).unwrap(),
+        libclang_path_patch(
+            apple_patch(
+                include_gcc_system_headers(
+                    detect_toolchain(bindgen::Builder::default().clang_arg("--verbose")).unwrap(),
+                )
+                .unwrap(),
             )
-            .unwrap(),
+            .unwrap()
         )
         .unwrap()
     }};
