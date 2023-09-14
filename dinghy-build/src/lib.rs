@@ -23,7 +23,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
-use anyhow::Result;
+#[doc(hidden)]
+pub use anyhow::{Result, Context};
 
 /// Decorator for the std::process::Command adding a some chainable helpers.
 ///

@@ -5,12 +5,14 @@ use crate::{Build, Device, Platform, PlatformConfiguration, Project, SetupArgs};
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
+use dinghy_build::build_env::set_env;
 
 #[derive(Debug)]
 pub struct AndroidPlatform {
     regular_platform: Box<dyn Platform>,
     toolchain_config: ToolchainConfig,
     ndk_major_version: usize,
+    libclang_path: PathBuf,
 }
 
 impl AndroidPlatform {
@@ -19,6 +21,7 @@ impl AndroidPlatform {
         id: String,
         toolchain_config: ToolchainConfig,
         ndk_major_version: usize,
+        libclang_path: PathBuf,
     ) -> Result<Box<dyn Platform>> {
         Ok(Box::new(Self {
             regular_platform: RegularPlatform::new_with_tc(
@@ -28,6 +31,7 @@ impl AndroidPlatform {
             )?,
             toolchain_config,
             ndk_major_version,
+            libclang_path
         }))
     }
 }
@@ -66,6 +70,12 @@ impl Platform for AndroidPlatform {
             self.toolchain_config.setup_tool("AR", &self.toolchain_config.naked_executable("llvm-ar"))?;
 
         }
+
+        if self.ndk_major_version >= 17 {
+            // bindgen need this to use the proper imports
+            set_env("DINGHY_BUILD_LIBCLANG_PATH", &self.libclang_path )
+        }
+
 
         Ok(())
     }
