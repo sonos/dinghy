@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.7](https://github.com/sonos/dinghy/tree/0.6.7) (2023-09-14)
+
+[Full Changelog](https://github.com/sonos/dinghy/compare/0.6.6...0.6.7)
+
+**Closed issues:**
+
+- Maintain CHANGELOG [\#187](https://github.com/sonos/dinghy/issues/187)
+
+**Merged pull requests:**
+
+- Do not crash dinghy\_bindgen macro if DINGHY\_BUILD\_LIBCLANG\_PATH is not present [\#191](https://github.com/sonos/dinghy/pull/191) ([fredszaq](https://github.com/fredszaq))
+
 ## [0.6.6](https://github.com/sonos/dinghy/tree/0.6.6) (2023-09-14)
 
 [Full Changelog](https://github.com/sonos/dinghy/compare/0.6.5...0.6.6)
