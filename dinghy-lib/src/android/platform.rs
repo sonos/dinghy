@@ -12,6 +12,7 @@ pub struct AndroidPlatform {
     regular_platform: Box<dyn Platform>,
     toolchain_config: ToolchainConfig,
     ndk_major_version: usize,
+    ndk_path: PathBuf,
     libclang_path: PathBuf,
 }
 
@@ -21,6 +22,7 @@ impl AndroidPlatform {
         id: String,
         toolchain_config: ToolchainConfig,
         ndk_major_version: usize,
+        ndk_path: PathBuf,
         libclang_path: PathBuf,
     ) -> Result<Box<dyn Platform>> {
         Ok(Box::new(Self {
@@ -31,6 +33,7 @@ impl AndroidPlatform {
             )?,
             toolchain_config,
             ndk_major_version,
+            ndk_path,
             libclang_path
         }))
     }
@@ -74,6 +77,14 @@ impl Platform for AndroidPlatform {
         if self.ndk_major_version >= 17 {
             // bindgen need this to use the proper imports
             set_env("DINGHY_BUILD_LIBCLANG_PATH", &self.libclang_path )
+        }
+
+        if std::env::var("ANDROID_NDK").is_err() {
+            set_env("ANDROID_NDK", self.ndk_path.canonicalize()?)
+        }
+
+        if std::env::var("ANDROID_NDK_HOME").is_err() {
+            set_env("ANDROID_NDK_HOME", self.ndk_path.canonicalize()?)
         }
 
 
