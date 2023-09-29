@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.8](https://github.com/sonos/dinghy/tree/0.6.8) (2023-09-29)
+
+[Full Changelog](https://github.com/sonos/dinghy/compare/0.6.7...0.6.8)
+
+**Merged pull requests:**
+
+- search android ndk also in ANDROID\_NDK env var and pass ANDROID\_NDK var to build if not set \(cmake compat\) [\#192](https://github.com/sonos/dinghy/pull/192) ([fredszaq](https://github.com/fredszaq))
+
 ## [0.6.7](https://github.com/sonos/dinghy/tree/0.6.7) (2023-09-14)
 
 [Full Changelog](https://github.com/sonos/dinghy/compare/0.6.6...0.6.7)
