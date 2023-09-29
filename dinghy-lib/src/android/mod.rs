@@ -109,7 +109,7 @@ impl PlatformManager for AndroidManager {
                             binutils_prefix: format!("{}-linux-{}", binutils_cpu, abi_kind),
                             cc_prefix: format!("{}-linux-{}{}", cc_cpu, abi_kind, api),
                         };
-                        AndroidPlatform::new(PlatformConfiguration::default(), id, tc, major, libclang_path.clone())
+                        AndroidPlatform::new(PlatformConfiguration::default(), id, tc, major, ndk.clone(),libclang_path.clone())
                     };
                     for api in api_levels.iter() {
                         platforms.push(create_platform(&api, &format!("-api{}", api))?);
@@ -188,6 +188,9 @@ fn probable_sdk_locs() -> Result<Vec<path::PathBuf>> {
 
 fn ndk() -> Result<Option<path::PathBuf>> {
     if let Ok(path) = env::var("ANDROID_NDK_HOME") {
+        return Ok(Some(path.into()));
+    }
+    if let Ok(path) = env::var("ANDROID_NDK") {
         return Ok(Some(path.into()));
     }
     for sdk in probable_sdk_locs()? {
