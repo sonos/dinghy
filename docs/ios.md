@@ -35,7 +35,7 @@ your phone.
 
 * You'll need an Apple ID. Chances are you already have one, but you can
     an account there: https://appleid.apple.com/account .
-* Go to XCode > Preferences > Accounts, and make sure your Apple ID is listed,
+* Go to XCode > Preferences/Settings > Accounts, and make sure your Apple ID is listed,
     or add it (`+` bottom well-hidden bottom left).
 * View Details (bottom right this time)
 * Click the "Create" button in front of "iOS Development" in the top half of
@@ -67,7 +67,7 @@ longer living certificates, so you need this less often.
 
 On top of project window, make the target "Dinghy>Your Device", and run the
 project (play button). XCode may ask you to go to your phone settings
-and Trust the certificate. It's in the Preferences > General >
+and Trust the certificate. It's in the XCode > Preferences/Settings > General >
 [your dev account name]. It should then start your empty app on the phone.
 
 At this point, we're ready to roll, dinghy should detect XCode and the various
