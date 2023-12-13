@@ -87,12 +87,27 @@ else
         title "setup simulator"
         rustup target add armv7-linux-androideabi
 
+        ## BEGIN FIX-EMULATOR
+        # Use emulator version 32.1.15 as latest version (33.1.23 as of writing) from sdk segfaults
+
+        ( \
+          cd target/ \
+          && wget https://redirector.gvt1.com/edgedl/android/repository/emulator-linux_x64-10696886.zip \
+          && unzip emulator-linux_x64-10696886.zip \
+        )
+        EMULATOR="$(pwd)/target/emulator/emulator"
+
+        # to revert when the bundled emulator doesn't crash anymore use the following line
+        # EMULATOR="$ANDROID_SDK_ROOT/emulator/emulator"
+
+        # END FIX-EMULATOR
+
         $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-24;default;armeabi-v7a" "ndk;22.1.7171670"
         echo no | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager create avd -n testdinghy -k "system-images;android-24;default;armeabi-v7a"
-        $ANDROID_SDK_ROOT/emulator/emulator @testdinghy -no-audio -no-boot-anim -no-window -accel on -gpu off &
+        $EMULATOR @testdinghy -no-audio -no-boot-anim -no-window -accel on -gpu off &
         timeout 180 $ANDROID_SDK_ROOT/platform-tools/adb wait-for-device
      
-        export ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/22.1.7171670
+        export ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/22.1.7171670
 
         tests_sequence android
     fi
