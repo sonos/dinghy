@@ -11,7 +11,7 @@ pub mod config;
 pub mod device;
 mod host;
 #[cfg(target_os = "macos")]
-mod ios;
+mod apple;
 pub mod overlay;
 pub mod platform;
 pub mod project;
@@ -24,7 +24,12 @@ pub use crate::config::Configuration;
 
 use crate::config::PlatformConfiguration;
 #[cfg(target_os = "macos")]
-use crate::ios::IosManager;
+use crate::apple::{
+    IosManager,
+    TvosManager,
+    WatchosManager,
+};
+
 use crate::platform::regular_platform::RegularPlatform;
 use crate::project::Project;
 use anyhow::{anyhow, Context};
@@ -58,6 +63,12 @@ impl Dinghy {
         {
             std::thread::sleep(std::time::Duration::from_millis(100));
             if let Some(man) = IosManager::new().context("Could not initialize iOS manager")? {
+                managers.push(Box::new(man));
+            }
+            if let Some(man) = TvosManager::new().context("Could not initialize tvOS manager")? {
+                managers.push(Box::new(man));
+            }
+            if let Some(man) = WatchosManager::new().context("Could not initialize tvOS manager")? {
                 managers.push(Box::new(man));
             }
         }
@@ -167,7 +178,7 @@ pub trait DeviceCompatibility {
     }
 
     #[cfg(target_os = "macos")]
-    fn is_compatible_with_ios_platform(&self, _platform: &ios::IosPlatform) -> bool {
+    fn is_compatible_with_simulator_platform(&self, _platform: &apple::AppleDevicePlatform) -> bool {
         false
     }
 }

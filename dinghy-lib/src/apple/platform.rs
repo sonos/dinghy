@@ -11,28 +11,31 @@ use dinghy_build::build_env::set_env;
 use std::fmt::{Debug, Display, Formatter};
 use std::process;
 
-pub struct IosPlatform {
+use super::AppleSimulatorType;
+
+pub struct AppleDevicePlatform {
     id: String,
-    pub sim: bool,
+    pub sim: Option<AppleSimulatorType>,
     pub toolchain: Toolchain,
     pub configuration: PlatformConfiguration,
 }
 
-impl Debug for IosPlatform {
+impl Debug for AppleDevicePlatform {
     fn fmt(&self, fmt: &mut Formatter) -> ::std::fmt::Result {
         write!(fmt, "{}", self.id)
     }
 }
 
-impl IosPlatform {
+impl AppleDevicePlatform {
     pub fn new(
         id: String,
         rustc_triple: &str,
+        simulator: Option<AppleSimulatorType>,
         configuration: PlatformConfiguration,
     ) -> Result<Box<dyn Platform>> {
-        Ok(Box::new(IosPlatform {
+        Ok(Box::new(AppleDevicePlatform {
             id,
-            sim: rustc_triple.contains("86") || rustc_triple.contains("sim"),
+            sim: simulator,
             toolchain: Toolchain {
                 rustc_triple: rustc_triple.to_string(),
             },
@@ -41,10 +44,17 @@ impl IosPlatform {
     }
 
     fn sysroot_path(&self) -> Result<String> {
-        let sdk_name = if self.sim {
-            "iphonesimulator"
-        } else {
-            "iphoneos"
+        let sdk_name = match self.sim {
+            Some(AppleSimulatorType::Ios) => {
+                "iphonesimulator"
+            }
+            Some(AppleSimulatorType::Tvos) => {
+                "appletvsimulator"
+            }
+            Some(AppleSimulatorType::Watchos) => {
+                "watchsimulator"
+            }
+            None => "iphoneos"
         };
         let xcrun = process::Command::new("xcrun")
             .args(&["--sdk", sdk_name, "--show-sdk-path"])
@@ -53,7 +63,7 @@ impl IosPlatform {
     }
 }
 
-impl Platform for IosPlatform {
+impl Platform for AppleDevicePlatform {
     fn setup_env(&self, project: &Project, setup_args: &SetupArgs) -> Result<()> {
         let sysroot = self.sysroot_path()?;
         Overlayer::overlay(&self.configuration, self, project, &self.sysroot_path()?)?;
@@ -75,7 +85,7 @@ impl Platform for IosPlatform {
     }
 
     fn is_compatible_with(&self, device: &dyn Device) -> bool {
-        device.is_compatible_with_ios_platform(self)
+        device.is_compatible_with_simulator_platform(self)
     }
 
     fn is_host(&self) -> bool {
@@ -98,10 +108,10 @@ impl Platform for IosPlatform {
     }
 }
 
-impl Display for IosPlatform {
+impl Display for AppleDevicePlatform {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::result::Result<(), ::std::fmt::Error> {
-        if self.sim {
-            write!(f, "XCode targetting Ios Simulator")
+        if self.sim.is_some() {
+            write!(f, "XCode targetting Apple device Simulator")
         } else {
             write!(f, "XCode targetting Ios Device")
         }
