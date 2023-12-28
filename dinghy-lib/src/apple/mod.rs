@@ -1,5 +1,7 @@
-pub use self::device::{IosDevice, IosSimDevice};
-pub use self::platform::IosPlatform;
+use std::fmt::Display;
+
+pub use self::device::{IosDevice, AppleSimDevice};
+pub use self::platform::AppleDevicePlatform;
 use crate::{Device, Platform, PlatformManager, Result};
 
 mod device;
@@ -25,6 +27,23 @@ pub struct SigningIdentity {
     pub team: String,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum AppleSimulatorType {
+    Ios,
+    Watchos,
+    Tvos,
+}
+impl Display for AppleSimulatorType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let val = match self {
+            AppleSimulatorType::Ios => "ios",
+            AppleSimulatorType::Watchos => "watchos",
+            AppleSimulatorType::Tvos => "tvos",
+        };
+        f.write_str(val)
+    }
+}
+
 pub struct IosManager {
     devices: Vec<Box<dyn Device>>,
 }
@@ -35,7 +54,7 @@ impl IosManager {
             .context("Could not list iOS devices")?
             .into_iter()
             .chain(
-                simulators()
+                simulators(AppleSimulatorType::Ios)
                     .context("Could not list iOS simulators")?
                     .into_iter(),
             )
@@ -66,9 +85,17 @@ impl PlatformManager for IosManager {
             } else {
                 format!("aarch64-apple-ios-sim")
             };
-            IosPlatform::new(
+
+            let simulator = if *arch == "x86_64" || *arch == "aarch64-sim" {
+                Some(AppleSimulatorType::Ios)
+            } else {
+                None
+            };
+
+            AppleDevicePlatform::new(
                 id,
                 &rustc_triple,
+                simulator,
                 crate::config::PlatformConfiguration::default(),
             )
             .map(|pf| pf as Box<dyn Platform>)
@@ -77,9 +104,104 @@ impl PlatformManager for IosManager {
     }
 }
 
-fn simulators() -> Result<Vec<Box<dyn Device>>> {
+pub struct WatchosManager {
+    devices: Vec<Box<dyn Device>>,
+}
+
+impl WatchosManager {
+    pub fn new() -> Result<Option<Self>> {
+        let devices = simulators(AppleSimulatorType::Watchos)?;
+        Ok(Some(Self { devices }))
+    }
+}
+impl PlatformManager for WatchosManager {
+    fn devices(&self) -> Result<Vec<Box<dyn Device>>> {
+        Ok(self.devices.clone())
+    }
+
+    fn platforms(&self) -> Result<Vec<Box<dyn Platform>>> {
+        [
+            "arm64_32",
+            "aarch64",
+            "x86_64-sim",
+            "aarch64-sim",
+        ]
+        .iter()
+        .map(|arch| {
+            let id = format!("auto-watchos-{}", arch);
+            let rustc_triple = if *arch != "aarch64-sim" {
+                format!("{}-apple-watchos", arch)
+            } else {
+                format!("aarch64-apple-watchos-sim")
+            };
+            let simulator = if *arch == "x86_64-sim" || *arch == "aarch64-sim" {
+                Some(AppleSimulatorType::Watchos)
+            } else {
+                None
+            };
+
+            AppleDevicePlatform::new(
+                id,
+                &rustc_triple,
+                simulator,
+                crate::config::PlatformConfiguration::default(),
+            )
+            .map(|pf| pf as Box<dyn Platform>)
+        })
+        .collect()
+    }
+}
+
+pub struct TvosManager {
+    devices: Vec<Box<dyn Device>>,
+}
+
+impl TvosManager {
+    pub fn new() -> Result<Option<Self>> {
+        let devices = simulators(AppleSimulatorType::Tvos)?;
+        Ok(Some(Self { devices }))
+    }
+}
+
+impl PlatformManager for TvosManager {
+    fn devices(&self) -> Result<Vec<Box<dyn Device>>> {
+        Ok(self.devices.clone())
+    }
+
+    fn platforms(&self) -> Result<Vec<Box<dyn Platform>>> {
+        [
+            "aarch64",
+            "x86_64",
+            "aarch64-sim",
+        ]
+        .iter()
+        .map(|arch| {
+            let id = format!("auto-tvos-{}", arch);
+            let rustc_triple = if *arch != "aarch64-sim" {
+                format!("{}-apple-tvos", arch)
+            } else {
+                format!("aarch64-apple-tvos-sim")
+            };
+            let simulator = if *arch == "x86_64" || *arch == "aarch64-sim" {
+                Some(AppleSimulatorType::Tvos)
+            } else {
+                None
+            };
+            AppleDevicePlatform::new(
+                id,
+                &rustc_triple,
+                simulator,
+                crate::config::PlatformConfiguration::default(),
+            )
+            .map(|pf| pf as Box<dyn Platform>)
+        })
+        .collect()
+    }
+}
+
+fn simulators(sim_type: AppleSimulatorType) -> Result<Vec<Box<dyn Device>>> {
     let sims_list = ::std::process::Command::new("xcrun")
-        .args(&["simctl", "list", "--json", "devices"])
+        .args(&["simctl", "list", "--json", "devices", sim_type.to_string().as_str()])
         .output()?;
     if !sims_list.status.success() {
         info!(
@@ -94,7 +216,7 @@ fn simulators() -> Result<Vec<Box<dyn Device>>> {
     for (ref k, ref v) in sims_list["devices"].entries() {
         for ref sim in v.members() {
             if sim["state"] == "Booted" {
-                sims.push(Box::new(IosSimDevice {
+                sims.push(Box::new(AppleSimDevice {
                     name: sim["name"]
                         .as_str()
                         .ok_or_else(|| anyhow!("unexpected simulator list format (missing name)"))?
@@ -104,6 +226,7 @@ fn simulators() -> Result<Vec<Box<dyn Device>>> {
                         .ok_or_else(|| anyhow!("unexpected simulator list format (missing udid)"))?
                         .to_string(),
                     os: k.split(" ").last().unwrap().to_string(),
+                    sim_type: sim_type.clone(),
                 }))
             }
         }

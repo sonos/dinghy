@@ -4,7 +4,7 @@ set -x
 
 title() {
     set +x
-    echo -e '\n\033[1;33m '$@' \033[0m\n' 
+    echo -e '\n\033[1;33m '$@' \033[0m\n'
     set -x
 }
 
@@ -40,7 +40,7 @@ tests_sequence() {
         && ! $CARGO_DINGHY -d $1 test fails \
         && ! $CARGO_DINGHY -d $1 test \
     )
- 
+
     title "testing from project directory"
     ( \
         cd test-ws/test-app \
@@ -49,7 +49,7 @@ tests_sequence() {
         && ! $CARGO_DINGHY -d $1 test fails \
         && ! $CARGO_DINGHY -d $1 test \
     )
- 
+
     title "test from workspace directory with project filter"
     ( \
         cd test-ws \
@@ -69,7 +69,7 @@ tests_sequence_aarch64_ios_sim() {
         && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test fails \
         && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test \
     )
- 
+
     title "testing from project directory"
     ( \
         cd test-ws/test-app \
@@ -78,7 +78,7 @@ tests_sequence_aarch64_ios_sim() {
         && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test fails \
         && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test \
     )
- 
+
     title "test from workspace directory with project filter"
     ( \
         cd test-ws \
@@ -86,6 +86,17 @@ tests_sequence_aarch64_ios_sim() {
         && $CARGO_DINGHY   -d $1 -p auto-ios-aarch64-sim test -p test-app pass \
         && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test -p test-app fails \
         && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test -p test-app \
+    )
+}
+tests_sequence_unstable_target() {
+    # There's something odd with using the .cargo/config runner attribute and
+    # workspaces when the runner uses `cargo run --manifest-path ../Cargo.toml
+    # --bin cargo-dinghy ...`
+    title "testing from project directory for rust target $1"
+    ( \
+        cd test-ws/test-bin \
+        && cargo clean \
+        && cargo +nightly run -Zbuild-std --target $1 \
     )
 }
 
@@ -124,6 +135,26 @@ then
         rustup target add aarch64-apple-ios
         tests_sequence $device
     fi
+
+     title "••••• Darwin: tvos simulator tests •••••"
+     title "boot a simulator"
+     rustup toolchain add nightly --component rust-src;
+     TVOS_RUNTIME_ID=$(xcrun simctl list runtimes | grep tvOS | cut -d ' ' -f 7 | tail -1)
+     export TV_SIM_ID=$(xcrun simctl create My-4ktv com.apple.CoreSimulator.SimDeviceType.Apple-TV-4K-3rd-generation-4K $TVOS_RUNTIME_ID)
+
+     xcrun simctl boot $TV_SIM_ID
+     tests_sequence_unstable_target x86_64-apple-tvos
+     xcrun simctl delete $TV_SIM_ID
+
+     title "••••• Darwin: watchvos simulator tests •••••"
+     title "boot a simulator"
+     rustup toolchain add nightly --component rust-src;
+     WATCHOS_RUNTIME_ID=$(xcrun simctl list runtimes | grep watchOS | cut -d ' ' -f 7 | tail -1)
+     export WATCHOS_SIM_ID=$(xcrun simctl create My-apple-watch com.apple.CoreSimulator.SimDeviceType.Apple-Watch-SE-44mm-2nd-generation $WATCHOS_RUNTIME_ID)
+
+     xcrun simctl boot $WATCHOS_SIM_ID
+     tests_sequence_unstable_target x86_64-apple-watchos-sim
+     xcrun simctl delete $WATCHOS_SIM_ID
 else
     if [ -n "$ANDROID_SDK_ROOT" ]
     then
@@ -150,7 +181,7 @@ else
         echo no | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager create avd -n testdinghy -k "system-images;android-24;default;armeabi-v7a"
         $EMULATOR @testdinghy -no-audio -no-boot-anim -no-window -accel on -gpu off &
         timeout 180 $ANDROID_SDK_ROOT/platform-tools/adb wait-for-device
-     
+
         export ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/22.1.7171670
 
         tests_sequence android
