@@ -60,19 +60,63 @@ tests_sequence() {
     )
 }
 
+tests_sequence_aarch64_ios_sim() {
+    title "testing from workspace directory"
+    ( \
+        cd test-ws \
+        && cargo clean \
+        && $CARGO_DINGHY   -d $1 -p auto-ios-aarch64-sim test pass \
+        && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test fails \
+        && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test \
+    )
+ 
+    title "testing from project directory"
+    ( \
+        cd test-ws/test-app \
+        && cargo clean \
+        && $CARGO_DINGHY   -d $1 -p auto-ios-aarch64-sim test pass \
+        && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test fails \
+        && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test \
+    )
+ 
+    title "test from workspace directory with project filter"
+    ( \
+        cd test-ws \
+        && cargo clean \
+        && $CARGO_DINGHY   -d $1 -p auto-ios-aarch64-sim test -p test-app pass \
+        && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test -p test-app fails \
+        && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test -p test-app \
+    )
+}
+
 
 if [ `uname` = Darwin ]
 then
      title "••••• Darwin: ios simulator tests •••••"
      title "boot a simulator"
-     rustup target add x86_64-apple-ios;
      RUNTIME_ID=$(xcrun simctl list runtimes | grep iOS | cut -d ' ' -f 7 | tail -1)
-     export SIM_ID=$(xcrun simctl create My-iphone7 com.apple.CoreSimulator.SimDeviceType.iPhone-8 $RUNTIME_ID)
+
+     # Installed simulators on github runners differ depending on the version
+     # of macos. When the simulator device type ID needs to be updated, select
+     # a new one:
+     # https://github.com/actions/runner-images/blob/main/images/macos/macos-12-Readme.md#installed-simulators
+     # https://github.com/actions/runner-images/blob/main/images/macos/macos-13-Readme.md#installed-simulators
+     # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-arm64-Readme.md#installed-simulators
+     export SIM_ID=$(xcrun simctl create My-iphone-se com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation $RUNTIME_ID)
      xcrun simctl boot $SIM_ID
-     tests_sequence $SIM_ID
+
+     # The x86_64-apple-ios target seems to not work on an ARM64 host,
+     # and the aarch64-apple-ios-sim target doesn't work on an x86-64 host.
+     if [ "$(uname -m)" = "arm64" ]; then
+         rustup target add aarch64-apple-ios-sim;
+         tests_sequence_aarch64_ios_sim $SIM_ID
+     else
+         rustup target add x86_64-apple-ios;
+         tests_sequence $SIM_ID
+     fi
 
      xcrun simctl delete $SIM_ID
-    
+
     if ios-deploy -c -t 1 > /tmp/ios_devices
     then
         device=$(grep "Found" /tmp/ios_devices | head -1 | cut -d " " -f 3)
