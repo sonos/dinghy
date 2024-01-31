@@ -22,7 +22,10 @@ jobs:
       run: ./.travis.sh
 
   macos:
-    runs-on: macOS-latest
+    strategy:
+      matrix:
+        os: [ macOS-13, macOS-14 ]
+    runs-on: ${{matrix.os}}
 
     steps:
     - uses: actions/checkout@v1
