@@ -8,9 +8,10 @@
 
 Dinghy is a `cargo` extension to bring cargo workflow to cross-compilation situations.
 
-Dinghy is specifically useful with "small" processor-based devices, like
-Android and iOS phones, or small single board computers like the Raspberry Pi.
-Situations where native compilation is not possible, or not practical.
+Dinghy is specifically useful with "small" processor-based devices, like Android
+and iOS phones, or small single board computers like the Raspberry Pi, HarmonyOS NEXT
+phones are also supported. Situations where native compilation is not possible,
+or not practical.
 
 Initially tests and benches were the primary objective of Dinghy, but now
 at Snips we use it to cross-compile our entire platform. This includes setting
@@ -48,7 +49,7 @@ By default, without `-d`, Dinghy will make a native build, just like `cargo` wou
 Depending on your targets and your workstation, the ease of setting
 up Dinghy can vary.
 
-* [Android](docs/android.md) is relatively easy, specifically if you already are
+* [Android](docs/android.md) and [OpenHarmony](docs/ohos.md) are relatively easy, specifically if you already are
 a mobile developer.
 * [iOS](docs/ios.md) setup has a lot of steps, but at least Apple provides everything
 you will need. Once again, if you are an iOS developer, most of the heavy lifting has

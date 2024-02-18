@@ -9,6 +9,7 @@ mod apple;
 pub mod config;
 pub mod device;
 mod host;
+mod ohos;
 pub mod overlay;
 pub mod platform;
 pub mod plugin;
@@ -45,6 +46,9 @@ impl Dinghy {
             managers.push(Box::new(man));
         }
         if let Some(man) = android::AndroidManager::probe() {
+            managers.push(Box::new(man));
+        }
+        if let Some(man) = ohos::OhosManager::probe() {
             managers.push(Box::new(man));
         }
         if let Some(man) = script::ScriptDeviceManager::probe(conf.clone()) {
