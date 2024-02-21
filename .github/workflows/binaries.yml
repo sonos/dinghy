@@ -32,11 +32,14 @@ jobs:
           mkdir $ZIPDIR
           if [ ${{matrix.name}} == "macos" ]
           then
+            # Let's ensure that both aarch64 and x86_64 targets are installed
+            rustup target add aarch64-apple-darwin x86_64-apple-darwin
             brew install coreutils gnu-tar
             PATH=$(brew --prefix)/opt/coreutils/libexec/gnubin:$PATH
             PATH=$(brew --prefix)/opt/gnu-tar/libexec/gnubin:$PATH
             tar --version
-            cargo build --release -p cargo-dinghy
+            cargo build  --target aarch64-apple-darwin --target x86_64-apple-darwin --release -p cargo-dinghy 
+            lipo -create -output $ZIPDIR/cargo-dinghy target/aarch64-apple-darwin/release/cargo-dinghy target/x86_64-apple-darwin/release/cargo-dinghy
             mv target/release/cargo-dinghy $ZIPDIR
           else
             ./musl_build.sh
