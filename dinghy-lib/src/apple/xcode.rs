@@ -34,7 +34,7 @@ pub fn add_plist_to_app(
     writeln!(plist, "<key>CFBundleShortVersionString</key>")?;
     writeln!(plist, "<string>{}</string>", arch)?;
     match sim_type {
-        // The iOS simulator and the iOS device have the same plist.
+        // The iOS/tvOS simulator have the same plist as an iOS device.
         Some(AppleSimulatorType::Ios) | Some(AppleSimulatorType::Tvos) | None => {
             writeln!(plist, "<key>UIRequiredDeviceCapabilities</key>")?;
             writeln!(plist, "<array><string>{}</string></array>", arch)?;
