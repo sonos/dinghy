@@ -71,6 +71,23 @@ without altering the sysroot toolchain.
 * The [`dinghy-build` crate](docs/dinghy-build.md) offers some `build.rs` features that are useful in
 the context of cross-compilation.
 
+## Using dinghy as a runner only
+If your project already build for the target platform without dinghy and you only want to use dinghy to run code on a 
+device, you can use dinghy's bundled runner directly. You simply need to register the dinghy as a runner in `.cargo/config`.
+Here's an example for all apple targets
+
+```toml
+[target.'cfg(all(any(target_arch="aarch64",target_arch="x86_64"),target_vendor="apple",any(target_os="ios",target_os="tvos",target_os="apple-watchos")))']
+runner = "cargo dinghy runner --"
+```
+
+You can then run your tests directly with `cargo test --target aarch64-apple-ios-sim` for example. 
+
+Please note that the recommended way to use dinghy is as a cargo subcommand as it will set up quite a few things 
+automatically for your project to even build. 
+
+The runner will try to auto-detect the platform if it is not passed (as in the above example)
+
 # License
 
 Licensed under either of
