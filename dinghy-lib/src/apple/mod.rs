@@ -129,10 +129,15 @@ impl PlatformManager for WatchosManager {
         .iter()
         .map(|arch| {
             let id = format!("auto-watchos-{}", arch);
-            let rustc_triple = if *arch != "aarch64-sim" {
-                format!("{}-apple-watchos", arch)
-            } else {
+
+            // Apple watch simulator targets are x86_64-apple-watchos-sim or
+            // aarch64-apple-watchos-sim
+            let rustc_triple = if *arch == "aarch64-sim" {
                 format!("aarch64-apple-watchos-sim")
+            } else if *arch == "x86_64-sim" {
+                format!("x86_64-apple-watchos-sim")
+            } else {
+                format!("{}-apple-watchos", arch)
             };
             let simulator = if *arch == "x86_64-sim" || *arch == "aarch64-sim" {
                 Some(AppleSimulatorType::Watchos)
