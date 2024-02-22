@@ -7,7 +7,7 @@ use std::{fs, io, process};
 use crate::utils::LogCommandExt;
 use crate::BuildBundle;
 
-pub fn add_plist_to_simulator_app(
+pub fn add_plist_to_app(
     bundle: &BuildBundle,
     arch: &str,
     app_bundle_id: &str,
@@ -70,15 +70,6 @@ pub fn add_plist_to_simulator_app(
             writeln!(plist, "<key>WKWatchOnly</key><true/>")?;
         },
     }
-    writeln!(
-        plist,
-        "<key>CFBundleExecutable</key><string>Dinghy</string>",
-    )?;
-    writeln!(
-        plist,
-        "<key>CFBundleIdentifier</key><string>{}</string>",
-        app_bundle_id
-    )?;
     writeln!(plist, r#"</dict></plist>"#)?;
     Ok(())
 }
