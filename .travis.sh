@@ -98,27 +98,27 @@ tests_sequence_unstable_target() {
     ( \
         cd test-ws \
         && cargo clean \
-        && $CARGO_DINGHY   -d $1 -p $2 test -Zbuild-std pass \
-        && ! $CARGO_DINGHY -d $1 -p $2 test -Zbuild-std fails \
-        && ! $CARGO_DINGHY -d $1 -p $2 test -Zbuild-std \
+        && $CARGO_DINGHY   -d $1 -p $2 +nightly test -Zbuild-std pass \
+        && ! $CARGO_DINGHY -d $1 -p $2 +nightly test -Zbuild-std fails \
+        && ! $CARGO_DINGHY -d $1 -p $2 +nightly test -Zbuild-std \
     )
 
     title "testing from project directory"
     ( \
         cd test-ws/test-app \
         && cargo clean \
-        && $CARGO_DINGHY   -d $1 -p $2 test pass \
-        && ! $CARGO_DINGHY -d $1 -p $2 test fails \
-        && ! $CARGO_DINGHY -d $1 -p $2 test \
+        && $CARGO_DINGHY   -d $1 -p $2 +nightly test pass \
+        && ! $CARGO_DINGHY -d $1 -p $2 +nightly test fails \
+        && ! $CARGO_DINGHY -d $1 -p $2 +nightly test \
     )
 
     title "test from workspace directory with project filter"
     ( \
         cd test-ws \
         && cargo clean \
-        && $CARGO_DINGHY   -d $1 -p $2 test -p test-app pass \
-        && ! $CARGO_DINGHY -d $1 -p $2 test -p test-app fails \
-        && ! $CARGO_DINGHY -d $1 -p $2 test -p test-app \
+        && $CARGO_DINGHY   -d $1 -p $2 +nightly test -p test-app pass \
+        && ! $CARGO_DINGHY -d $1 -p $2 +nightly test -p test-app fails \
+        && ! $CARGO_DINGHY -d $1 -p $2 +nightly test -p test-app \
     )
 }
 
