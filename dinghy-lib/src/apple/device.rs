@@ -77,7 +77,7 @@ impl IosDevice {
             .last()
             .ok_or_else(|| anyhow!("no app id ?"))?;
 
-        let build_bundle = make_simulator_app(project, build, runnable, &app_id, None)?;
+        let build_bundle = make_apple_app(project, build, runnable, &app_id, None)?;
 
         super::xcode::sign_app(&build_bundle, &signing)?;
         Ok(build_bundle)
@@ -233,7 +233,7 @@ impl AppleSimDevice {
     }
 
     fn make_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
-        make_simulator_app(project, build, runnable, "Dinghy", Some(&self.sim_type))
+        make_apple_app(project, build, runnable, "Dinghy", Some(&self.sim_type))
     }
 }
 
@@ -348,7 +348,7 @@ impl DeviceCompatibility for AppleSimDevice {
     }
 }
 
-fn make_simulator_app(
+fn make_apple_app(
     project: &Project,
     build: &Build,
     runnable: &Runnable,
@@ -372,7 +372,7 @@ fn make_simulator_app(
         .split(" ")
         .last()
         .ok_or_else(|| anyhow!("empty magic"))?;
-    xcode::add_plist_to_simulator_app(&build_bundle, target, app_id, sim_type)?;
+    xcode::add_plist_to_app(&build_bundle, target, app_id, sim_type)?;
     Ok(build_bundle)
 }
 
