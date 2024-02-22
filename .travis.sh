@@ -170,7 +170,7 @@ then
      if [ "$(uname -m)" = "arm64" ]; then
          tests_sequence_unstable_target ${TV_SIM_ID} auto-tvos-aarch64-sim
      else
-         tests_sequence_unstable_target ${TV_SIM_ID} auto-tvos-x86_64-sim
+         tests_sequence_unstable_target ${TV_SIM_ID} auto-tvos-x86_64
      fi
      xcrun simctl delete $TV_SIM_ID
 
@@ -183,7 +183,7 @@ then
      if [ "$(uname -m)" = "arm64" ]; then
          tests_sequence_unstable_target ${WATCHOS_SIM_ID} auto-watchos-aarch64-sim
      else
-         tests_sequence_unstable_target ${WATCHOS_SIM_ID} auto-watchos-x86_64-sim
+         tests_sequence_unstable_target ${WATCHOS_SIM_ID} auto-watchos-x86_64
      fi
      xcrun simctl delete $WATCHOS_SIM_ID
      rustup default stable
