@@ -1,4 +1,4 @@
-use super::{SignatureSettings, SigningIdentity};
+use super::{AppleSimulatorType, SignatureSettings, SigningIdentity};
 use crate::errors::*;
 use log::{debug, trace};
 use std::io::Write;
@@ -7,7 +7,12 @@ use std::{fs, io, process};
 use crate::utils::LogCommandExt;
 use crate::BuildBundle;
 
-pub fn add_plist_to_ios_app(bundle: &BuildBundle, arch: &str, app_bundle_id: &str) -> Result<()> {
+pub fn add_plist_to_simulator_app(
+    bundle: &BuildBundle,
+    arch: &str,
+    app_bundle_id: &str,
+    sim_type: Option<&AppleSimulatorType>
+) -> Result<()> {
     let mut plist = fs::File::create(bundle.bundle_dir.join("Info.plist"))?;
     writeln!(plist, r#"<?xml version="1.0" encoding="UTF-8"?>"#)?;
     writeln!(
@@ -15,6 +20,56 @@ pub fn add_plist_to_ios_app(bundle: &BuildBundle, arch: &str, app_bundle_id: &st
         r#"<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">"#
     )?;
     writeln!(plist, r#"<plist version="1.0"><dict>"#)?;
+    match sim_type {
+        // The iOS simulator and the iOS device have the same plist.
+        Some(AppleSimulatorType::Ios) | None => {
+            writeln!(plist, "<key>UIRequiredDeviceCapabilities</key>")?;
+            writeln!(plist, "<array><string>{}</string></array>", arch)?;
+            writeln!(plist, "<key>CFBundleVersion</key>")?;
+            writeln!(plist, "<string>{}</string>", arch)?;
+            writeln!(plist, "<key>CFBundleShortVersionString</key>")?;
+            writeln!(plist, "<string>{}</string>", arch)?;
+            writeln!(plist, "<key>UILaunchStoryboardName</key>")?;
+            writeln!(plist, "<string></string>")?;
+        },
+        Some(AppleSimulatorType::Tvos) => {
+            writeln!(
+                plist,
+                "<key>CFBundleExecutable</key><string>Dinghy</string>",
+            )?;
+            writeln!(
+                plist,
+                "<key>CFBundleIdentifier</key><string>{}</string>",
+                app_bundle_id
+            )?;
+            writeln!(plist, "<key>UIRequiredDeviceCapabilities</key>")?;
+            writeln!(plist, "<array><string>{}</string></array>", arch)?;
+            writeln!(plist, "<key>CFBundleVersion</key>")?;
+            writeln!(plist, "<string>{}</string>", arch)?;
+            writeln!(plist, "<key>CFBundleShortVersionString</key>")?;
+            writeln!(plist, "<string>{}</string>", arch)?;
+            writeln!(plist, "<key>UILaunchStoryboardName</key>")?;
+            writeln!(plist, "<string></string>")?;
+        },
+        Some(AppleSimulatorType::Watchos) => {
+            writeln!(
+                plist,
+                "<key>CFBundleExecutable</key><string>Dinghy</string>",
+            )?;
+            writeln!(
+                plist,
+                "<key>CFBundleIdentifier</key><string>{}</string>",
+                app_bundle_id
+            )?;
+            writeln!(plist, "<key>CFBundleVersion</key>")?;
+            writeln!(plist, "<string>{}</string>", arch)?;
+            writeln!(plist, "<key>CFBundleShortVersionString</key>")?;
+            writeln!(plist, "<string>{}</string>", arch)?;
+            writeln!(plist, "<key>MinimumOSVersion</key><string>8.0</string>",)?;
+            writeln!(plist, "<key>WKApplication</key><true/>",)?;
+            writeln!(plist, "<key>WKWatchOnly</key><true/>")?;
+        },
+    }
     writeln!(
         plist,
         "<key>CFBundleExecutable</key><string>Dinghy</string>",
@@ -24,108 +79,10 @@ pub fn add_plist_to_ios_app(bundle: &BuildBundle, arch: &str, app_bundle_id: &st
         "<key>CFBundleIdentifier</key><string>{}</string>",
         app_bundle_id
     )?;
-    writeln!(plist, "<key>UIRequiredDeviceCapabilities</key>")?;
-    writeln!(plist, "<array><string>{}</string></array>", arch)?;
-    writeln!(plist, "<key>CFBundleVersion</key>")?;
-    writeln!(plist, "<string>{}</string>", arch)?;
-    writeln!(plist, "<key>CFBundleShortVersionString</key>")?;
-    writeln!(plist, "<string>{}</string>", arch)?;
-    writeln!(plist, "<key>UILaunchStoryboardName</key>")?;
-    writeln!(plist, "<string></string>")?;
-    writeln!(plist, r#"</dict></plist>"#)?;
-    /*
-    let app_name = app_bundle_id.split(".").last().unwrap();
-    let app_path = app_path.as_ref().join(format!("{}.app", app_name));
-    println!("WRAP AS APP: {:?} -> {:?}", executable.as_ref(), app_path);
-    let _ = fs::remove_dir_all(&app_path);
-    fs::create_dir_all(&app_path)?;
-    fs::copy(&executable, app_path.join(app_name))?;
-
-
-    let mut plist = fs::File::create(app_path.join("Info.plist"))?;
-    writeln!(plist, r#"<?xml version="1.0" encoding="UTF-8"?>"#)?;
-    writeln!(plist, r#"<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">"#)?;
-    writeln!(plist, r#"<plist version="1.0"><dict>"#)?;
-    writeln!(
-    plist,
-    "<key>CFBundleExecutable</key><string>{}</string>",
-    app_name
-    )?;
-    writeln!(
-    plist,
-    "<key>CFBundleIdentifier</key><string>{}</string>",
-    app_bundle_id
-    )?;
-    writeln!(plist, "<key>UIRequiredDeviceCapabilities</key>")?;
-    writeln!(
-    plist,
-    "<array><string>{}</string></array>",
-    target.split("-").next().unwrap()
-    )?;
-    writeln!(plist, r#"</dict></plist>"#)?;
-
-    project.rec_copy(&source, &app_path, false)?;
-    project.copy_test_data(&app_path)?;
-    */
-    Ok(())
-}
-
-pub fn add_plist_to_tvos_app(bundle: &BuildBundle, arch: &str, app_bundle_id: &str) -> Result<()> {
-    let mut plist = fs::File::create(bundle.bundle_dir.join("Info.plist"))?;
-    writeln!(plist, r#"<?xml version="1.0" encoding="UTF-8"?>"#)?;
-    writeln!(
-        plist,
-        r#"<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">"#
-    )?;
-    writeln!(plist, r#"<plist version="1.0"><dict>"#)?;
-    writeln!(
-        plist,
-        "<key>CFBundleExecutable</key><string>Dinghy</string>",
-    )?;
-    writeln!(
-        plist,
-        "<key>CFBundleIdentifier</key><string>{}</string>",
-        app_bundle_id
-    )?;
-    writeln!(plist, "<key>UIRequiredDeviceCapabilities</key>")?;
-    writeln!(plist, "<array><string>{}</string></array>", arch)?;
-    writeln!(plist, "<key>CFBundleVersion</key>")?;
-    writeln!(plist, "<string>{}</string>", arch)?;
-    writeln!(plist, "<key>CFBundleShortVersionString</key>")?;
-    writeln!(plist, "<string>{}</string>", arch)?;
-    writeln!(plist, "<key>UILaunchStoryboardName</key>")?;
-    writeln!(plist, "<string></string>")?;
     writeln!(plist, r#"</dict></plist>"#)?;
     Ok(())
 }
 
-pub fn add_plist_to_watchos_app(bundle: &BuildBundle, arch: &str, app_bundle_id: &str) -> Result<()> {
-    let mut plist = fs::File::create(bundle.bundle_dir.join("Info.plist"))?;
-    writeln!(plist, r#"<?xml version="1.0" encoding="UTF-8"?>"#)?;
-    writeln!(
-        plist,
-        r#"<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">"#
-    )?;
-    writeln!(plist, r#"<plist version="1.0"><dict>"#)?;
-    writeln!(
-        plist,
-        "<key>CFBundleExecutable</key><string>Dinghy</string>",
-    )?;
-    writeln!(
-        plist,
-        "<key>CFBundleIdentifier</key><string>{}</string>",
-        app_bundle_id
-    )?;
-    writeln!(plist, "<key>CFBundleVersion</key>")?;
-    writeln!(plist, "<string>{}</string>", arch)?;
-    writeln!(plist, "<key>CFBundleShortVersionString</key>")?;
-    writeln!(plist, "<string>{}</string>", arch)?;
-    writeln!(plist, "<key>MinimumOSVersion</key><string>8.0</string>",)?;
-    writeln!(plist, "<key>WKApplication</key><true/>",)?;
-    writeln!(plist, "<key>WKWatchOnly</key><true/>")?;
-    writeln!(plist, r#"</dict></plist>"#)?;
-    Ok(())
-}
 
 pub fn sign_app(bundle: &BuildBundle, settings: &SignatureSettings) -> Result<()> {
     debug!(
