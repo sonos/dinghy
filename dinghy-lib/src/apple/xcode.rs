@@ -20,51 +20,28 @@ pub fn add_plist_to_app(
         r#"<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">"#
     )?;
     writeln!(plist, r#"<plist version="1.0"><dict>"#)?;
+    writeln!(
+        plist,
+        "<key>CFBundleExecutable</key><string>Dinghy</string>",
+    )?;
+    writeln!(
+        plist,
+        "<key>CFBundleIdentifier</key><string>{}</string>",
+        app_bundle_id
+    )?;
+    writeln!(plist, "<key>CFBundleVersion</key>")?;
+    writeln!(plist, "<string>{}</string>", arch)?;
+    writeln!(plist, "<key>CFBundleShortVersionString</key>")?;
+    writeln!(plist, "<string>{}</string>", arch)?;
     match sim_type {
         // The iOS simulator and the iOS device have the same plist.
-        Some(AppleSimulatorType::Ios) | None => {
+        Some(AppleSimulatorType::Ios) | Some(AppleSimulatorType::Tvos) | None => {
             writeln!(plist, "<key>UIRequiredDeviceCapabilities</key>")?;
             writeln!(plist, "<array><string>{}</string></array>", arch)?;
-            writeln!(plist, "<key>CFBundleVersion</key>")?;
-            writeln!(plist, "<string>{}</string>", arch)?;
-            writeln!(plist, "<key>CFBundleShortVersionString</key>")?;
-            writeln!(plist, "<string>{}</string>", arch)?;
-            writeln!(plist, "<key>UILaunchStoryboardName</key>")?;
-            writeln!(plist, "<string></string>")?;
-        },
-        Some(AppleSimulatorType::Tvos) => {
-            writeln!(
-                plist,
-                "<key>CFBundleExecutable</key><string>Dinghy</string>",
-            )?;
-            writeln!(
-                plist,
-                "<key>CFBundleIdentifier</key><string>{}</string>",
-                app_bundle_id
-            )?;
-            writeln!(plist, "<key>UIRequiredDeviceCapabilities</key>")?;
-            writeln!(plist, "<array><string>{}</string></array>", arch)?;
-            writeln!(plist, "<key>CFBundleVersion</key>")?;
-            writeln!(plist, "<string>{}</string>", arch)?;
-            writeln!(plist, "<key>CFBundleShortVersionString</key>")?;
-            writeln!(plist, "<string>{}</string>", arch)?;
             writeln!(plist, "<key>UILaunchStoryboardName</key>")?;
             writeln!(plist, "<string></string>")?;
         },
         Some(AppleSimulatorType::Watchos) => {
-            writeln!(
-                plist,
-                "<key>CFBundleExecutable</key><string>Dinghy</string>",
-            )?;
-            writeln!(
-                plist,
-                "<key>CFBundleIdentifier</key><string>{}</string>",
-                app_bundle_id
-            )?;
-            writeln!(plist, "<key>CFBundleVersion</key>")?;
-            writeln!(plist, "<string>{}</string>", arch)?;
-            writeln!(plist, "<key>CFBundleShortVersionString</key>")?;
-            writeln!(plist, "<string>{}</string>", arch)?;
             writeln!(plist, "<key>MinimumOSVersion</key><string>8.0</string>",)?;
             writeln!(plist, "<key>WKApplication</key><true/>",)?;
             writeln!(plist, "<key>WKWatchOnly</key><true/>")?;
