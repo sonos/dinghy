@@ -22,6 +22,7 @@ use std::process;
 pub struct IosDevice {
     pub id: String,
     pub name: String,
+    pub version: String,
     arch_cpu: &'static str,
     rustc_triple: String,
 }
@@ -47,16 +48,24 @@ impl IosDevice {
             .as_str()
             .context("DeviceName expected to be a string")?
             .to_owned();
+        let version = device["ProductVersion"]
+            .as_str()
+            .context("ProductVersion expected to be a string")?
+            .to_owned();
         let arch_cpu = device["modelArch"]
             .as_str()
-            .context("DeviceName expected to be a string")?;
+            // Somewhere between the iPhone 8 and the iPhone 15, ios-deploy stopped including
+            // `modelArch` in the payload. Perhaps this is because all iOS devices are arm64?
+            .unwrap_or("arm64");
         let cpu = match &*arch_cpu {
             "arm64" | "arm64e" => "aarch64",
             _ => "armv7",
         };
+
         Ok(IosDevice {
             name: name,
             id: id,
+            version: version.into(),
             arch_cpu: cpu.into(),
             rustc_triple: format!("{}-apple-ios", cpu),
         })
@@ -115,11 +124,36 @@ impl IosDevice {
         envs: &[&str],
         debugger: bool,
     ) -> Result<()> {
-        let mut command = process::Command::new("ios-deploy");
-        command.args(&["-i", &self.id, "-b", &app_path, "-m"]);
-        command.args(&["-a", &args.join(" ")]);
-        command.args(&["-s", &envs.join(" ")]);
-        command.arg(if debugger { "-d" } else { "-I" });
+        let mut command = if self.version.starts_with("17") {
+            let signing = xcode::look_for_signature_settings(&self.id)?
+                .pop()
+                .ok_or_else(|| anyhow!("no signing identity found"))?;
+            let app_id = signing
+                .name
+                .split(" ")
+                .last()
+                .ok_or_else(|| anyhow!("no app id ?"))?;
+
+            let mut command = process::Command::new("xcrun");
+            command.args(&[
+                "devicectl",
+                "device",
+                "process",
+                "launch",
+                "--device",
+                &self.id,
+                app_id,
+            ]);
+            command
+        } else {
+            let mut command = process::Command::new("ios-deploy");
+            command.args(&["-i", &self.id, "-b", &app_path, "-m"]);
+            command.args(&["-a", &args.join(" ")]);
+            command.args(&["-s", &envs.join(" ")]);
+            command.arg(if debugger { "-d" } else { "-I" });
+            command
+        };
+        debug!("Running {command:?}");
         command.stderr(process::Stdio::inherit());
         command.stdout(process::Stdio::inherit());
         let status = command
@@ -305,8 +339,8 @@ impl Display for IosDevice {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
         Ok(fmt.write_str(
             format!(
-                "IosDevice {{ \"id\": \"{}\", \"name\": {}, \"arch_cpu\": {} }}",
-                self.id, self.name, self.arch_cpu
+                "IosDevice {{ \"id\": \"{}\", \"name\": {}, \"arch_cpu\": {}, version: \"{}\"}}",
+                self.id, self.name, self.arch_cpu, self.version,
             )
             .as_str(),
         )?)

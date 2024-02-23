@@ -26,6 +26,10 @@ pub fn add_plist_to_app(
     )?;
     writeln!(
         plist,
+        "<key>CFBundleName</key><string>Dinghy</string>",
+    )?;
+    writeln!(
+        plist,
         "<key>CFBundleIdentifier</key><string>{}</string>",
         app_bundle_id
     )?;
