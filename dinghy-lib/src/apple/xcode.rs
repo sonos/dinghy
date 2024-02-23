@@ -22,6 +22,10 @@ pub fn add_plist_to_app(
     writeln!(plist, r#"<plist version="1.0"><dict>"#)?;
     writeln!(
         plist,
+        "<key>CFBundleName</key><string>Dinghy</string>",
+    )?;
+    writeln!(
+        plist,
         "<key>CFBundleExecutable</key><string>Dinghy</string>",
     )?;
     writeln!(
