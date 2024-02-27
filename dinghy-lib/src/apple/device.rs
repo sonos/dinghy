@@ -1,7 +1,7 @@
 use super::{xcode, AppleSimulatorType};
+use crate::apple::AppleDevicePlatform;
 use crate::device::make_remote_app_with_name;
 use crate::errors::*;
-use crate::apple::AppleDevicePlatform;
 use crate::project::Project;
 use crate::utils::LogCommandExt;
 use crate::utils::{get_current_verbosity, user_facing_log};
@@ -10,19 +10,21 @@ use crate::BuildBundle;
 use crate::Device;
 use crate::DeviceCompatibility;
 use crate::Runnable;
+use itertools::Itertools;
 use log::debug;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fs;
+use std::io::{BufRead, BufReader};
 use std::path::Path;
-use std::process;
+use std::process::{self, Stdio};
 
 #[derive(Clone, Debug)]
 pub struct IosDevice {
     pub id: String,
     pub name: String,
-    arch_cpu: &'static str,
+    pub arch_cpu: &'static str,
     rustc_triple: String,
 }
 
@@ -37,7 +39,7 @@ pub struct AppleSimDevice {
 unsafe impl Send for IosDevice {}
 
 impl IosDevice {
-    pub fn new(json: &json::JsonValue) -> Result<IosDevice> {
+    pub fn for_ios_deploy_json(json: &json::JsonValue) -> Result<IosDevice> {
         let device = &json["Device"];
         let id = device["DeviceIdentifier"]
             .as_str()
@@ -50,13 +52,17 @@ impl IosDevice {
         let arch_cpu = device["modelArch"]
             .as_str()
             .context("DeviceName expected to be a string")?;
+        IosDevice::new(name, id, &arch_cpu)
+    }
+
+    pub fn new(name: String, id: String, arch_cpu: &str) -> Result<IosDevice> {
         let cpu = match &*arch_cpu {
             "arm64" | "arm64e" => "aarch64",
             _ => "armv7",
         };
         Ok(IosDevice {
-            name: name,
-            id: id,
+            name,
+            id,
             arch_cpu: cpu.into(),
             rustc_triple: format!("{}-apple-ios", cpu),
         })
@@ -91,19 +97,35 @@ impl IosDevice {
     ) -> Result<BuildBundle> {
         user_facing_log(
             "Installing",
-            &format!("{} to {}", build.runnable.id, self.id),
+            &format!("{} to {} ({})", build.runnable.id, self.id, self.name),
             0,
         );
         let build_bundle = self.make_app(project, build, runnable)?;
         let bundle = build_bundle.bundle_dir.to_string_lossy();
-        let status = process::Command::new("ios-deploy")
-            .args(&["-i", &self.id, "-b", &bundle, "-n"])
+        // xcrun devicectl device install app --device 00008110-001XXXXXXXXXX ./xgen/Build/Products/Release-iphoneos/nilo.app
+        let result = process::Command::new("xcrun")
+            .args("devicectl device install app --device".split_whitespace())
+            .arg(&self.id)
+            .arg(&*bundle)
             .log_invocation(1)
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
             .output()
-            .context("Failed to run ios-deploy")?
-            .status;
-        if !status.success() {
-            bail!("Installation on device failed")
+            .context("Failed to run ios-deploy")?;
+        /*
+        let status = process::Command::new("ios-deploy")
+        .args(&["-i", &self.id, "-b", &bundle, "-n"])
+        .log_invocation(1)
+        .output()
+        .context("Failed to run ios-deploy")?
+        .status;
+        */
+        if !result.status.success() {
+            bail!(
+                "Installation on device failed\nSTDOUT:{}\nSTDERR:{}\n",
+                std::str::from_utf8(&result.stdout)?,
+                std::str::from_utf8(&result.stderr)?
+            )
         }
         Ok(build_bundle)
     }
@@ -115,6 +137,93 @@ impl IosDevice {
         envs: &[&str],
         debugger: bool,
     ) -> Result<()> {
+        let app_list = process::Command::new("pymobiledevice3")
+            .args("apps list --no-color --udid".split_whitespace())
+            .arg(&self.id)
+            .output()?;
+        let app_list = json::parse(std::str::from_utf8(&app_list.stdout)?)?;
+        let app = app_list
+            .entries()
+            .find(|e| e.0.ends_with("Dinghy"))
+            .unwrap()
+            .1;
+        let remote_path = app["Path"].to_string();
+
+        // sudo /bin/true (noop) in foreground so user get a chance to unlock sudo with their
+        // password
+        let sudo = process::Command::new("sudo").arg("/bin/true").output();
+        if sudo.is_err() {
+            bail!("Failure to run preemptive sudo prompt")
+        }
+        // sudo python3 -m pymobiledevice3 remote start-tunnel --script-mode
+        let tunnel = process::Command::new("sudo")
+            .args("pymobiledevice3 remote start-tunnel --script-mode --udid".split_whitespace())
+            .arg(&self.id)
+            .stdout(Stdio::piped())
+            .spawn()?;
+        let mut rsd = String::new();
+        BufReader::new(tunnel.stdout.unwrap()).read_line(&mut rsd)?;
+        debug!("iOS RSD tunnel started: {rsd}");
+
+        // start the debugserver
+        let server = process::Command::new("pymobiledevice3")
+            .args("developer debugserver start-server --rsd".split_whitespace())
+            .args(rsd.trim().split_whitespace())
+            //            .stderr(Stdio::inherit())
+            //            .stdout(Stdio::null())
+            .stdout(Stdio::piped())
+            .spawn()?;
+        let lldb_connection_string = BufReader::new(server.stdout.unwrap())
+            .lines()
+            .find(|l| l.as_ref().unwrap().contains("process connect connect://"))
+            .unwrap()
+            .unwrap();
+        let connection_details = lldb_connection_string.split_whitespace().nth(3).unwrap();
+        debug!("iOS debugserver started: {connection_details}");
+
+        let tempdir = tempdir::TempDir::new("dinghy-lldb")?;
+        let script_path = tempdir.path().join("run.lldb");
+        // see https://stackoverflow.com/questions/77865860/lldb-hangs-when-trying-to-execute-command-with-o
+        // for the terrible async thing
+        std::fs::write(
+            &script_path,
+            format!(
+                "
+platform select remote-ios
+target create {app_path}
+script lldb.target.module[0].SetPlatformFileSpec(lldb.SBFileSpec('{remote_path}'))
+script old_debug = lldb.debugger.GetAsync()
+script lldb.debugger.SetAsync(True)
+process connect {connection_details}
+script lldb.debugger.SetAsync(old_debug)
+run {}
+exit
+            ", args.iter().map(|&s| shell_escape::escape(s.into())).join(" ")
+            ),
+        )?;
+
+        let lldb = process::Command::new("lldb")
+            .arg("-s")
+            .arg(script_path)
+            .stderr(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()?;
+        let mut lines = BufReader::new(lldb.stdout.unwrap()).lines();
+        while !lines.next().unwrap()?.starts_with("(lldb) run") {}
+        for line in lines {
+            let line = line?;
+            println!("{}", line);
+            if line.contains("exited with status = ") {
+                let rv = line.split_whitespace().nth(6).unwrap();
+                println!("returns: {rv}");
+                if rv == "0" {
+                    return Ok(());
+                } else {
+                    bail!("Failed")
+                }
+            }
+        }
+        /*
         let mut command = process::Command::new("ios-deploy");
         command.args(&["-i", &self.id, "-b", &app_path, "-m"]);
         command.args(&["-a", &args.join(" ")]);
@@ -123,13 +232,14 @@ impl IosDevice {
         command.stderr(process::Stdio::inherit());
         command.stdout(process::Stdio::inherit());
         let status = command
-            .log_invocation(1)
-            .output()
-            .context("Failed to run ios-deploy")?
-            .status;
+        .log_invocation(1)
+        .output()
+        .context("Failed to run ios-deploy")?
+        .status;
         if !status.success() {
-            bail!("Run on device failed")
+        bail!("Run on device failed")
         }
+        */
         Ok(())
     }
 }
@@ -232,7 +342,12 @@ impl AppleSimDevice {
         }
     }
 
-    fn make_app(&self, project: &Project, build: &Build, runnable: &Runnable) -> Result<BuildBundle> {
+    fn make_app(
+        &self,
+        project: &Project,
+        build: &Build,
+        runnable: &Runnable,
+    ) -> Result<BuildBundle> {
         make_apple_app(project, build, runnable, "Dinghy", Some(&self.sim_type))
     }
 }
@@ -375,7 +490,6 @@ fn make_apple_app(
     xcode::add_plist_to_app(&build_bundle, target, app_id, sim_type)?;
     Ok(build_bundle)
 }
-
 
 fn launch_app(dev: &AppleSimDevice, app_args: &[&str], _envs: &[&str]) -> Result<()> {
     use std::io::Write;

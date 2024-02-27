@@ -3,12 +3,13 @@ use std::fmt::Display;
 pub use self::device::{IosDevice, AppleSimDevice};
 pub use self::platform::AppleDevicePlatform;
 use crate::{Device, Platform, PlatformManager, Result};
+use itertools::Itertools;
 
 mod device;
 mod platform;
 mod xcode;
 
-use anyhow::{anyhow, Context};
+use anyhow::{anyhow, Context, bail};
 use log::info;
 
 #[derive(Debug, Clone)]
@@ -55,9 +56,9 @@ impl IosManager {
             .into_iter()
             .chain(
                 simulators(AppleSimulatorType::Ios)
-                    .context("Could not list iOS simulators")?
-                    .into_iter(),
-            )
+                .context("Could not list iOS simulators")?
+                .into_iter(),
+                )
             .collect();
         Ok(Some(IosManager { devices }))
     }
@@ -77,29 +78,29 @@ impl PlatformManager for IosManager {
             "x86_64",
             "aarch64-sim",
         ]
-        .iter()
-        .map(|arch| {
-            let id = format!("auto-ios-{}", arch);
-            let rustc_triple = if *arch != "aarch64-sim" {
-                format!("{}-apple-ios", arch)
-            } else {
-                format!("aarch64-apple-ios-sim")
-            };
+            .iter()
+            .map(|arch| {
+                let id = format!("auto-ios-{}", arch);
+                let rustc_triple = if *arch != "aarch64-sim" {
+                    format!("{}-apple-ios", arch)
+                } else {
+                    format!("aarch64-apple-ios-sim")
+                };
 
-            let simulator = if *arch == "x86_64" || *arch == "aarch64-sim" {
-                Some(AppleSimulatorType::Ios)
-            } else {
-                None
-            };
+                let simulator = if *arch == "x86_64" || *arch == "aarch64-sim" {
+                    Some(AppleSimulatorType::Ios)
+                } else {
+                    None
+                };
 
-            AppleDevicePlatform::new(
-                id,
-                &rustc_triple,
-                simulator,
-                crate::config::PlatformConfiguration::default(),
-            )
-            .map(|pf| pf as Box<dyn Platform>)
-        })
+                AppleDevicePlatform::new(
+                    id,
+                    &rustc_triple,
+                    simulator,
+                    crate::config::PlatformConfiguration::default(),
+                    )
+                    .map(|pf| pf as Box<dyn Platform>)
+            })
         .collect()
     }
 }
@@ -126,33 +127,33 @@ impl PlatformManager for WatchosManager {
             "x86_64-sim",
             "aarch64-sim",
         ]
-        .iter()
-        .map(|arch| {
-            let id = format!("auto-watchos-{}", arch);
+            .iter()
+            .map(|arch| {
+                let id = format!("auto-watchos-{}", arch);
 
-            // Apple watch simulator targets are x86_64-apple-watchos-sim or
-            // aarch64-apple-watchos-sim
-            let rustc_triple = if *arch == "aarch64-sim" {
-                format!("aarch64-apple-watchos-sim")
-            } else if *arch == "x86_64-sim" {
-                format!("x86_64-apple-watchos-sim")
-            } else {
-                format!("{}-apple-watchos", arch)
-            };
-            let simulator = if *arch == "x86_64-sim" || *arch == "aarch64-sim" {
-                Some(AppleSimulatorType::Watchos)
-            } else {
-                None
-            };
+                // Apple watch simulator targets are x86_64-apple-watchos-sim or
+                // aarch64-apple-watchos-sim
+                let rustc_triple = if *arch == "aarch64-sim" {
+                    format!("aarch64-apple-watchos-sim")
+                } else if *arch == "x86_64-sim" {
+                    format!("x86_64-apple-watchos-sim")
+                } else {
+                    format!("{}-apple-watchos", arch)
+                };
+                let simulator = if *arch == "x86_64-sim" || *arch == "aarch64-sim" {
+                    Some(AppleSimulatorType::Watchos)
+                } else {
+                    None
+                };
 
-            AppleDevicePlatform::new(
-                id,
-                &rustc_triple,
-                simulator,
-                crate::config::PlatformConfiguration::default(),
-            )
-            .map(|pf| pf as Box<dyn Platform>)
-        })
+                AppleDevicePlatform::new(
+                    id,
+                    &rustc_triple,
+                    simulator,
+                    crate::config::PlatformConfiguration::default(),
+                    )
+                    .map(|pf| pf as Box<dyn Platform>)
+            })
         .collect()
     }
 }
@@ -179,27 +180,27 @@ impl PlatformManager for TvosManager {
             "x86_64",
             "aarch64-sim",
         ]
-        .iter()
-        .map(|arch| {
-            let id = format!("auto-tvos-{}", arch);
-            let rustc_triple = if *arch != "aarch64-sim" {
-                format!("{}-apple-tvos", arch)
-            } else {
-                format!("aarch64-apple-tvos-sim")
-            };
-            let simulator = if *arch == "x86_64" || *arch == "aarch64-sim" {
-                Some(AppleSimulatorType::Tvos)
-            } else {
-                None
-            };
-            AppleDevicePlatform::new(
-                id,
-                &rustc_triple,
-                simulator,
-                crate::config::PlatformConfiguration::default(),
-            )
-            .map(|pf| pf as Box<dyn Platform>)
-        })
+            .iter()
+            .map(|arch| {
+                let id = format!("auto-tvos-{}", arch);
+                let rustc_triple = if *arch != "aarch64-sim" {
+                    format!("{}-apple-tvos", arch)
+                } else {
+                    format!("aarch64-apple-tvos-sim")
+                };
+                let simulator = if *arch == "x86_64" || *arch == "aarch64-sim" {
+                    Some(AppleSimulatorType::Tvos)
+                } else {
+                    None
+                };
+                AppleDevicePlatform::new(
+                    id,
+                    &rustc_triple,
+                    simulator,
+                    crate::config::PlatformConfiguration::default(),
+                    )
+                    .map(|pf| pf as Box<dyn Platform>)
+            })
         .collect()
     }
 }
@@ -210,13 +211,13 @@ fn simulators(sim_type: AppleSimulatorType) -> Result<Vec<Box<dyn Device>>> {
         .output()?;
     if !sims_list.status.success() {
         info!(
-                "Failed while looking for ios simulators. It this is not expected, you need to make sure `xcrun simctl list --json` works."
+            "Failed while looking for ios simulators. It this is not expected, you need to make sure `xcrun simctl list --json` works."
             );
         return Ok(vec![]);
     }
     let sims_list = String::from_utf8(sims_list.stdout)?;
     let sims_list = json::parse(&sims_list)
-               .with_context(|| "Could not parse output for: `xcrun simctl list --json devices` as json. Please try to make this command work and retry.")?;
+        .with_context(|| "Could not parse output for: `xcrun simctl list --json devices` as json. Please try to make this command work and retry.")?;
     let mut sims: Vec<Box<dyn Device>> = vec![];
     for (ref k, ref v) in sims_list["devices"].entries() {
         for ref sim in v.members() {
@@ -226,12 +227,12 @@ fn simulators(sim_type: AppleSimulatorType) -> Result<Vec<Box<dyn Device>>> {
                         .as_str()
                         .ok_or_else(|| anyhow!("unexpected simulator list format (missing name)"))?
                         .to_string(),
-                    id: sim["udid"]
-                        .as_str()
-                        .ok_or_else(|| anyhow!("unexpected simulator list format (missing udid)"))?
-                        .to_string(),
-                    os: k.split(" ").last().unwrap().to_string(),
-                    sim_type: sim_type.clone(),
+                        id: sim["udid"]
+                            .as_str()
+                            .ok_or_else(|| anyhow!("unexpected simulator list format (missing udid)"))?
+                            .to_string(),
+                            os: k.split(" ").last().unwrap().to_string(),
+                            sim_type: sim_type.clone(),
                 }))
             }
         }
@@ -240,31 +241,57 @@ fn simulators(sim_type: AppleSimulatorType) -> Result<Vec<Box<dyn Device>>> {
 }
 
 fn devices() -> Result<Vec<Box<dyn Device>>> {
-    let list = ::std::process::Command::new("ios-deploy")
+    let tempdir = tempdir::TempDir::new("dinghy-ios")?;
+    let tmpjson = tempdir.path().join("json");
+    let devicectl = std::process::Command::new("xcrun")
+        .args("devicectl list devices --quiet --json-output".split_whitespace().collect_vec())
+        .arg(&tmpjson)
         .stderr(std::process::Stdio::inherit())
-        .args(&["-c", "--json", "-t", "1"])
-        .output();
-    let list = match list {
-        Ok(l) => l,
-        Err(e) => {
-            info!(
-                "Could not execute ios-deploy to look for iOS devices ({}), so iOS device support is disabled. Consider installing ios-deploy (`brew install ios-deploy`...) for iOS support.", e);
-            return Ok(vec![]);
-        }
-    };
-    if !list.status.success() {
-        info!(
-                "ios-deploy returned an error while listing devices. It this is not expected, you need to make sure `ios-deploy --json -c -t 1` works as expected."
-            );
-        return Ok(vec![]);
+        .output()
+        .context("Failed to launch xcrun command. Please check that \"xcrun devicectl list devices\" works")?;
+    if !devicectl.status.success() {
+        bail!("xcrun command failed. Please check that \"xcrun devicectl list devices\" works.\n{devicectl:?}");
     }
-    // ios-deploy outputs each device as a multiline json dict, with separator or delimiter. make
-    // it a json array.
-    let list = String::from_utf8(list.stdout)?.replace("}{", "},{");
-    let list = format!("[{}]", list);
-    let list = ::json::parse(&list)
-               .with_context(|| "Could not parse output for: `ios-deploy --json -c -t 1` as json. Please try to make this command work and retry.")?;
-    list.members()
-        .map(|json| Ok(Box::new(IosDevice::new(&json)?) as Box<dyn Device>))
-        .collect::<Result<Vec<Box<dyn Device>>>>()
+    let mut devices = vec!();
+    for device in json::parse(&std::fs::read_to_string(tmpjson)?)?["result"]["devices"].members() {
+        let device = IosDevice::new(
+            device["deviceProperties"]["name"].as_str().context("no name in device json")?.to_string(),
+            device["hardwareProperties"]["udid"].as_str().context("no identifier in device json")?.to_string(),
+            device["hardwareProperties"]["cpuType"]["name"].as_str().context("no cpuType in device json")?
+        )?;
+        devices.push(Box::new(device) as _);
+    }
+    Ok(devices)
 }
+
+/*
+   fn devices() -> Result<Vec<Box<dyn Device>>> {
+   let list = ::std::process::Command::new("ios-deploy")
+   .stderr(std::process::Stdio::inherit())
+   .args(&["-c", "--json", "-t", "1"])
+   .output();
+   let list = match list {
+   Ok(l) => l,
+   Err(e) => {
+   info!(
+   "Could not execute ios-deploy to look for iOS devices ({}), so iOS device support is disabled. Consider installing ios-deploy (`brew install ios-deploy`...) for iOS support.", e);
+   return Ok(vec![]);
+   }
+   };
+   if !list.status.success() {
+   info!(
+   "ios-deploy returned an error while listing devices. It this is not expected, you need to make sure `ios-deploy --json -c -t 1` works as expected."
+   );
+   return Ok(vec![]);
+   }
+// ios-deploy outputs each device as a multiline json dict, with separator or delimiter. make
+// it a json array.
+let list = String::from_utf8(list.stdout)?.replace("}{", "},{");
+let list = format!("[{}]", list);
+let list = ::json::parse(&list)
+.with_context(|| "Could not parse output for: `ios-deploy --json -c -t 1` as json. Please try to make this command work and retry.")?;
+list.members()
+.map(|json| Ok(Box::new(IosDevice::for_ios_deploy_json(&json)?) as Box<dyn Device>))
+.collect::<Result<Vec<Box<dyn Device>>>>()
+}
+*/
