@@ -10,6 +10,7 @@ use crate::BuildBundle;
 use crate::Device;
 use crate::DeviceCompatibility;
 use crate::Runnable;
+use colored::Colorize;
 use itertools::Itertools;
 use log::debug;
 use std::fmt;
@@ -19,6 +20,7 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{self, Stdio};
+use std::time::Duration;
 
 #[derive(Clone, Debug)]
 pub struct IosDevice {
@@ -26,6 +28,7 @@ pub struct IosDevice {
     pub name: String,
     pub arch_cpu: &'static str,
     rustc_triple: String,
+    pub os: String,
 }
 
 #[derive(Clone, Debug)]
@@ -39,23 +42,7 @@ pub struct AppleSimDevice {
 unsafe impl Send for IosDevice {}
 
 impl IosDevice {
-    pub fn for_ios_deploy_json(json: &json::JsonValue) -> Result<IosDevice> {
-        let device = &json["Device"];
-        let id = device["DeviceIdentifier"]
-            .as_str()
-            .context("DeviceIdentifier expected to be a string")?
-            .to_owned();
-        let name = device["DeviceName"]
-            .as_str()
-            .context("DeviceName expected to be a string")?
-            .to_owned();
-        let arch_cpu = device["modelArch"]
-            .as_str()
-            .context("DeviceName expected to be a string")?;
-        IosDevice::new(name, id, &arch_cpu)
-    }
-
-    pub fn new(name: String, id: String, arch_cpu: &str) -> Result<IosDevice> {
+    pub fn new(name: String, id: String, arch_cpu: &str, os: String) -> Result<IosDevice> {
         let cpu = match &*arch_cpu {
             "arm64" | "arm64e" => "aarch64",
             _ => "armv7",
@@ -63,9 +50,34 @@ impl IosDevice {
         Ok(IosDevice {
             name,
             id,
+            os,
             arch_cpu: cpu.into(),
             rustc_triple: format!("{}-apple-ios", cpu),
         })
+    }
+
+    fn is_pre_ios_17(&self) -> Result<bool> {
+        Ok(semver::Version::parse(&self.os)?.major < 17)
+    }
+
+    fn is_locked(&self) -> Result<bool> {
+        let result = process::Command::new("xcrun")
+            .args(
+                "devicectl device info lockState --quiet --json-output /dev/stdout --device"
+                    .split_whitespace(),
+            )
+            .arg(&self.id)
+            .log_invocation(1)
+            .output()
+            .context("Failed to run ios-deploy")?;
+        if !result.status.success() {
+            bail!("Device lock query failed\n",)
+        }
+        Ok(
+            json::parse(std::str::from_utf8(&result.stdout)?)?["result"]["passcodeRequired"]
+                .as_bool()
+                .unwrap(),
+        )
     }
 
     fn make_app(
@@ -102,30 +114,21 @@ impl IosDevice {
         );
         let build_bundle = self.make_app(project, build, runnable)?;
         let bundle = build_bundle.bundle_dir.to_string_lossy();
+        if self.is_pre_ios_17()? {
+            self.install_app_with_ios_deploy(&bundle)?;
+            return Ok(build_bundle);
+        }
+
         // xcrun devicectl device install app --device 00008110-001XXXXXXXXXX ./xgen/Build/Products/Release-iphoneos/nilo.app
         let result = process::Command::new("xcrun")
             .args("devicectl device install app --device".split_whitespace())
             .arg(&self.id)
             .arg(&*bundle)
             .log_invocation(1)
-            .stdout(Stdio::inherit())
-            .stderr(Stdio::inherit())
-            .output()
+            .status()
             .context("Failed to run ios-deploy")?;
-        /*
-        let status = process::Command::new("ios-deploy")
-        .args(&["-i", &self.id, "-b", &bundle, "-n"])
-        .log_invocation(1)
-        .output()
-        .context("Failed to run ios-deploy")?
-        .status;
-        */
-        if !result.status.success() {
-            bail!(
-                "Installation on device failed\nSTDOUT:{}\nSTDERR:{}\n",
-                std::str::from_utf8(&result.stdout)?,
-                std::str::from_utf8(&result.stderr)?
-            )
+        if !result.success() {
+            bail!("Installation on device failed\n",)
         }
         Ok(build_bundle)
     }
@@ -137,6 +140,9 @@ impl IosDevice {
         envs: &[&str],
         debugger: bool,
     ) -> Result<()> {
+        if self.is_pre_ios_17()? {
+            return self.run_remote_with_ios_deploy(app_path, args, envs, debugger);
+        }
         let app_list = process::Command::new("pymobiledevice3")
             .args("apps list --no-color --udid".split_whitespace())
             .arg(&self.id)
@@ -149,16 +155,16 @@ impl IosDevice {
             .1;
         let remote_path = app["Path"].to_string();
 
-        // sudo /bin/true (noop) in foreground so user get a chance to unlock sudo with their
-        // password
-        let sudo = process::Command::new("sudo").arg("/bin/true").output();
-        if sudo.is_err() {
-            bail!("Failure to run preemptive sudo prompt")
-        }
-        // sudo python3 -m pymobiledevice3 remote start-tunnel --script-mode
         let tunnel = process::Command::new("sudo")
+            .arg("-p")
+            .arg(format!(
+                "Please enter %p's password on %h to start a tunnel to '{}' (sudo):",
+                self.name
+            ))
             .args("pymobiledevice3 remote start-tunnel --script-mode --udid".split_whitespace())
             .arg(&self.id)
+            .stderr(Stdio::inherit())
+            .stdin(Stdio::inherit())
             .stdout(Stdio::piped())
             .spawn()?;
         let mut rsd = String::new();
@@ -169,8 +175,7 @@ impl IosDevice {
         let server = process::Command::new("pymobiledevice3")
             .args("developer debugserver start-server --rsd".split_whitespace())
             .args(rsd.trim().split_whitespace())
-            //            .stderr(Stdio::inherit())
-            //            .stdout(Stdio::null())
+            .stderr(Stdio::inherit())
             .stdout(Stdio::piped())
             .spawn()?;
         let lldb_connection_string = BufReader::new(server.stdout.unwrap())
@@ -180,6 +185,17 @@ impl IosDevice {
             .unwrap();
         let connection_details = lldb_connection_string.split_whitespace().nth(3).unwrap();
         debug!("iOS debugserver started: {connection_details}");
+
+        if self.is_locked()? {
+            eprint!("{}", format!("\n\n      Please unlock {}! ", &self.name).bright_yellow());
+            loop {
+                std::thread::sleep(Duration::from_millis(300));
+                if !self.is_locked()? {
+                    eprintln!("{}", "   All good, yay !\n".bright_green());
+                    break;
+                }
+            }
+        }
 
         let tempdir = tempdir::TempDir::new("dinghy-lldb")?;
         let script_path = tempdir.path().join("run.lldb");
@@ -198,14 +214,18 @@ process connect {connection_details}
 script lldb.debugger.SetAsync(old_debug)
 run {}
 exit
-            ", args.iter().map(|&s| shell_escape::escape(s.into())).join(" ")
+            ",
+                args.iter()
+                    .map(|&s| shell_escape::escape(s.into()))
+                    .join(" ")
             ),
         )?;
 
         let lldb = process::Command::new("lldb")
+            .arg("--batch")
             .arg("-s")
             .arg(script_path)
-            .stderr(Stdio::piped())
+            .stderr(Stdio::inherit())
             .stdout(Stdio::piped())
             .spawn()?;
         let mut lines = BufReader::new(lldb.stdout.unwrap()).lines();
@@ -223,7 +243,27 @@ exit
                 }
             }
         }
-        /*
+        Ok(())
+    }
+
+    // LEGACY IOS-DEPLOY BASED WORKFLOW (iOS<17)
+    fn install_app_with_ios_deploy(&self, bundle: &str) -> Result<()> {
+        process::Command::new("ios-deploy")
+            .args(&["-i", &self.id, "-b", &bundle, "-n"])
+            .log_invocation(1)
+            .output()
+            .context("Failed to run ios-deploy")?
+            .status;
+        Ok(())
+    }
+
+    fn run_remote_with_ios_deploy(
+        &self,
+        app_path: &str,
+        args: &[&str],
+        envs: &[&str],
+        debugger: bool,
+    ) -> Result<()> {
         let mut command = process::Command::new("ios-deploy");
         command.args(&["-i", &self.id, "-b", &app_path, "-m"]);
         command.args(&["-a", &args.join(" ")]);
@@ -232,14 +272,13 @@ exit
         command.stderr(process::Stdio::inherit());
         command.stdout(process::Stdio::inherit());
         let status = command
-        .log_invocation(1)
-        .output()
-        .context("Failed to run ios-deploy")?
-        .status;
+            .log_invocation(1)
+            .output()
+            .context("Failed to run ios-deploy")?
+            .status;
         if !status.success() {
-        bail!("Run on device failed")
+            bail!("Run on device failed")
         }
-        */
         Ok(())
     }
 }
@@ -418,25 +457,17 @@ impl Device for AppleSimDevice {
 
 impl Display for IosDevice {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        Ok(fmt.write_str(
-            format!(
-                "IosDevice {{ \"id\": \"{}\", \"name\": {}, \"arch_cpu\": {} }}",
-                self.id, self.name, self.arch_cpu
-            )
-            .as_str(),
-        )?)
+        write!(
+            fmt,
+            "{} ({} {} {})",
+            self.name, self.id, self.arch_cpu, self.os
+        )
     }
 }
 
 impl Display for AppleSimDevice {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        Ok(fmt.write_str(
-            format!(
-                "AppleSimDevice {{ \"id\": \"{}\", \"name\": {}, \"os\": {} }}",
-                self.id, self.name, self.os
-            )
-            .as_str(),
-        )?)
+        write!(fmt, "{} ({} sim {})", self.name, self.id, self.os)
     }
 }
 
