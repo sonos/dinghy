@@ -1,21 +1,20 @@
 ## Getting started - iOS phone
 
-
 ### Dinghy setup
 
 Assuming [rustup](http://rustup.rs) is already installed...
 
 ```
 cargo install cargo-dinghy
-
-# If it's already installed, add '--force'
-cargo install cargo-dinghy --force
 ```
 
-### Additional Requirements
+### Additional iOS Requirements
 
-In order to deploy to iOS devices one needs to install [ios-deploy](https://github.com/ios-control/ios-deploy). For example with:
-`brew install ios-deploy`
+You will need:
+
+ * XCode (the full thing, not restricted to the command line)
+ * `pymobiledevice3` for deploying and running code on the devices. `pip install pymobiledevice3` should do the trick.
+ * optionnaly, for iOS devices running iOS version lower than 17, you need [ios-deploy](https://github.com/ios-control/ios-deploy): `brew install ios-deploy`
 
 ### iOS phone
 
