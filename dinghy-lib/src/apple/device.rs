@@ -126,7 +126,7 @@ impl IosDevice {
             .arg(&*bundle)
             .log_invocation(1)
             .status()
-            .context("Failed to run ios-deploy")?;
+            .context("Failed to run devicectl device install app")?;
         if !result.success() {
             bail!("Installation on device failed\n",)
         }
