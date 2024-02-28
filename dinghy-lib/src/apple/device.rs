@@ -191,7 +191,7 @@ impl IosDevice {
             loop {
                 std::thread::sleep(Duration::from_millis(300));
                 if !self.is_locked()? {
-                    eprintln!("{}", "   All good, yay !\n".bright_green());
+                    eprintln!("{}", "   All good, yay!\n".bright_green());
                     break;
                 }
             }
