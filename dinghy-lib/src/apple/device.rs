@@ -69,7 +69,7 @@ impl IosDevice {
             .arg(&self.id)
             .log_invocation(1)
             .output()
-            .context("Failed to run ios-deploy")?;
+            .context("Failed to run devicectl device info lockState")?;
         if !result.status.success() {
             bail!("Device lock query failed\n",)
         }
