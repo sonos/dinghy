@@ -168,7 +168,7 @@ fn probable_sdk_locs() -> Result<Vec<path::PathBuf>> {
         }
     }
     if let Ok(home) = env::var("HOME") {
-        let mac = path::Path::new(&home).join("/Library/Android/sdk");
+        let mac = path::Path::new(&home).join("Library/Android/sdk");
         if mac.is_dir() {
             v.push(mac);
         }
