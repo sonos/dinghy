@@ -147,7 +147,11 @@ impl IosDevice {
             .args("apps list --no-color --udid".split_whitespace())
             .arg(&self.id)
             .output()?;
-        let app_list = json::parse(std::str::from_utf8(&app_list.stdout)?)?;
+        let app_list = json::parse(std::str::from_utf8(&app_list.stdout)?).with_context(|| {
+            format!(
+                "Ran `pymobiledevice3 app list --no-color --udid {}`, could not parse expected JSON output.", self.id,
+            )
+        })?;
         let app = app_list
             .entries()
             .find(|e| e.0.ends_with("Dinghy"))
@@ -187,7 +191,10 @@ impl IosDevice {
         debug!("iOS debugserver started: {connection_details}");
 
         if self.is_locked()? {
-            eprint!("{}", format!("\n\n      Please unlock {}! ", &self.name).bright_yellow());
+            eprint!(
+                "{}",
+                format!("\n\n      Please unlock {}! ", &self.name).bright_yellow()
+            );
             loop {
                 std::thread::sleep(Duration::from_millis(300));
                 if !self.is_locked()? {
