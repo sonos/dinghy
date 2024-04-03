@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 CRATE=$1
 VERSION=$2
@@ -12,6 +12,12 @@ then
 fi
 
 set -ex
+
+if ! [[ $(git --no-pager log HEAD^..HEAD --pretty=format:"%s") == "changelog for $VERSION" ]] && [[ -z "${SKIP_CHANGELOG_CHECK}" ]]
+then
+  echo "Please generate the changelog first using ./pre-release $VERSION"
+  exit 1
+fi
 
 if [ "$CRATE" = "all" ]
 then
