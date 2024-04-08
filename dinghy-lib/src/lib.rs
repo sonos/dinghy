@@ -273,12 +273,12 @@ pub struct BuildBundle {
     pub bundle_exe: path::PathBuf,
     pub lib_dir: path::PathBuf,
     pub root_dir: path::PathBuf,
+    pub app_id: Option<String>,
 }
 
 impl BuildBundle {
     fn replace_prefix_with<P: AsRef<path::Path>>(&self, path: P) -> Result<Self> {
         Ok(BuildBundle {
-            id: self.id.clone(),
             bundle_dir: utils::normalize_path(
                 &path
                     .as_ref()
@@ -298,6 +298,7 @@ impl BuildBundle {
                     .join(self.lib_dir.strip_prefix(&self.root_dir)?),
             ),
             root_dir: path.as_ref().to_path_buf(),
+            ..self.clone()
         })
     }
 }

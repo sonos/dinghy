@@ -131,5 +131,6 @@ pub fn make_remote_app_with_name(
         bundle_exe: bundle_exe_path.to_path_buf(),
         lib_dir: bundle_libs_path.to_path_buf(),
         root_dir,
+        app_id: None,
     })
 }

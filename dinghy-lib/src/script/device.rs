@@ -93,6 +93,7 @@ impl Device for ScriptDevice {
             bundle_exe: build.runnable.exe.to_path_buf(),
             lib_dir: build.target_path.clone(),
             root_dir: root_dir.clone(),
+            app_id: None,
         })
     }
 }

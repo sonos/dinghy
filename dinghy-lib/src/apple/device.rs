@@ -95,7 +95,8 @@ impl IosDevice {
             .last()
             .ok_or_else(|| anyhow!("no app id ?"))?;
 
-        let build_bundle = make_apple_app(project, build, runnable, &app_id, None)?;
+        let mut build_bundle = make_apple_app(project, build, runnable, &app_id, None)?;
+        build_bundle.app_id = Some(app_id.to_owned());
 
         super::xcode::sign_app(&build_bundle, &signing)?;
         Ok(build_bundle)
@@ -135,13 +136,13 @@ impl IosDevice {
 
     fn run_remote(
         &self,
-        app_path: &str,
+        build_bundle: &BuildBundle,
         args: &[&str],
         envs: &[&str],
         debugger: bool,
     ) -> Result<()> {
         if self.is_pre_ios_17()? {
-            return self.run_remote_with_ios_deploy(app_path, args, envs, debugger);
+            return self.run_remote_with_ios_deploy(build_bundle, args, envs, debugger);
         }
         let app_list = process::Command::new("pymobiledevice3")
             .args("apps list --no-color --udid".split_whitespace())
@@ -152,9 +153,10 @@ impl IosDevice {
                 "Ran `pymobiledevice3 app list --no-color --udid {}`, could not parse expected JSON output.", self.id,
             )
         })?;
+        let app_path = build_bundle.bundle_dir.to_string_lossy();
         let app = app_list
             .entries()
-            .find(|e| e.0.ends_with("Dinghy"))
+            .find(|e| e.0 == build_bundle.app_id.as_ref().unwrap())
             .unwrap()
             .1;
         let remote_path = app["Path"].to_string();
@@ -266,13 +268,14 @@ exit
 
     fn run_remote_with_ios_deploy(
         &self,
-        app_path: &str,
+        build_bundle: &BuildBundle,
         args: &[&str],
         envs: &[&str],
         debugger: bool,
     ) -> Result<()> {
+        let bundle = build_bundle.bundle_dir.to_string_lossy();
         let mut command = process::Command::new("ios-deploy");
-        command.args(&["-i", &self.id, "-b", &app_path, "-m"]);
+        command.args(&["-i", &self.id, "-b", &bundle, "-m"]);
         command.args(&["-a", &args.join(" ")]);
         command.args(&["-s", &envs.join(" ")]);
         command.arg(if debugger { "-d" } else { "-I" });
@@ -303,7 +306,6 @@ impl Device for IosDevice {
         envs: &[&str],
     ) -> Result<BuildBundle> {
         let build_bundle = self.install_app(project, build, &build.runnable)?;
-        let bundle = build_bundle.bundle_dir.to_string_lossy();
         if get_current_verbosity() < 1 {
             // we log the full command for verbosity > 1, just log a short message when the user
             // didn't ask for verbose output
@@ -313,7 +315,7 @@ impl Device for IosDevice {
                 0,
             );
         }
-        self.run_remote(&bundle, args, envs, true)?;
+        self.run_remote(&build_bundle, args, envs, true)?;
         Ok(build_bundle)
     }
 
@@ -333,7 +335,6 @@ impl Device for IosDevice {
         envs: &[&str],
     ) -> Result<BuildBundle> {
         let build_bundle = self.install_app(project, build, &build.runnable)?;
-        let bundle = build_bundle.bundle_dir.to_string_lossy();
         if get_current_verbosity() < 1 {
             // we log the full command for verbosity > 1, just log a short message when the user
             // didn't ask for verbose output
@@ -343,7 +344,7 @@ impl Device for IosDevice {
                 0,
             );
         }
-        self.run_remote(&bundle, args, envs, false)?;
+        self.run_remote(&build_bundle, args, envs, false)?;
         Ok(build_bundle)
     }
 }
