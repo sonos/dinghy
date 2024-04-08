@@ -1,4 +1,5 @@
 use crate::errors::Result;
+use anyhow::Context;
 use anyhow::{anyhow, bail};
 use filetime::set_file_times;
 use filetime::FileTime;
@@ -13,23 +14,36 @@ pub fn copy_and_sync_file<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Res
     let from = &from.as_ref();
     let to = &to.as_ref();
 
+    if !from.exists() {
+        bail!("Source {from:?} is missing")
+    }
+
+    if !to.parent().unwrap().exists() {
+        bail!("Target directory is missing")
+    }
+
     // Make target file writeable if it is read-only.
     if to.exists() {
-        let mut permissions = fs::metadata(&to)?.permissions();
+        let mut permissions = fs::metadata(&to)
+            .with_context(|| format!("Checking metadata for {to:?}"))?
+            .permissions();
         if permissions.readonly() {
             permissions.set_readonly(false);
-            fs::set_permissions(&to, permissions)?;
+            fs::set_permissions(&to, permissions)
+                .with_context(|| format!("Setting permissions {to:?}"))?;
         }
     }
 
     log::trace!("copy {:?} to {:?}", from, to);
-    fs::copy(&from, &to)?;
+    fs::copy(&from, &to).with_context(|| format!("Copying {from:?} to {to:?}"))?;
 
     // Keep filetime to avoid useless sync on some devices (e.g. Android).
-    let from_metadata = from.metadata()?;
+    let from_metadata = from
+        .metadata()
+        .with_context(|| format!("Checking metadata for {from:?}"))?;
     let atime = FileTime::from_last_access_time(&from_metadata);
     let mtime = FileTime::from_last_modification_time(&from_metadata);
-    set_file_times(&to, atime, mtime)?;
+    set_file_times(&to, atime, mtime).with_context(|| format!("Setting times to {to:?}"))?;
 
     Ok(())
 }
