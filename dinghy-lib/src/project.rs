@@ -4,6 +4,7 @@ use crate::Platform;
 use crate::Result;
 use crate::Runnable;
 use anyhow::anyhow;
+use anyhow::Context;
 use cargo_metadata::Metadata;
 use ignore::WalkBuilder;
 use log::{debug, trace};
@@ -136,11 +137,14 @@ pub fn rec_copy_excl<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path> + ::std::
     );
 
     let mut walker = WalkBuilder::new(src);
+    walker.follow_links(true);
     walker.git_ignore(!copy_ignored_test_data);
     walker.add_ignore(ignore_file);
     for entry in walker.build() {
         let entry = entry?;
-        let metadata = entry.metadata()?;
+        let metadata = entry
+            .metadata()
+            .with_context(|| format!("Getting metadata for {entry:?}"))?;
 
         if more_exclude.iter().any(|ex| entry.path().starts_with(ex)) {
             debug!("Exclude {:?}", entry.path());
@@ -167,24 +171,26 @@ pub fn rec_copy_excl<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path> + ::std::
 
         if metadata.is_dir() {
             if target.exists() && target.is_file() {
-                fs::remove_file(&target)?;
+                fs::remove_file(&target).with_context(|| format!("Removing file {target:?}"))?;
             }
             trace!("Creating directory {}", target.display());
-            fs::create_dir_all(&target)?;
+            fs::create_dir_all(&target).with_context(|| format!("Creating dirs {target:?}"))?;
         } else if metadata.is_file() {
             if target.exists() && !target.is_file() {
                 trace!("Remove 2 {:?}", target);
-                fs::remove_dir_all(&target)?;
+                fs::remove_dir_all(&target).with_context(|| format!("Removing dirs {target:?}"))?;
             }
             if !target.exists()
                 || target.metadata()?.len() != entry.metadata()?.len()
                 || target.metadata()?.modified()? < entry.metadata()?.modified()?
             {
                 if target.exists() && target.metadata()?.permissions().readonly() {
-                    fs::remove_dir_all(&target)?;
+                    fs::remove_dir_all(&target)
+                        .with_context(|| format!("Removing dirs {target:?}"))?;
                 }
                 trace!("Copying {} to {}", entry.path().display(), target.display());
-                copy_and_sync_file(entry.path(), &target)?;
+                copy_and_sync_file(entry.path(), &target)
+                    .with_context(|| format!("Syncing {entry:?} and {target:?}"))?;
             } else {
                 trace!("{} is already up-to-date", target.display());
             }
