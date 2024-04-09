@@ -23,7 +23,7 @@ if [ "$CRATE" = "all" ]
 then
     for c in $CRATES
     do
-        $0 $c $VERSION
+        SKIP_CHANGELOG_CHECK=1 $0 $c $VERSION
     done
     exit 0
 fi
