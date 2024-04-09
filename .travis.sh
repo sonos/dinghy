@@ -15,7 +15,7 @@ then
     cargo build -p cargo-dinghy
     CARGO_DINGHY="`pwd`/target/debug/cargo-dinghy -vv"
 fi
-echo RUST_VERSION: ${RUST_VERSION:=1.70.0}
+echo RUST_VERSION: ${RUST_VERSION:=1.73.0}
 
 rustup toolchain add $RUST_VERSION
 export RUSTUP_TOOLCHAIN=$RUST_VERSION
