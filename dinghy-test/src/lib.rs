@@ -9,6 +9,7 @@ pub fn test_project_path() -> PathBuf {
             target_os = "ios",
             target_os = "watchos",
             target_os = "tvos",
+            target_os = "visionos",
             target_os = "android"
         )) || env::var("DINGHY").is_ok() {
         let current_exe = env::current_exe().expect("Current exe path not accessible");
@@ -37,6 +38,7 @@ pub fn try_test_file_path(test_data_id: &str) -> Option<PathBuf> {
             target_os = "ios",
             target_os = "watchos",
             target_os = "tvos",
+            target_os = "visionos",
             target_os = "android"
         )) || env::var("DINGHY").is_ok() {
         current_exe

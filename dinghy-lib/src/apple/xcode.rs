@@ -48,6 +48,9 @@ pub fn add_plist_to_app(
             writeln!(plist, "<key>WKApplication</key><true/>",)?;
             writeln!(plist, "<key>WKWatchOnly</key><true/>")?;
         }
+        Some(AppleSimulatorType::Visionos) => {
+            todo!()
+        }
     }
     writeln!(plist, r#"</dict></plist>"#)?;
     Ok(())
