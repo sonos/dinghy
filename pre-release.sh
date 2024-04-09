@@ -28,7 +28,7 @@ fi
 
 echo "Generating changelog"
 
-PATH="$(gem environment user_gemhome)/bin:$(gem environment user_gemhome)/bin"  github_changelog_generator --no-verbose -u sonos -p dinghy --include-tags-regex "^0\..+\..+" --future-release "${NEW_VERSION}"
+PATH="$(gem environment user_gemhome)/bin:$(gem environment gemhome)/bin"  github_changelog_generator --no-verbose -u sonos -p dinghy --include-tags-regex "^0\..+\..+" --future-release "${NEW_VERSION}"
 
 printf "Here are the updates to the changelog \n\n\n"
 
