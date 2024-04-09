@@ -1,6 +1,6 @@
 # Dinghy
 
-![rustc >= 1.70.0](https://img.shields.io/badge/rustc-%3E%3D1.70.0-brightgreen)
+![rustc >= 1.74.0](https://img.shields.io/badge/rustc-%3E%3D1.74.0-brightgreen)
 ![MIT/Apache 2](https://img.shields.io/crates/l/dinghy)
 ![Build and test](https://github.com/snipsco/dinghy/workflows/Build%20and%20test/badge.svg)
 
@@ -30,7 +30,7 @@ Phew. It works.
 
 ## How?
 
-Once dinghy knows about your toolchains and devices, you will be able to run 
+Once dinghy knows about your toolchains and devices, you will be able to run
 tests and benches from a simple cargo command **in any cargo project**, most of
 the time without altering them.
 
@@ -46,7 +46,7 @@ By default, without `-d`, Dinghy will make a native build, just like `cargo` wou
 ## Getting started
 
 Depending on your targets and your workstation, the ease of setting
-up Dinghy can vary. 
+up Dinghy can vary.
 
 * [Android](docs/android.md) is relatively easy, specifically if you already are
 a mobile developer.
@@ -65,14 +65,14 @@ possible but some projects need a bit of help.
 * In some bigger projects, you may need to [filter](docs/filter.md) your project's members depending
 on the platform you want to test.
 * Passing [environment](docs/vars.md) variables to your executable may sometimes be useful.
-* Dinghy offers an [overlay](docs/overlay.md) system to "add" stuff to your toolchain 
+* Dinghy offers an [overlay](docs/overlay.md) system to "add" stuff to your toolchain
 sysroot. This allows you to add "stuff" to your build dependencies, like static libraries or headers
 without altering the sysroot toolchain.
 * The [`dinghy-build` crate](docs/dinghy-build.md) offers some `build.rs` features that are useful in
 the context of cross-compilation.
 
 ## Using dinghy as a runner only
-If your project already build for the target platform without dinghy and you only want to use dinghy to run code on a 
+If your project already build for the target platform without dinghy and you only want to use dinghy to run code on a
 device, you can use dinghy's bundled runner directly. You simply need to register the dinghy as a runner in `.cargo/config`.
 Here's an example for all apple targets
 
@@ -81,10 +81,10 @@ Here's an example for all apple targets
 runner = "cargo dinghy runner --"
 ```
 
-You can then run your tests directly with `cargo test --target aarch64-apple-ios-sim` for example. 
+You can then run your tests directly with `cargo test --target aarch64-apple-ios-sim` for example.
 
-Please note that the recommended way to use dinghy is as a cargo subcommand as it will set up quite a few things 
-automatically for your project to even build. 
+Please note that the recommended way to use dinghy is as a cargo subcommand as it will set up quite a few things
+automatically for your project to even build.
 
 The runner will try to auto-detect the platform if it is not passed (as in the above example)
 
