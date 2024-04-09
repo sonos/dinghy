@@ -11,10 +11,8 @@ use dinghy_build::build_env::envify;
 use dinghy_build::build_env::set_env_ifndef;
 use dinghy_build::utils::path_between;
 use dirs::home_dir;
+use fs_err::{create_dir_all, read_dir, remove_dir_all, File};
 use itertools::Itertools;
-use std::fs::create_dir_all;
-use std::fs::remove_dir_all;
-use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
@@ -109,15 +107,7 @@ impl Overlayer {
     }
 
     fn from_directory<P: AsRef<Path>>(overlay_root_dir: P) -> Result<Vec<Overlay>> {
-        Ok(overlay_root_dir
-            .as_ref()
-            .read_dir()
-            .with_context(|| {
-                format!(
-                    "Couldn't read overlay root directory '{}'.",
-                    overlay_root_dir.as_ref().display()
-                )
-            })?
+        Ok(read_dir(overlay_root_dir.as_ref())?
             .filter_map(|it| it.ok()) // Ignore invalid directories
             .map(|it| it.path())
             .filter(|it| it.is_dir())
@@ -151,12 +141,7 @@ impl Overlayer {
                 )
             }
         }
-        create_dir_all(&self.work_dir).with_context(|| {
-            format!(
-                "Couldn't create overlay work directory {}.",
-                self.work_dir.display()
-            )
-        })?;
+        create_dir_all(&self.work_dir)?;
         append_path_to_target_env(
             pkg_config_env_var,
             self.rustc_triple.as_ref(),
@@ -216,7 +201,7 @@ impl Overlayer {
                 "Generating pkg-config pc file {}",
                 pc_file_path.as_ref().display()
             );
-            let mut pc_file = File::create(pc_file_path)?;
+            let mut pc_file = File::create(pc_file_path.as_ref())?;
             pc_file.write_all(b"prefix:/")?;
             pc_file.write_all(b"\nexec_prefix:${prefix}")?;
             pc_file.write_all(b"\nName: ")?;

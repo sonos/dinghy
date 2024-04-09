@@ -1,8 +1,9 @@
 use super::{AppleSimulatorType, SignatureSettings, SigningIdentity};
 use crate::errors::*;
+use fs_err as fs;
 use log::{debug, trace};
 use std::io::Write;
-use std::{fs, io, process};
+use std::{io, process};
 
 use crate::utils::LogCommandExt;
 use crate::BuildBundle;
@@ -11,7 +12,7 @@ pub fn add_plist_to_app(
     bundle: &BuildBundle,
     arch: &str,
     app_bundle_id: &str,
-    sim_type: Option<&AppleSimulatorType>
+    sim_type: Option<&AppleSimulatorType>,
 ) -> Result<()> {
     let mut plist = fs::File::create(bundle.bundle_dir.join("Info.plist"))?;
     writeln!(plist, r#"<?xml version="1.0" encoding="UTF-8"?>"#)?;
@@ -20,10 +21,7 @@ pub fn add_plist_to_app(
         r#"<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">"#
     )?;
     writeln!(plist, r#"<plist version="1.0"><dict>"#)?;
-    writeln!(
-        plist,
-        "<key>CFBundleName</key><string>Dinghy</string>",
-    )?;
+    writeln!(plist, "<key>CFBundleName</key><string>Dinghy</string>",)?;
     writeln!(
         plist,
         "<key>CFBundleExecutable</key><string>Dinghy</string>",
@@ -44,17 +42,16 @@ pub fn add_plist_to_app(
             writeln!(plist, "<array><string>{}</string></array>", arch)?;
             writeln!(plist, "<key>UILaunchStoryboardName</key>")?;
             writeln!(plist, "<string></string>")?;
-        },
+        }
         Some(AppleSimulatorType::Watchos) => {
             writeln!(plist, "<key>MinimumOSVersion</key><string>8.0</string>",)?;
             writeln!(plist, "<key>WKApplication</key><true/>",)?;
             writeln!(plist, "<key>WKWatchOnly</key><true/>")?;
-        },
+        }
     }
     writeln!(plist, r#"</dict></plist>"#)?;
     Ok(())
 }
-
 
 pub fn sign_app(bundle: &BuildBundle, settings: &SignatureSettings) -> Result<()> {
     debug!(
@@ -148,7 +145,7 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
             .log_invocation(3)
             .output()?;
         let plist = plist::Value::from_reader(io::Cursor::new(&decoded.stdout))
-            .with_context(|| format!("While trying to read profile {:?}", file.path()))?;
+            .with_context(|| format!("While reading profile {:?}", file.path()))?;
         let dict = plist
             .as_dictionary()
             .ok_or_else(|| anyhow!("plist root should be a dictionary"))?;
