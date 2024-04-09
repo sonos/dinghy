@@ -1,10 +1,9 @@
 use crate::errors::Result;
-use anyhow::Context;
 use anyhow::{anyhow, bail};
 use filetime::set_file_times;
 use filetime::FileTime;
+use fs_err as fs;
 use lazy_static::lazy_static;
-use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -24,26 +23,21 @@ pub fn copy_and_sync_file<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> Res
 
     // Make target file writeable if it is read-only.
     if to.exists() {
-        let mut permissions = fs::metadata(&to)
-            .with_context(|| format!("Checking metadata for {to:?}"))?
-            .permissions();
+        let mut permissions = fs::metadata(&to)?.permissions();
         if permissions.readonly() {
             permissions.set_readonly(false);
-            fs::set_permissions(&to, permissions)
-                .with_context(|| format!("Setting permissions {to:?}"))?;
+            fs::set_permissions(&to, permissions)?;
         }
     }
 
     log::trace!("copy {:?} to {:?}", from, to);
-    fs::copy(&from, &to).with_context(|| format!("Copying {from:?} to {to:?}"))?;
+    fs::copy(&from, &to)?;
 
     // Keep filetime to avoid useless sync on some devices (e.g. Android).
-    let from_metadata = from
-        .metadata()
-        .with_context(|| format!("Checking metadata for {from:?}"))?;
+    let from_metadata = from.metadata()?;
     let atime = FileTime::from_last_access_time(&from_metadata);
     let mtime = FileTime::from_last_modification_time(&from_metadata);
-    set_file_times(&to, atime, mtime).with_context(|| format!("Setting times to {to:?}"))?;
+    set_file_times(&to, atime, mtime)?;
 
     Ok(())
 }

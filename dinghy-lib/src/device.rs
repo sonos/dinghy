@@ -4,8 +4,8 @@ use crate::project::{rec_copy, Project};
 use crate::utils::copy_and_sync_file;
 use crate::Build;
 use crate::BuildBundle;
+use fs_err as fs;
 use log::debug;
-use std::fs;
 use std::path::Path;
 
 pub fn make_remote_app(project: &Project, build: &Build) -> Result<BuildBundle> {
@@ -45,12 +45,9 @@ pub fn make_remote_app_with_name(
     let _ = fs::remove_dir_all(&bundle_target_path);
 
     debug!("Making bundle {:?}", bundle_path);
-    fs::create_dir_all(&bundle_path)
-        .with_context(|| format!("Couldn't create {}", &bundle_path.display()))?;
-    fs::create_dir_all(&bundle_libs_path)
-        .with_context(|| format!("Couldn't create {}", &bundle_libs_path.display()))?;
-    fs::create_dir_all(&bundle_target_path)
-        .with_context(|| format!("Couldn't create {}", &bundle_target_path.display()))?;
+    fs::create_dir_all(&bundle_path)?;
+    fs::create_dir_all(&bundle_libs_path)?;
+    fs::create_dir_all(&bundle_target_path)?;
 
     debug!(
         "Copying exe {:?} to bundle {:?}",

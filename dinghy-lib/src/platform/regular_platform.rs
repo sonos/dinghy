@@ -14,7 +14,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
+use fs_err::read_dir;
 use log::trace;
 
 pub struct RegularPlatform {
@@ -57,12 +58,7 @@ impl RegularPlatform {
 
         let mut bin: Option<PathBuf> = None;
         let mut prefix: Option<String> = None;
-        for file in toolchain_bin_path.read_dir().with_context(|| {
-            format!(
-                "Couldn't find toolchain directory {}",
-                toolchain_path.display()
-            )
-        })? {
+        for file in read_dir(&toolchain_bin_path)? {
             let file = file?;
             if file.file_name().to_string_lossy().ends_with("-gcc")
                 || file.file_name().to_string_lossy().ends_with("-gcc.exe")

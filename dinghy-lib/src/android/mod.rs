@@ -1,8 +1,9 @@
 use crate::config::PlatformConfiguration;
 use crate::toolchain::ToolchainConfig;
 use crate::{Device, Platform, PlatformManager, Result};
+use fs_err as fs;
 use std::fs::FileType;
-use std::{env, fs, path, process};
+use std::{env, path, process};
 
 pub use self::device::AndroidDevice;
 
@@ -78,15 +79,10 @@ impl PlatformManager for AndroidManager {
                     ("x86_64", "x86_64", "x86_64", "android"),
                 ] {
                     let mut api_levels: Vec<String> = Vec::new();
-                    for entry in tools
-                        .path()
-                        .join(format!(
-                            "sysroot/usr/lib/{}-linux-{}",
-                            binutils_cpu, abi_kind
-                        ))
-                        .read_dir()
-                        .with_context(|| format!("Reading tools dir {:?}", tools.path()))?
-                    {
+                    for entry in fs::read_dir(tools.path().join(format!(
+                        "sysroot/usr/lib/{}-linux-{}",
+                        binutils_cpu, abi_kind
+                    )))? {
                         let entry = entry?;
                         if entry.file_type()?.is_dir() {
                             let folder_name = entry.file_name().into_string().unwrap();
@@ -109,7 +105,14 @@ impl PlatformManager for AndroidManager {
                             binutils_prefix: format!("{}-linux-{}", binutils_cpu, abi_kind),
                             cc_prefix: format!("{}-linux-{}{}", cc_cpu, abi_kind, api),
                         };
-                        AndroidPlatform::new(PlatformConfiguration::default(), id, tc, major, ndk.clone(),libclang_path.clone())
+                        AndroidPlatform::new(
+                            PlatformConfiguration::default(),
+                            id,
+                            tc,
+                            major,
+                            ndk.clone(),
+                            libclang_path.clone(),
+                        )
                     };
                     for api in api_levels.iter() {
                         platforms.push(create_platform(&api, &format!("-api{}", api))?);
@@ -207,12 +210,7 @@ fn ndk() -> Result<Option<path::PathBuf>> {
 
 fn ndk_version(ndk: &path::Path) -> Result<String> {
     let sources_prop_file = ndk.join("source.properties");
-    let props = fs::read_to_string(&sources_prop_file).with_context(|| {
-        format!(
-            "Android NDK at {:?} does not contains a valid ndk-bundle: opening: {:?}",
-            ndk, sources_prop_file
-        )
-    })?;
+    let props = fs::read_to_string(&sources_prop_file)?;
     let revision_line = props
         .split("\n")
         .find(|l| l.starts_with("Pkg.Revision"))
@@ -258,9 +256,7 @@ fn find_non_legacy_ndk(sdk: &path::Path) -> Result<Option<path::PathBuf>> {
     if !ndk_root.is_dir() {
         return Ok(None);
     }
-    let ndk = ndk_root
-        .read_dir()
-        .with_context(|| format!("Cannot open NDK directory at {}", ndk_root.display()))?
+    let ndk = fs::read_dir(ndk_root)?
         .filter_map(Result::ok)
         .filter_map(|directory| {
             directory

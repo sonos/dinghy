@@ -37,6 +37,7 @@ cargo_metadata = "0.15.0"
 colored = "2.0.0"
 lazy_static = "1.4.0"
 dyn-clone = "1.0.8"
+fs-err = "2.11.0"
 
 [dev-dependencies]
 tempfile = "3.1"
