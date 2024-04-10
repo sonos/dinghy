@@ -240,6 +240,10 @@ fn simulators(sim_type: AppleSimulatorType) -> Result<Vec<Box<dyn Device>>> {
 
 fn devices() -> Result<Vec<Box<dyn Device>>> {
     let mut devices: HashMap<String, IosDevice> = Default::default();
+    if which::which("xcrun").is_err() {
+        log::warn!("xcrun not found. Apple devices support disabled. Consider installing XCode and its command line tools.");
+        return Ok(vec!())
+    }
     devices_from_devicectl(&mut devices)?;
     devices_from_ios_deploy(&mut devices)?;
     Ok(devices
