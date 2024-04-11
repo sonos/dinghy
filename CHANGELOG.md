@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.1](https://github.com/sonos/dinghy/tree/0.7.1) (2024-04-11)
+
+[Full Changelog](https://github.com/sonos/dinghy/compare/0.7.0...0.7.1)
+
+**Merged pull requests:**
+
+- fix macos binary upload [\#227](https://github.com/sonos/dinghy/pull/227) ([kali](https://github.com/kali))
+- only warn if xcrun is missing [\#226](https://github.com/sonos/dinghy/pull/226) ([kali](https://github.com/kali))
+- Bump msrv to 1.74 [\#224](https://github.com/sonos/dinghy/pull/224) ([simlay](https://github.com/simlay))
+
 ## [0.7.0](https://github.com/sonos/dinghy/tree/0.7.0) (2024-04-09)
 
 [Full Changelog](https://github.com/sonos/dinghy/compare/0.6.8...0.7.0)
