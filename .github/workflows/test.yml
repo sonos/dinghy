@@ -40,6 +40,18 @@ jobs:
       #    - name: cargo test
       #      run: cargo test --all
 
+  apple-3rd-tier:
+    strategy:
+      matrix:
+        os: [ macOS-13, macOS-14 ]
+        sim: [ tvOS, watchOS ]
+    runs-on: ${{matrix.os}}
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: build and test
+      run: ./.travis.apple-third-tier.sh ${{matrix.sim}}
+
   linux-musl:
     runs-on: ubuntu-latest
     steps:
