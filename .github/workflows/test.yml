@@ -44,7 +44,10 @@ jobs:
     strategy:
       matrix:
         os: [ macOS-13, macOS-14 ]
-        sim: [ tvOS, watchOS, visionOS ]
+        sim: [ tvOS, watchOS ]
+        include:
+          - os: macos-14
+            sim: visionOS
     runs-on: ${{matrix.os}}
 
     steps:
