@@ -17,7 +17,7 @@ use log::debug;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, self};
 use std::path::Path;
 use std::process::{self, Stdio};
 use std::time::Duration;
@@ -550,7 +550,12 @@ fn launch_app(dev: &AppleSimDevice, app_args: &[&str], _envs: &[&str]) -> Result
     let mut xcrun_args: Vec<&str> = vec!["simctl", "launch", "-w", stdout_param, &dev.id, "Dinghy"];
     xcrun_args.extend(app_args);
     debug!("Launching app via xcrun using args: {:?}", xcrun_args);
+    let criterion_path = Path::new(&install_path)
+        .join("criterion")
+        .to_string_lossy()
+        .into_owned();
     let launch_output = process::Command::new("xcrun")
+        .env("SIMCTL_CHILD_CRITERION_HOME", criterion_path.clone())
         .args(&xcrun_args)
         .log_invocation(1)
         .output()?;
@@ -601,6 +606,8 @@ fn launch_app(dev: &AppleSimDevice, app_args: &[&str], _envs: &[&str]) -> Result
         .lines()
         .rev()
         .find(|line| line.contains("exited with status"));
+    // This will fail if criterion didn't run.
+    let _ = copy_recursively(criterion_path, "./target/criterion");
     if let Some(exit_status_line) = exit_status_line {
         let words: Vec<&str> = exit_status_line.split_whitespace().rev().collect();
         if let Some(exit_status) = words.get(1) {
@@ -619,6 +626,19 @@ fn launch_app(dev: &AppleSimDevice, app_args: &[&str], _envs: &[&str]) -> Result
     } else {
         panic!("Failed to get the exit status line from lldb: {}", output);
     }
+}
+pub fn copy_recursively(source: impl AsRef<Path>, destination: impl AsRef<Path>) -> io::Result<()> {
+    fs::create_dir_all(&destination)?;
+    for entry in fs::read_dir(source.as_ref())? {
+        let entry = entry?;
+        let filetype = entry.file_type()?;
+        if filetype.is_dir() {
+            copy_recursively(entry.path(), destination.as_ref().join(entry.file_name()))?;
+        } else {
+            fs::copy(entry.path(), destination.as_ref().join(entry.file_name()))?;
+        }
+    }
+    Ok(())
 }
 
 fn launch_lldb_simulator(
