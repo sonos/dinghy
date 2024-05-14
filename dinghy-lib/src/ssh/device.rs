@@ -272,6 +272,6 @@ impl Debug for SshDevice {
 
 impl Display for SshDevice {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        write!(fmt, "{}", self.conf.hostname)
+        write!(fmt, "{} ({})", self.id, self.conf.hostname)
     }
 }
