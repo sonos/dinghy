@@ -26,5 +26,5 @@ deploy:
   file: cargo-dinghy-*.tgz
   on:
     tags: true
-    repo: snipsco/dinghy
+    repo: sonos/dinghy
     condition: "$TRAVIS_TAG =~ ^.*$"

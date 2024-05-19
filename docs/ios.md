@@ -78,7 +78,7 @@ Let's try it with dinghy demo project. The project tests with "pass" in the
 name are supposed to pass, the one with fail should break.
 
 ```
-% git clone https://github.com/snipsco/dinghy
+% git clone https://github.com/sonos/dinghy
 % cd dinghy/test-ws
 [...]
 # these ones should pass
