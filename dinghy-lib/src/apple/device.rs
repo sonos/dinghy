@@ -206,7 +206,7 @@ impl IosDevice {
             }
         }
 
-        let tempdir = tempdir::TempDir::new("dinghy-lldb")?;
+        let tempdir = tempfile::TempDir::with_prefix("dinghy-lldb")?;
         let script_path = tempdir.path().join("run.lldb");
         // see https://stackoverflow.com/questions/77865860/lldb-hangs-when-trying-to-execute-command-with-o
         // for the terrible async thing
@@ -532,7 +532,7 @@ fn make_apple_app(
 
 fn launch_app(dev: &AppleSimDevice, app_args: &[&str], _envs: &[&str]) -> Result<()> {
     use std::io::Write;
-    let dir = ::tempdir::TempDir::new("mobiledevice-rs-lldb")?;
+    let dir = tempfile::TempDir::with_prefix("mobiledevice-rs-lldb")?;
     let tmppath = dir.path();
     let mut install_path = String::from_utf8(
         process::Command::new("xcrun")
@@ -630,7 +630,7 @@ fn launch_lldb_simulator(
 ) -> Result<()> {
     use std::io::Write;
     use std::process::Command;
-    let dir = ::tempdir::TempDir::new("mobiledevice-rs-lldb")?;
+    let dir = tempfile::TempDir::with_prefix("mobiledevice-rs-lldb")?;
     let tmppath = dir.path();
     let lldb_script_filename = tmppath.join("lldb-script");
     {
