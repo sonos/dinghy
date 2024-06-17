@@ -247,7 +247,7 @@ dependencies = [
 
 [[package]]
 name = "dinghy-build"
-version = "0.7.2-pre"
+version = "0.7.2"
 dependencies = [
  "anyhow",
  "cc",
