@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.7.2](https://github.com/sonos/dinghy/tree/0.7.2) (2024-06-17)
+
+[Full Changelog](https://github.com/sonos/dinghy/compare/0.7.1...0.7.2)
+
+**Closed issues:**
+
+- About the build performance [\#232](https://github.com/sonos/dinghy/issues/232)
+- xcrun: error: unable to find utility "devicectl", not a developer tool or in PATH [\#225](https://github.com/sonos/dinghy/issues/225)
+
+**Merged pull requests:**
+
+- remove deprecated atty and tempdir dependencies [\#235](https://github.com/sonos/dinghy/pull/235) ([fredszaq](https://github.com/fredszaq))
+- cargo fmt [\#234](https://github.com/sonos/dinghy/pull/234) ([ThibautLorrainSonos](https://github.com/ThibautLorrainSonos))
+- libclang path is in lib and not lib64 in ndk 26+ [\#233](https://github.com/sonos/dinghy/pull/233) ([ThibautLorrainSonos](https://github.com/ThibautLorrainSonos))
+- Update github org [\#231](https://github.com/sonos/dinghy/pull/231) ([jayvdb](https://github.com/jayvdb))
+- show id of ssh devices \(in addtion to their ip\) in all-devices command [\#230](https://github.com/sonos/dinghy/pull/230) ([fredszaq](https://github.com/fredszaq))
+- Use matrix in CI for third tier apple simulators [\#228](https://github.com/sonos/dinghy/pull/228) ([simlay](https://github.com/simlay))
+
 ## [0.7.1](https://github.com/sonos/dinghy/tree/0.7.1) (2024-04-11)
 
 [Full Changelog](https://github.com/sonos/dinghy/compare/0.7.0...0.7.1)
