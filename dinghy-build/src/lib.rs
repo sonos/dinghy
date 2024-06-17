@@ -24,7 +24,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 #[doc(hidden)]
-pub use anyhow::{Result, Context};
+pub use anyhow::{Context, Result};
 
 /// Decorator for the std::process::Command adding a some chainable helpers.
 ///

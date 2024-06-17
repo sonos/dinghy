@@ -45,16 +45,10 @@ impl AppleDevicePlatform {
 
     fn sysroot_path(&self) -> Result<String> {
         let sdk_name = match self.sim {
-            Some(AppleSimulatorType::Ios) => {
-                "iphonesimulator"
-            }
-            Some(AppleSimulatorType::Tvos) => {
-                "appletvsimulator"
-            }
-            Some(AppleSimulatorType::Watchos) => {
-                "watchsimulator"
-            }
-            None => "iphoneos"
+            Some(AppleSimulatorType::Ios) => "iphonesimulator",
+            Some(AppleSimulatorType::Tvos) => "appletvsimulator",
+            Some(AppleSimulatorType::Watchos) => "watchsimulator",
+            None => "iphoneos",
         };
         let xcrun = process::Command::new("xcrun")
             .args(&["--sdk", sdk_name, "--show-sdk-path"])
