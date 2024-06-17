@@ -7,11 +7,11 @@ pub mod errors {
 }
 
 mod android;
+#[cfg(target_os = "macos")]
+mod apple;
 pub mod config;
 pub mod device;
 mod host;
-#[cfg(target_os = "macos")]
-mod apple;
 pub mod overlay;
 pub mod platform;
 pub mod project;
@@ -22,13 +22,9 @@ pub mod utils;
 
 pub use crate::config::Configuration;
 
-use crate::config::PlatformConfiguration;
 #[cfg(target_os = "macos")]
-use crate::apple::{
-    IosManager,
-    TvosManager,
-    WatchosManager,
-};
+use crate::apple::{IosManager, TvosManager, WatchosManager};
+use crate::config::PlatformConfiguration;
 
 use crate::platform::regular_platform::RegularPlatform;
 use crate::project::Project;
@@ -178,7 +174,10 @@ pub trait DeviceCompatibility {
     }
 
     #[cfg(target_os = "macos")]
-    fn is_compatible_with_simulator_platform(&self, _platform: &apple::AppleDevicePlatform) -> bool {
+    fn is_compatible_with_simulator_platform(
+        &self,
+        _platform: &apple::AppleDevicePlatform,
+    ) -> bool {
         false
     }
 }

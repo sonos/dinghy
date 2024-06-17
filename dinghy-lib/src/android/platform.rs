@@ -2,10 +2,10 @@ use crate::platform::regular_platform::RegularPlatform;
 use crate::toolchain::ToolchainConfig;
 use crate::{platform, Result};
 use crate::{Build, Device, Platform, PlatformConfiguration, Project, SetupArgs};
+use dinghy_build::build_env::set_env;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
-use dinghy_build::build_env::set_env;
 
 #[derive(Debug)]
 pub struct AndroidPlatform {
@@ -34,7 +34,7 @@ impl AndroidPlatform {
             toolchain_config,
             ndk_major_version,
             ndk_path,
-            libclang_path
+            libclang_path,
         }))
     }
 }
@@ -70,13 +70,13 @@ impl Platform for AndroidPlatform {
                 &project.metadata.workspace_root,
             )?;
 
-            self.toolchain_config.setup_tool("AR", &self.toolchain_config.naked_executable("llvm-ar"))?;
-
+            self.toolchain_config
+                .setup_tool("AR", &self.toolchain_config.naked_executable("llvm-ar"))?;
         }
 
         if self.ndk_major_version >= 17 {
             // bindgen need this to use the proper imports
-            set_env("DINGHY_BUILD_LIBCLANG_PATH", &self.libclang_path )
+            set_env("DINGHY_BUILD_LIBCLANG_PATH", &self.libclang_path)
         }
 
         if std::env::var("ANDROID_NDK").is_err() {
@@ -86,7 +86,6 @@ impl Platform for AndroidPlatform {
         if std::env::var("ANDROID_NDK_HOME").is_err() {
             set_env("ANDROID_NDK_HOME", self.ndk_path.canonicalize()?)
         }
-
 
         Ok(())
     }
