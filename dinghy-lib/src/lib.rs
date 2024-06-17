@@ -1,7 +1,4 @@
 #![type_length_limit = "2149570"]
-#[cfg(target_os = "macos")]
-extern crate tempdir;
-
 pub mod errors {
     pub use anyhow::{anyhow, bail, Context, Error, Result};
 }

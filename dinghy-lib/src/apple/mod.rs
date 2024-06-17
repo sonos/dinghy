@@ -263,7 +263,7 @@ fn devices() -> Result<Vec<Box<dyn Device>>> {
 }
 
 fn devices_from_devicectl(devices: &mut HashMap<String, IosDevice>) -> Result<()> {
-    let tempdir = tempdir::TempDir::new("dinghy-ios")?;
+    let tempdir = tempfile::TempDir::with_prefix("dinghy-ios")?;
     let tmpjson = tempdir.path().join("json");
     let devicectl = std::process::Command::new("xcrun")
         .args("devicectl list devices --quiet --json-output".split_whitespace().collect_vec())
