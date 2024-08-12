@@ -146,6 +146,7 @@ else
 
         # END FIX-EMULATOR
 
+        yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
         $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-24;default;armeabi-v7a" "ndk;22.1.7171670" "emulator" "platform-tools" "cmdline-tools;latest"
         echo no | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager create avd -n testdinghy -k "system-images;android-24;default;armeabi-v7a"
         $EMULATOR @testdinghy -no-audio -no-boot-anim -no-window -accel on -gpu off &
