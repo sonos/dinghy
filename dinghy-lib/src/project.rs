@@ -5,7 +5,6 @@ use crate::Result;
 use crate::Runnable;
 use anyhow::anyhow;
 use anyhow::Context;
-use cargo_metadata::Metadata;
 use fs_err as fs;
 use ignore::WalkBuilder;
 use log::{debug, trace};
@@ -18,34 +17,34 @@ use std::sync::Arc;
 #[derive(Debug)]
 pub struct Project {
     pub conf: Arc<Configuration>,
-    pub metadata: Metadata,
+    pub workspace_root: PathBuf,
+    pub target_directory: PathBuf,
 }
 
 impl Project {
-    pub fn new(conf: &Arc<Configuration>, metadata: Metadata) -> Project {
+    pub fn new(
+        conf: &Arc<Configuration>,
+        workspace_root: PathBuf,
+        target_directory: PathBuf,
+    ) -> Project {
         Project {
             conf: Arc::clone(conf),
-            metadata,
+            workspace_root,
+            target_directory,
         }
     }
 
-    pub fn project_dir(&self) -> Result<PathBuf> {
-        Ok(self.metadata.workspace_root.clone().into_std_path_buf())
+    pub fn project_dir(&self) -> PathBuf {
+        self.workspace_root.clone()
     }
 
-    pub fn overlay_work_dir(&self, platform: &dyn Platform) -> Result<PathBuf> {
-        Ok(self
-            .target_dir(platform.rustc_triple())?
-            .join(platform.rustc_triple()))
+    pub fn overlay_work_dir(&self, platform: &dyn Platform) -> PathBuf {
+        self.target_dir(platform.rustc_triple())
+            .join(platform.rustc_triple())
     }
 
-    pub fn target_dir(&self, triple: &str) -> Result<PathBuf> {
-        Ok(self
-            .metadata
-            .target_directory
-            .clone()
-            .into_std_path_buf()
-            .join(triple))
+    pub fn target_dir(&self, triple: &str) -> PathBuf {
+        self.target_directory.clone().join(triple)
     }
 
     pub fn link_test_data(&self, runnable: &Runnable) -> Result<PathBuf> {

@@ -66,7 +66,7 @@ impl Platform for AppleDevicePlatform {
         self.toolchain.setup_linker(
             &self.id(),
             &format!("cc -isysroot {}", sysroot),
-            &project.metadata.workspace_root,
+            &project.project_dir(),
         )?;
         self.toolchain.setup_runner(&self.id(), setup_args)?;
         self.toolchain.setup_target()?;

@@ -47,9 +47,7 @@ impl Platform for AndroidPlatform {
             log::trace!("Setup linker with android ndk23+ hack...");
 
             let hack_dir = project
-                .metadata
-                .target_directory
-                .join(self.rustc_triple())
+                .target_dir(self.rustc_triple())
                 .join(self.id())
                 .join("ndk23-hack");
 
@@ -64,11 +62,8 @@ impl Platform for AndroidPlatform {
             linker_cmd.push_str(" -L");
             linker_cmd.push_str(hack_dir.canonicalize()?.to_str().unwrap());
 
-            self.toolchain_config.setup_linker(
-                &self.id(),
-                &linker_cmd,
-                &project.metadata.workspace_root,
-            )?;
+            self.toolchain_config
+                .setup_linker(&self.id(), &linker_cmd, &project.project_dir())?;
 
             self.toolchain_config
                 .setup_tool("AR", &self.toolchain_config.naked_executable("llvm-ar"))?;

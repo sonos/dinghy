@@ -52,7 +52,9 @@ fn run_command(cli: DinghyCli) -> Result<()> {
 
     let metadata = cargo_metadata::MetadataCommand::new().exec()?;
 
-    let project = Project::new(&conf, metadata);
+    let workspace_root = metadata.workspace_root.into_std_path_buf();
+    let target_directory = metadata.target_directory.into_std_path_buf();
+    let project = Project::new(&conf, workspace_root, target_directory);
     let dinghy = Dinghy::probe(&conf)?;
 
     let (platform, device) = select_platform_and_device_from_cli(&cli, &dinghy)?;
@@ -179,7 +181,7 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                         // cargo launches the runner inside the dir of the crate
                         source: PathBuf::from(".").canonicalize()?,
                     },
-                    target_path: project.metadata.target_directory.clone().into(),
+                    target_path: project.target_directory.clone(),
                     files_in_run_args,
                 };
 

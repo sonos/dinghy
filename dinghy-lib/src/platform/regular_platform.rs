@@ -149,7 +149,7 @@ impl Platform for RegularPlatform {
         self.toolchain.setup_linker(
             &self.id,
             &self.toolchain.generate_linker_command(&setup_args),
-            &project.metadata.workspace_root,
+            &project.project_dir(),
         )?;
 
         trace!("Setup pkg-config");
@@ -158,7 +158,7 @@ impl Platform for RegularPlatform {
         self.toolchain.setup_sysroot();
         trace!("Setup shims...");
         self.toolchain
-            .shim_executables(&self.id, &project.metadata.workspace_root)?;
+            .shim_executables(&self.id, &project.project_dir())?;
         trace!("Setup runner...");
         self.toolchain.setup_runner(&self.id, setup_args)?;
         trace!("Setup target...");
