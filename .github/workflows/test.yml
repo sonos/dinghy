@@ -23,6 +23,7 @@ jobs:
 
   macos:
     strategy:
+      fail-fast: false
       matrix:
         os: [ macOS-13, macOS-14 ]
     runs-on: ${{matrix.os}}
