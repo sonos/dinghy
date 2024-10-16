@@ -150,7 +150,7 @@ impl IosDevice {
             .output()?;
         let app_list = json::parse(std::str::from_utf8(&app_list.stdout)?).with_context(|| {
             format!(
-                "Ran `pymobiledevice3 app list --no-color --udid {}`, could not parse expected JSON output.", self.id,
+                "Ran `pymobiledevice3 apps list --no-color --udid {}`, could not parse expected JSON output.", self.id,
             )
         })?;
         let app_path = build_bundle.bundle_dir.to_string_lossy();

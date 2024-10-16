@@ -118,11 +118,15 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
     }
     debug!("Possible signing identities: {:?}", identities);
     let mut settings = vec![];
-    let profile_dir = dirs::home_dir()
-        .expect("can't get HOME dir")
-        .join("Library/MobileDevice/Provisioning Profiles");
-    trace!("Scanning profiles in {:?}", profile_dir);
-    for file in fs::read_dir(profile_dir)? {
+    let home = dirs::home_dir().expect("can't get HOME dir");
+    let profiles_dir = [
+        "Library/MobileDevice/Provisioning Profiles", 
+        "Library/Developer/Xcode/UserData/Provisioning Profiles", // xcode 16 and above
+    ];
+    for file in profiles_dir
+        .iter()
+        .flat_map(|path| fs::read_dir(home.join(path)).unwrap())
+    {
         let file = file?;
         if file.path().starts_with(".")
             || file
