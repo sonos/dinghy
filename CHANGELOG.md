@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.3](https://github.com/sonos/dinghy/tree/0.7.3) (2024-10-16)
+
+[Full Changelog](https://github.com/sonos/dinghy/compare/0.7.2...0.7.3)
+
+**Merged pull requests:**
+
+- profiles location has changed [\#239](https://github.com/sonos/dinghy/pull/239) ([kali](https://github.com/kali))
+- accept licenses [\#236](https://github.com/sonos/dinghy/pull/236) ([kali](https://github.com/kali))
+
 ## [0.7.2](https://github.com/sonos/dinghy/tree/0.7.2) (2024-06-17)
 
 [Full Changelog](https://github.com/sonos/dinghy/compare/0.7.1...0.7.2)
