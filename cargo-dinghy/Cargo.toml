@@ -1,6 +1,6 @@
 [package]
 name = "cargo-dinghy"
-version = "0.7.3-pre"
+version = "0.7.3"
 authors = ["Mathieu Poumeyrol <mathieu.poumeyrol@sonos>", "Thibaut Lorrain <thibaut.lorrain@sonos.com>"]
 license = "MIT/Apache-2.0"
 description = "Cross-compilation made easier"
@@ -17,7 +17,7 @@ edition = "2021"
 travis-ci = { repository = "sonos/dinghy" }
 
 [dependencies]
-dinghy-lib = { path = "../dinghy-lib" }
+dinghy-lib = "0.7.3"
 log = "0.4"
 clap = { version = "4", features = ["derive"] }
 env_logger = "0.10"
