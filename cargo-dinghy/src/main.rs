@@ -178,6 +178,7 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                         exe: PathBuf::from(exe).canonicalize()?,
                         // cargo launches the runner inside the dir of the crate
                         source: PathBuf::from(".").canonicalize()?,
+                        skip_source_copy: conf.skip_source_copy,
                     },
                     target_path: project.metadata.target_directory.clone().into(),
                     files_in_run_args,
@@ -369,6 +370,7 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                         package_name: "".to_string(),
                         exe: stripped_lib_file.to_path_buf().into(),
                         source: Default::default(),
+                        skip_source_copy: conf.skip_source_copy,
                     },
                     target_path: Default::default(),
                     files_in_run_args: vec![],

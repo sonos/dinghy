@@ -120,7 +120,7 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
     let mut settings = vec![];
     let home = dirs::home_dir().expect("can't get HOME dir");
     let profiles_dir = [
-        "Library/MobileDevice/Provisioning Profiles", 
+        "Library/MobileDevice/Provisioning Profiles",
         "Library/Developer/Xcode/UserData/Provisioning Profiles", // xcode 16 and above
     ];
     for file in profiles_dir
