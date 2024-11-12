@@ -108,17 +108,22 @@ pub fn make_remote_app_with_name(
         }
     }
 
-    debug!(
-        "Copying src {} to bundle {}",
-        build.runnable.source.display(),
-        bundle_path.display()
-    );
-    project::rec_copy_excl(
-        &build.runnable.source,
-        &bundle_path,
-        false,
-        &[build.runnable.source.join("target")],
-    )?;
+    if !build.runnable.skip_source_copy {
+        debug!(
+            "Copying src {} to bundle {}",
+            build.runnable.source.display(),
+            bundle_path.display()
+        );
+        project::rec_copy_excl(
+            &build.runnable.source,
+            &bundle_path,
+            false,
+            &[build.runnable.source.join("target")],
+        )?;
+    } else {
+        debug!("Skipping source copy to bundle {}", bundle_path.display());
+    }
+
     debug!("Copying test_data to bundle {}", bundle_path.display());
     project.copy_test_data(&bundle_path)?;
 

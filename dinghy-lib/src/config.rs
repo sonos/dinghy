@@ -1,11 +1,10 @@
 use itertools::Itertools;
 use serde::de;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::io::Read;
 use std::result;
 use std::{collections, fs, path};
-//use walkdir::WalkDir;
-use serde::{Deserialize, Serialize};
 
 use crate::errors::*;
 
@@ -85,6 +84,7 @@ pub struct Configuration {
     pub ssh_devices: collections::BTreeMap<String, SshDeviceConfiguration>,
     pub script_devices: collections::BTreeMap<String, ScriptDeviceConfiguration>,
     pub test_data: Vec<TestData>,
+    pub skip_source_copy: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
@@ -93,6 +93,7 @@ struct ConfigurationFileContent {
     pub ssh_devices: Option<collections::BTreeMap<String, SshDeviceConfiguration>>,
     pub script_devices: Option<collections::BTreeMap<String, ScriptDeviceConfiguration>>,
     pub test_data: Option<collections::BTreeMap<String, TestDataConfiguration>>,
+    pub skip_source_copy: Option<bool>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, Default)]
@@ -176,6 +177,9 @@ impl Configuration {
                 copy_git_ignored: source.copy_git_ignored,
             })
         }
+        if let Some(skip_source_copy) = other.skip_source_copy {
+            self.skip_source_copy = skip_source_copy
+        }
         Ok(())
     }
 }
@@ -217,6 +221,9 @@ pub fn dinghy_config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
             log::trace!("No configuration found at {:?}", file);
         }
     }
+
+    log::debug!("Configuration: {:#?}", conf);
+
     Ok(conf)
 }
 

@@ -305,4 +305,5 @@ pub struct Runnable {
     pub package_name: String,
     pub exe: path::PathBuf,
     pub source: path::PathBuf,
+    pub skip_source_copy: bool,
 }
