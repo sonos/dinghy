@@ -2,7 +2,7 @@ mod device;
 use crate::{Configuration, Device, Platform, PlatformManager, Result};
 use std::sync;
 
-use self::device::SshDevice;
+pub use self::device::SshDevice;
 
 pub struct SshDeviceManager {
     conf: sync::Arc<Configuration>,

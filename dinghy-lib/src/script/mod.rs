@@ -3,7 +3,7 @@ use std::sync;
 
 mod device;
 
-use self::device::ScriptDevice;
+pub use self::device::ScriptDevice;
 
 pub struct ScriptDeviceManager {
     conf: sync::Arc<Configuration>,
