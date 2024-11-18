@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.0](https://github.com/sonos/dinghy/tree/0.8.0) (2024-11-18)
+
+[Full Changelog](https://github.com/sonos/dinghy/compare/0.7.3...0.8.0)
+
+**Closed issues:**
+
+- WathOS CI broken [\#238](https://github.com/sonos/dinghy/issues/238)
+
+**Merged pull requests:**
+
+- Disable proc macro tests for tvOS and watchOS [\#243](https://github.com/sonos/dinghy/pull/243) ([fredszaq](https://github.com/fredszaq))
+- Introduce plugin platform [\#242](https://github.com/sonos/dinghy/pull/242) ([fredszaq](https://github.com/fredszaq))
+- add `skip_source_copy` flag [\#241](https://github.com/sonos/dinghy/pull/241) ([fredszaq](https://github.com/fredszaq))
+
 ## [0.7.3](https://github.com/sonos/dinghy/tree/0.7.3) (2024-10-16)
 
 [Full Changelog](https://github.com/sonos/dinghy/compare/0.7.2...0.7.3)
