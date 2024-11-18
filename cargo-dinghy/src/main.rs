@@ -24,15 +24,13 @@ use crate::cli::{DinghyCli, DinghyMode, DinghySubcommand, SubCommandWrapper};
 mod cli;
 
 fn main() {
-    let cli = DinghyCli::parse();
-
-    //env::set_var("DINGHY_LOG", "trace");
-
     env_logger::init_from_env(
         env_logger::Env::new()
             .filter("DINGHY_LOG")
             .write_style("DINGHY_LOG_STYLE"),
     );
+
+    let cli = DinghyCli::parse();
 
     set_current_verbosity(cli.args.verbose as i8);
 

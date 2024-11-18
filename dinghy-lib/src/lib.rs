@@ -11,6 +11,7 @@ pub mod device;
 mod host;
 pub mod overlay;
 pub mod platform;
+pub mod plugin;
 pub mod project;
 mod script;
 mod ssh;
@@ -64,6 +65,9 @@ impl Dinghy {
             if let Some(man) = WatchosManager::new().context("Could not initialize tvOS manager")? {
                 managers.push(Box::new(man));
             }
+        }
+        if let Some(man) = plugin::PluginManager::probe(conf.clone()) {
+            managers.push(Box::new(man));
         }
 
         let mut devices = vec![];
