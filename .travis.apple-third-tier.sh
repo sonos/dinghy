@@ -25,17 +25,14 @@ tests_sequence_unstable_target() {
     # There's something odd with using the .cargo/config runner attribute and
     # workspaces when the runner uses `cargo run --manifest-path ../Cargo.toml
     # --bin cargo-dinghy ...`
-    # TODO 2024/11/18 adding explict `--workspace --exclude test-proc-macro` to the cargo commands here
-    # TODO as a workaround for https://github.com/rust-lang/cargo/issues/14735 this should be removed when the issue
-    # TODO is resolved
     title "testing from project directory for rust target $1 on device $2"
     title "testing from workspace directory"
     ( \
         cd test-ws \
         && cargo clean \
-        && $CARGO_DINGHY   -d $1 -p $2 +nightly test --workspace --exclude test-proc-macro -Zbuild-std pass \
-        && ! $CARGO_DINGHY -d $1 -p $2 +nightly test --workspace --exclude test-proc-macro -Zbuild-std fails \
-        && ! $CARGO_DINGHY -d $1 -p $2 +nightly test --workspace --exclude test-proc-macro -Zbuild-std \
+        && $CARGO_DINGHY   -d $1 -p $2 +nightly test -Zbuild-std pass \
+        && ! $CARGO_DINGHY -d $1 -p $2 +nightly test -Zbuild-std fails \
+        && ! $CARGO_DINGHY -d $1 -p $2 +nightly test -Zbuild-std \
     )
 
     title "testing from project directory"
