@@ -125,7 +125,8 @@ pub fn look_for_signature_settings(device_id: &str) -> Result<Vec<SignatureSetti
     ];
     for file in profiles_dir
         .iter()
-        .flat_map(|path| fs::read_dir(home.join(path)).unwrap())
+        .filter_map(|path| fs::read_dir(home.join(path)).ok())
+        .flatten()
     {
         let file = file?;
         if file.path().starts_with(".")
