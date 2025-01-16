@@ -8,6 +8,12 @@ title() {
     set -x
 }
 
+if [ ! cargo --version ]
+then
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    PATH=$PATH:$HOME/.cargo/bin
+fi
+
 
 if [ -z "$CARGO_DINGHY" ]
 then
@@ -125,6 +131,7 @@ then
         tests_sequence $device
     fi
 else
+    echo $ANDROID_SDK_ROOT
     if [ -n "$ANDROID_SDK_ROOT" ]
     then
         title "••••• Linux: android tests •••••"
@@ -134,25 +141,22 @@ else
         ## BEGIN FIX-EMULATOR
         # Use emulator version 32.1.15 as latest version (33.1.23 as of writing) from sdk segfaults
 
-#         ( \
-#           cd target/ \
-#           && wget -q https://redirector.gvt1.com/edgedl/android/repository/emulator-linux_x64-10696886.zip \
-#           && unzip emulator-linux_x64-10696886.zip \
-#         )
-
-#        EMULATOR="$(pwd)/target/emulator/emulator"
+        EMULATOR="$(pwd)/target/emulator/emulator"
+        [ -e $EMULATOR ] ||  ( \
+          cd target/ \
+          && wget -q https://redirector.gvt1.com/edgedl/android/repository/emulator-linux_x64-10696886.zip \
+          && unzip emulator-linux_x64-10696886.zip \
+        )
 
         # to revert when the bundled emulator doesn't crash anymore use the following line
         # EMULATOR="$ANDROID_SDK_ROOT/emulator/emulator"
 
         # END FIX-EMULATOR
 
-        EMULATOR="$ANDROID_SDK_ROOT/emulator/emulator"
-        yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
+        yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null
         $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-24;default;armeabi-v7a" "ndk;22.1.7171670" "emulator" "platform-tools" # "cmdline-tools;latest"
-        echo no | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager create avd -n testdinghy -k "system-images;android-24;default;armeabi-v7a"
-        $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager list
-        $EMULATOR @testdinghy -no-audio -no-boot-anim -no-window -accel on -gpu off &
+        echo no | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager create avd --force -n testdinghy -k "system-images;android-24;default;armeabi-v7a"
+        ANDROID_AVD_HOME=$HOME/.config/.android/avd $EMULATOR @testdinghy -no-audio -no-boot-anim -no-window -accel on -gpu off &
         timeout 180 $ANDROID_SDK_ROOT/platform-tools/adb wait-for-device
 
         export ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/22.1.7171670
