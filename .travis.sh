@@ -134,18 +134,20 @@ else
         ## BEGIN FIX-EMULATOR
         # Use emulator version 32.1.15 as latest version (33.1.23 as of writing) from sdk segfaults
 
-        ( \
-          cd target/ \
-          && wget -q https://redirector.gvt1.com/edgedl/android/repository/emulator-linux_x64-10696886.zip \
-          && unzip emulator-linux_x64-10696886.zip \
-        )
-        EMULATOR="$(pwd)/target/emulator/emulator"
+#         ( \
+#           cd target/ \
+#           && wget -q https://redirector.gvt1.com/edgedl/android/repository/emulator-linux_x64-10696886.zip \
+#           && unzip emulator-linux_x64-10696886.zip \
+#         )
+
+#        EMULATOR="$(pwd)/target/emulator/emulator"
 
         # to revert when the bundled emulator doesn't crash anymore use the following line
         # EMULATOR="$ANDROID_SDK_ROOT/emulator/emulator"
 
         # END FIX-EMULATOR
 
+        EMULATOR="$ANDROID_SDK_ROOT/emulator/emulator"
         yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
         $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-24;default;armeabi-v7a" "ndk;22.1.7171670" "emulator" "platform-tools" # "cmdline-tools;latest"
         echo no | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager create avd -n testdinghy -k "system-images;android-24;default;armeabi-v7a"
