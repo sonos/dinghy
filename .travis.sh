@@ -136,7 +136,7 @@ else
 
         ( \
           cd target/ \
-          && wget https://redirector.gvt1.com/edgedl/android/repository/emulator-linux_x64-10696886.zip \
+          && wget -q https://redirector.gvt1.com/edgedl/android/repository/emulator-linux_x64-10696886.zip \
           && unzip emulator-linux_x64-10696886.zip \
         )
         EMULATOR="$(pwd)/target/emulator/emulator"
@@ -147,8 +147,9 @@ else
         # END FIX-EMULATOR
 
         yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses
-        $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-24;default;armeabi-v7a" "ndk;22.1.7171670" "emulator" "platform-tools" "cmdline-tools;latest"
+        $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-24;default;armeabi-v7a" "ndk;22.1.7171670" "emulator" "platform-tools" # "cmdline-tools;latest"
         echo no | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager create avd -n testdinghy -k "system-images;android-24;default;armeabi-v7a"
+        $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager list
         $EMULATOR @testdinghy -no-audio -no-boot-anim -no-window -accel on -gpu off &
         timeout 180 $ANDROID_SDK_ROOT/platform-tools/adb wait-for-device
 
