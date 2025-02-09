@@ -1,2 +1,3 @@
 [workspace]
 members = ["test-app", "test-proc-macro", "test-bin"]
+resolver = "2"
