@@ -175,6 +175,10 @@ fn probable_sdk_locs() -> Result<Vec<path::PathBuf>> {
         if mac.is_dir() {
             v.push(mac);
         }
+        let linux = path::Path::new(&home).join("Android/Sdk");
+        if linux.is_dir() {
+            v.push(linux);
+        }
     }
     let casks = path::PathBuf::from("/usr/local/Caskroom/android-sdk");
     if casks.is_dir() {
