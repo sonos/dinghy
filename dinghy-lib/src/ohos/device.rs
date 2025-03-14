@@ -31,7 +31,7 @@ impl OhosDevice {
     }
 
     pub fn from_id(hdc: PathBuf, id: String) -> Result<OhosDevice> {
-        // https://developer.harmonyos.com/en/docs/documentation/doc-guides/faq-debugging-and-running-0000001122066466
+        // https://device.harmonyos.com/en/docs/apiref/doc-guides/faq-debugging-and-running-0000001122066466
         let abi_list = Command::new(&hdc)
             .args([
                 "-t",
