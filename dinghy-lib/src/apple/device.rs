@@ -57,7 +57,7 @@ impl IosDevice {
     }
 
     fn is_pre_ios_17(&self) -> Result<bool> {
-        Ok(semver::Version::parse(&self.os)?.major < 17)
+        Ok(semver::VersionReq::parse(&self.os)?.comparators.get(0).ok_or_else(|| anyhow!("Invalid iOS version: {}", self.os))?.major < 17)
     }
 
     fn is_locked(&self) -> Result<bool> {
