@@ -253,13 +253,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "dinghy-build"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21fda8e025a577c8dacca23517c928774f4692b8c3e47f7e479adec922b30ac6"
+dependencies = [
+ "anyhow",
+ "cc",
+ "log",
+]
+
+[[package]]
 name = "dinghy-lib"
-version = "0.8.1-pre"
+version = "0.8.1"
 dependencies = [
  "anyhow",
  "cargo_metadata",
  "colored",
- "dinghy-build",
+ "dinghy-build 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "dirs",
  "dyn-clone",
  "filetime",
