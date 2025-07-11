@@ -1,3 +1,4 @@
+use std::fmt::Formatter;
 use crate::platform::regular_platform::RegularPlatform;
 use crate::toolchain::ToolchainConfig;
 use crate::{platform, Result};
@@ -7,13 +8,18 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
 
-#[derive(Debug)]
 pub struct AndroidPlatform {
     regular_platform: Box<dyn Platform>,
     toolchain_config: ToolchainConfig,
     ndk_major_version: usize,
     ndk_path: PathBuf,
     libclang_path: PathBuf,
+}
+
+impl std::fmt::Debug for AndroidPlatform {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.id())
+    }
 }
 
 impl AndroidPlatform {
