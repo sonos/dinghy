@@ -29,10 +29,11 @@ serde = { version = "1.0", features = ["derive"] }
 toml = "0.7"
 shell-escape = "0.1"
 walkdir = "2.0"
-which = "4.0"
+which = "=4.0"
 shellexpand="3"
 semver = "1"
-cargo_metadata = "0.15.0"
+cargo_metadata.workspace=true
+cargo-platform.workspace=true
 colored = "2.0.0"
 lazy_static = "1.4.0"
 dyn-clone = "1.0.8"

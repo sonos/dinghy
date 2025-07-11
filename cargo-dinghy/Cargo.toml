@@ -22,4 +22,4 @@ log = "0.4"
 clap = { version = "4", features = ["derive"] }
 env_logger = "0.10"
 anyhow = "1.0.57"
-cargo_metadata = "0.15.0"
+cargo_metadata.workspace=true
