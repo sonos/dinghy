@@ -1,19 +1,17 @@
 #![type_length_limit = "2149570"]
-#[cfg(target_os = "macos")]
-extern crate tempdir;
-
 pub mod errors {
     pub use anyhow::{anyhow, bail, Context, Error, Result};
 }
 
 mod android;
+#[cfg(target_os = "macos")]
+mod apple;
 pub mod config;
 pub mod device;
 mod host;
-#[cfg(target_os = "macos")]
-mod apple;
 pub mod overlay;
 pub mod platform;
+pub mod plugin;
 pub mod project;
 mod script;
 mod ssh;
@@ -22,7 +20,6 @@ pub mod utils;
 
 pub use crate::config::Configuration;
 
-use crate::config::PlatformConfiguration;
 #[cfg(target_os = "macos")]
 use crate::apple::{
     IosManager,
@@ -30,6 +27,7 @@ use crate::apple::{
     WatchosManager,
     VisionosManager,
 };
+use crate::config::PlatformConfiguration;
 
 use crate::platform::regular_platform::RegularPlatform;
 use crate::project::Project;
@@ -75,6 +73,9 @@ impl Dinghy {
             if let Some(man) = VisionosManager::new().context("Could not initialize tvOS manager")? {
                 managers.push(Box::new(man));
             }
+        }
+        if let Some(man) = plugin::PluginManager::probe(conf.clone()) {
+            managers.push(Box::new(man));
         }
 
         let mut devices = vec![];
@@ -182,7 +183,10 @@ pub trait DeviceCompatibility {
     }
 
     #[cfg(target_os = "macos")]
-    fn is_compatible_with_simulator_platform(&self, _platform: &apple::AppleDevicePlatform) -> bool {
+    fn is_compatible_with_simulator_platform(
+        &self,
+        _platform: &apple::AppleDevicePlatform,
+    ) -> bool {
         false
     }
 }
@@ -313,4 +317,5 @@ pub struct Runnable {
     pub package_name: String,
     pub exe: path::PathBuf,
     pub source: path::PathBuf,
+    pub skip_source_copy: bool,
 }

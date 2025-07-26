@@ -1,5 +1,63 @@
 # Changelog
 
+## [0.8.1](https://github.com/sonos/dinghy/tree/0.8.1) (2025-06-30)
+
+[Full Changelog](https://github.com/sonos/dinghy/compare/0.8.0...0.8.1)
+
+**Closed issues:**
+
+- No devices found for name hint `my\_android' [\#252](https://github.com/sonos/dinghy/issues/252)
+
+**Merged pull requests:**
+
+- Use VersionReq api to support X.Y versions \(needed for iOS 18\) [\#253](https://github.com/sonos/dinghy/pull/253) ([hdlj](https://github.com/hdlj))
+- fix workspace resolver warning in test-ws [\#249](https://github.com/sonos/dinghy/pull/249) ([fredszaq](https://github.com/fredszaq))
+- search ndk in default install location in linux [\#248](https://github.com/sonos/dinghy/pull/248) ([fredszaq](https://github.com/fredszaq))
+- debug ci [\#247](https://github.com/sonos/dinghy/pull/247) ([kali](https://github.com/kali))
+- Fix provisioning profile path detection [\#246](https://github.com/sonos/dinghy/pull/246) ([emricksinisonos](https://github.com/emricksinisonos))
+- Revert "Disable proc macro tests for tvOS and watchOS" [\#244](https://github.com/sonos/dinghy/pull/244) ([fredszaq](https://github.com/fredszaq))
+
+## [0.8.0](https://github.com/sonos/dinghy/tree/0.8.0) (2024-11-18)
+
+[Full Changelog](https://github.com/sonos/dinghy/compare/0.7.3...0.8.0)
+
+**Closed issues:**
+
+- WathOS CI broken [\#238](https://github.com/sonos/dinghy/issues/238)
+
+**Merged pull requests:**
+
+- Disable proc macro tests for tvOS and watchOS [\#243](https://github.com/sonos/dinghy/pull/243) ([fredszaq](https://github.com/fredszaq))
+- Introduce plugin platform [\#242](https://github.com/sonos/dinghy/pull/242) ([fredszaq](https://github.com/fredszaq))
+- add `skip_source_copy` flag [\#241](https://github.com/sonos/dinghy/pull/241) ([fredszaq](https://github.com/fredszaq))
+
+## [0.7.3](https://github.com/sonos/dinghy/tree/0.7.3) (2024-10-16)
+
+[Full Changelog](https://github.com/sonos/dinghy/compare/0.7.2...0.7.3)
+
+**Merged pull requests:**
+
+- XCode 16: profiles location has changed [\#239](https://github.com/sonos/dinghy/pull/239) ([kali](https://github.com/kali))
+- accept licenses [\#236](https://github.com/sonos/dinghy/pull/236) ([kali](https://github.com/kali))
+
+## [0.7.2](https://github.com/sonos/dinghy/tree/0.7.2) (2024-06-17)
+
+[Full Changelog](https://github.com/sonos/dinghy/compare/0.7.1...0.7.2)
+
+**Closed issues:**
+
+- About the build performance [\#232](https://github.com/sonos/dinghy/issues/232)
+- xcrun: error: unable to find utility "devicectl", not a developer tool or in PATH [\#225](https://github.com/sonos/dinghy/issues/225)
+
+**Merged pull requests:**
+
+- remove deprecated atty and tempdir dependencies [\#235](https://github.com/sonos/dinghy/pull/235) ([fredszaq](https://github.com/fredszaq))
+- cargo fmt [\#234](https://github.com/sonos/dinghy/pull/234) ([ThibautLorrainSonos](https://github.com/ThibautLorrainSonos))
+- libclang path is in lib and not lib64 in ndk 26+ [\#233](https://github.com/sonos/dinghy/pull/233) ([ThibautLorrainSonos](https://github.com/ThibautLorrainSonos))
+- Update github org [\#231](https://github.com/sonos/dinghy/pull/231) ([jayvdb](https://github.com/jayvdb))
+- show id of ssh devices \(in addtion to their ip\) in all-devices command [\#230](https://github.com/sonos/dinghy/pull/230) ([fredszaq](https://github.com/fredszaq))
+- Use matrix in CI for third tier apple simulators [\#228](https://github.com/sonos/dinghy/pull/228) ([simlay](https://github.com/simlay))
+
 ## [0.7.1](https://github.com/sonos/dinghy/tree/0.7.1) (2024-04-11)
 
 [Full Changelog](https://github.com/sonos/dinghy/compare/0.7.0...0.7.1)

@@ -6,3 +6,7 @@ members = [
     "dinghy-lib",
     "dinghy-test",
 ]
+
+[workspace.dependencies]
+cargo_metadata = "=0.14.0"
+cargo-platform = "=0.1.8"

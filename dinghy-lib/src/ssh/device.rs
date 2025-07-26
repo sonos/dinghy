@@ -12,6 +12,7 @@ use crate::DeviceCompatibility;
 use std::fmt;
 use std::fmt::Formatter;
 use std::fmt::{Debug, Display};
+use std::io::IsTerminal;
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
@@ -56,7 +57,7 @@ impl SshDevice {
         if let Some(port) = self.conf.port {
             command.arg("-p").arg(&format!("{}", port));
         }
-        if atty::is(atty::Stream::Stdout) {
+        if std::io::stdout().is_terminal() {
             command.arg("-t").arg("-o").arg("LogLevel=QUIET");
         }
         command.arg(format!("{}@{}", self.conf.username, self.conf.hostname));
@@ -272,6 +273,6 @@ impl Debug for SshDevice {
 
 impl Display for SshDevice {
     fn fmt(&self, fmt: &mut Formatter) -> fmt::Result {
-        write!(fmt, "{}", self.conf.hostname)
+        write!(fmt, "{} ({})", self.id, self.conf.hostname)
     }
 }

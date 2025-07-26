@@ -287,11 +287,17 @@ fn devices() -> Result<Vec<Box<dyn Device>>> {
     let mut devices: HashMap<String, IosDevice> = Default::default();
     if which::which("xcrun").is_err() {
         log::warn!("xcrun not found. Apple devices support disabled. Consider installing XCode and its command line tools.");
-        return Ok(vec!())
+        return Ok(vec![]);
     }
-    if !std::process::Command::new("xcrun").arg("--find").arg("devicectl").output()?.status.success() {
+    if !std::process::Command::new("xcrun")
+        .arg("--find")
+        .arg("devicectl")
+        .output()?
+        .status
+        .success()
+    {
         log::warn!("xcrun devicectl not found. Apple devices support disabled. Consider updating XCode and its command line tools.");
-        return Ok(vec!())
+        return Ok(vec![]);
     }
     devices_from_devicectl(&mut devices)?;
     devices_from_ios_deploy(&mut devices)?;
@@ -302,7 +308,7 @@ fn devices() -> Result<Vec<Box<dyn Device>>> {
 }
 
 fn devices_from_devicectl(devices: &mut HashMap<String, IosDevice>) -> Result<()> {
-    let tempdir = tempdir::TempDir::new("dinghy-ios")?;
+    let tempdir = tempfile::TempDir::with_prefix("dinghy-ios")?;
     let tmpjson = tempdir.path().join("json");
     let devicectl = std::process::Command::new("xcrun")
         .args("devicectl list devices --quiet --json-output".split_whitespace().collect_vec())

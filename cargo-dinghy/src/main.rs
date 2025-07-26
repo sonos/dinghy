@@ -10,29 +10,27 @@ use cargo_metadata::camino::Utf8PathBuf;
 use cargo_metadata::Message;
 use log::{debug, error, info};
 
+use dinghy_lib::config::dinghy_config;
+use dinghy_lib::errors::*;
+use dinghy_lib::project::Project;
+use dinghy_lib::utils::{set_current_verbosity, user_facing_log, LogCommandExt};
+use dinghy_lib::Dinghy;
+use dinghy_lib::Platform;
 use dinghy_lib::{Build, SetupArgs};
 use dinghy_lib::{Device, Runnable};
-use dinghy_lib::config::dinghy_config;
-use dinghy_lib::Dinghy;
-use dinghy_lib::errors::*;
-use dinghy_lib::Platform;
-use dinghy_lib::project::Project;
-use dinghy_lib::utils::{LogCommandExt, set_current_verbosity, user_facing_log};
 
 use crate::cli::{DinghyCli, DinghyMode, DinghySubcommand, SubCommandWrapper};
 
 mod cli;
 
 fn main() {
-    let cli = DinghyCli::parse();
-
-    //env::set_var("DINGHY_LOG", "trace");
-
     env_logger::init_from_env(
         env_logger::Env::new()
             .filter("DINGHY_LOG")
             .write_style("DINGHY_LOG_STYLE"),
     );
+
+    let cli = DinghyCli::parse();
 
     set_current_verbosity(cli.args.verbose as i8);
 
@@ -85,19 +83,35 @@ fn run_command(cli: DinghyCli) -> Result<()> {
             let exe = args.first().cloned().unwrap();
             let exe_path = PathBuf::from(&exe);
 
-            let inferred_target = exe_path.parent()// build type
-                .and_then(|path| if path.file_name().map(|name| name.to_string_lossy() == "deps").unwrap_or(false) { path.parent() } else { Some(path) })
+            let inferred_target = exe_path
+                .parent() // build type
+                .and_then(|path| {
+                    if path
+                        .file_name()
+                        .map(|name| name.to_string_lossy() == "deps")
+                        .unwrap_or(false)
+                    {
+                        path.parent()
+                    } else {
+                        Some(path)
+                    }
+                })
                 .and_then(Path::parent) // either "target" for the host or the actual target name if we're cross compiling
                 .and_then(Path::file_name)
                 .map(|it| it.to_string_lossy());
-
 
             debug!("inferred target {:?}", inferred_target);
 
             let (mut final_platform, mut final_device) = (platform, device);
             if let Some(inferred_target) = inferred_target {
-                if final_device.is_none() && final_platform.rustc_triple() != inferred_target && cli.args.platform.is_none() {
-                    let platform = dinghy.platforms().into_iter().find(|p| p.rustc_triple() == inferred_target);
+                if final_device.is_none()
+                    && final_platform.rustc_triple() != inferred_target
+                    && cli.args.platform.is_none()
+                {
+                    let platform = dinghy
+                        .platforms()
+                        .into_iter()
+                        .find(|p| p.rustc_triple() == inferred_target);
                     if let Some(platform) = platform {
                         let device = find_first_device_for_platform(&cli, &dinghy, &platform);
                         if let Some(device) = device {
@@ -109,7 +123,6 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                 }
             };
 
-
             if let Some(device) = final_device {
                 user_facing_log(
                     "Targeting",
@@ -120,12 +133,7 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                     ),
                     0,
                 );
-                let exe_id = exe_path
-                    .file_name()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_string();
+                let exe_id = exe_path.file_name().unwrap().to_str().unwrap().to_string();
 
                 let (args, files_in_run_args): (Vec<String>, Vec<Option<PathBuf>>) = args
                     .into_iter()
@@ -168,6 +176,7 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                         exe: PathBuf::from(exe).canonicalize()?,
                         // cargo launches the runner inside the dir of the crate
                         source: PathBuf::from(".").canonicalize()?,
+                        skip_source_copy: conf.skip_source_copy,
                     },
                     target_path: project.metadata.target_directory.clone().into(),
                     files_in_run_args,
@@ -210,14 +219,18 @@ fn run_command(cli: DinghyCli) -> Result<()> {
         DinghyMode::DinghySubcommand(DinghySubcommand::AllDinghySubcommands {}) => {
             use clap::CommandFactory;
             for sub in SubCommandWrapper::command().get_subcommands() {
-                println!("{}\n\t{}", sub.get_name(), sub.get_about().unwrap_or_default());
+                println!(
+                    "{}\n\t{}",
+                    sub.get_name(),
+                    sub.get_about().unwrap_or_default()
+                );
             }
             Ok(())
         }
         DinghyMode::DinghySubcommand(DinghySubcommand::RunWith {
-                                         wrapper_crate,
-                                         mut lib_build_args,
-                                     }) => {
+            wrapper_crate,
+            mut lib_build_args,
+        }) => {
             let mut build_command = vec!["build".to_string(), "--message-format=json".to_string()];
             build_command.append(&mut lib_build_args);
 
@@ -291,20 +304,20 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                                     entry.file_type().map(|file_type| {
                                         if file_type.is_file()
                                             && entry
-                                            .path()
-                                            .file_stem()
-                                            .map(|stem| {
-                                                stem.to_string_lossy().starts_with("libstd-")
-                                            })
-                                            .unwrap_or(false)
+                                                .path()
+                                                .file_stem()
+                                                .map(|stem| {
+                                                    stem.to_string_lossy().starts_with("libstd-")
+                                                })
+                                                .unwrap_or(false)
                                             && entry
-                                            .path()
-                                            .extension()
-                                            .map(|ext| {
-                                                ["so", "dll", "dylib"]
-                                                    .contains(&ext.to_string_lossy().as_ref())
-                                            })
-                                            .unwrap_or(false)
+                                                .path()
+                                                .extension()
+                                                .map(|ext| {
+                                                    ["so", "dll", "dylib"]
+                                                        .contains(&ext.to_string_lossy().as_ref())
+                                                })
+                                                .unwrap_or(false)
                                         {
                                             Some(entry.path())
                                         } else {
@@ -314,7 +327,7 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                                 })
                                 .unwrap_or(None)
                         })
-                            .next()
+                        .next()
                     }) {
                         if let Ok(stdlib_path_buf) = Utf8PathBuf::from_path_buf(stdlib) {
                             extra_libs.push(stdlib_path_buf)
@@ -355,6 +368,7 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                         package_name: "".to_string(),
                         exe: stripped_lib_file.to_path_buf().into(),
                         source: Default::default(),
+                        skip_source_copy: conf.skip_source_copy,
                     },
                     target_path: Default::default(),
                     files_in_run_args: vec![],
@@ -539,7 +553,11 @@ fn select_platform_and_device_from_cli(
     }
 }
 
-fn find_first_device_for_platform(cli: &DinghyCli, dinghy: &Dinghy, platform: &Arc<Box<dyn Platform>>) -> Option<Arc<Box<dyn Device>>> {
+fn find_first_device_for_platform(
+    cli: &DinghyCli,
+    dinghy: &Dinghy,
+    platform: &Arc<Box<dyn Platform>>,
+) -> Option<Arc<Box<dyn Device>>> {
     dinghy
         .devices()
         .into_iter()

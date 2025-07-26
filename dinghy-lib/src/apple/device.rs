@@ -57,7 +57,7 @@ impl IosDevice {
     }
 
     fn is_pre_ios_17(&self) -> Result<bool> {
-        Ok(semver::Version::parse(&self.os)?.major < 17)
+        Ok(semver::VersionReq::parse(&self.os)?.comparators.get(0).ok_or_else(|| anyhow!("Invalid iOS version: {}", self.os))?.major < 17)
     }
 
     fn is_locked(&self) -> Result<bool> {
@@ -150,7 +150,7 @@ impl IosDevice {
             .output()?;
         let app_list = json::parse(std::str::from_utf8(&app_list.stdout)?).with_context(|| {
             format!(
-                "Ran `pymobiledevice3 app list --no-color --udid {}`, could not parse expected JSON output.", self.id,
+                "Ran `pymobiledevice3 apps list --no-color --udid {}`, could not parse expected JSON output.", self.id,
             )
         })?;
         let app_path = build_bundle.bundle_dir.to_string_lossy();
@@ -206,7 +206,7 @@ impl IosDevice {
             }
         }
 
-        let tempdir = tempdir::TempDir::new("dinghy-lldb")?;
+        let tempdir = tempfile::TempDir::with_prefix("dinghy-lldb")?;
         let script_path = tempdir.path().join("run.lldb");
         // see https://stackoverflow.com/questions/77865860/lldb-hangs-when-trying-to-execute-command-with-o
         // for the terrible async thing
@@ -532,7 +532,7 @@ fn make_apple_app(
 
 fn launch_app(dev: &AppleSimDevice, app_args: &[&str], _envs: &[&str]) -> Result<()> {
     use std::io::Write;
-    let dir = ::tempdir::TempDir::new("mobiledevice-rs-lldb")?;
+    let dir = tempfile::TempDir::with_prefix("mobiledevice-rs-lldb")?;
     let tmppath = dir.path();
     let mut install_path = String::from_utf8(
         process::Command::new("xcrun")
@@ -630,7 +630,7 @@ fn launch_lldb_simulator(
 ) -> Result<()> {
     use std::io::Write;
     use std::process::Command;
-    let dir = ::tempdir::TempDir::new("mobiledevice-rs-lldb")?;
+    let dir = tempfile::TempDir::with_prefix("mobiledevice-rs-lldb")?;
     let tmppath = dir.path();
     let lldb_script_filename = tmppath.join("lldb-script");
     {

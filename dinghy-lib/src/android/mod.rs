@@ -71,7 +71,7 @@ impl PlatformManager for AndroidManager {
                     .ok_or_else(|| anyhow!("No tools in toolchain"))??;
                 let bin = tools.path().join("bin");
                 debug!("Android tools bin: {:?}", bin);
-                let libclang_path = tools.path().join("lib64");
+                let libclang_path = tools.path().join(if major >= 26 { "lib" } else { "lib64" });
                 for (rustc_cpu, cc_cpu, binutils_cpu, abi_kind) in &[
                     ("aarch64", "aarch64", "aarch64", "android"),
                     ("armv7", "armv7a", "arm", "androideabi"),
@@ -174,6 +174,10 @@ fn probable_sdk_locs() -> Result<Vec<path::PathBuf>> {
         let mac = path::Path::new(&home).join("Library/Android/sdk");
         if mac.is_dir() {
             v.push(mac);
+        }
+        let linux = path::Path::new(&home).join("Android/Sdk");
+        if linux.is_dir() {
+            v.push(linux);
         }
     }
     let casks = path::PathBuf::from("/usr/local/Caskroom/android-sdk");

@@ -4,14 +4,14 @@ use std::io::prelude::*;
 use std::path::PathBuf;
 
 pub fn test_project_path() -> PathBuf {
-    if cfg!(
-        any(
-            target_os = "ios",
-            target_os = "watchos",
-            target_os = "tvos",
-            target_os = "visionos",
-            target_os = "android"
-        )) || env::var("DINGHY").is_ok() {
+    if cfg!(any(
+        target_os = "ios",
+        target_os = "watchos",
+        target_os = "tvos",
+        target_os = "visionos",
+        target_os = "android"
+    )) || env::var("DINGHY").is_ok()
+    {
         let current_exe = env::current_exe().expect("Current exe path not accessible");
 
         current_exe
@@ -33,14 +33,14 @@ pub fn test_file_path(test_data_id: &str) -> PathBuf {
 pub fn try_test_file_path(test_data_id: &str) -> Option<PathBuf> {
     let current_exe = env::current_exe().expect("Current exe path not accessible");
 
-    if cfg!(
-        any(
-            target_os = "ios",
-            target_os = "watchos",
-            target_os = "tvos",
-            target_os = "visionos",
-            target_os = "android"
-        )) || env::var("DINGHY").is_ok() {
+    if cfg!(any(
+        target_os = "ios",
+        target_os = "watchos",
+        target_os = "tvos",
+        target_os = "visionos",
+        target_os = "android"
+    )) || env::var("DINGHY").is_ok()
+    {
         current_exe
             .parent()
             .map(|it| it.join("test_data"))

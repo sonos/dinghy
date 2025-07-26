@@ -1,11 +1,11 @@
 [package]
 name = "dinghy-lib"
-version = "0.7.2-pre"
+version = "0.8.2-pre"
 authors = ["Mathieu Poumeyrol <mathieu.poumeyrol@snips.ai>"]
 license = "MIT/Apache-2.0"
 description = "Cross-compilation made easier - see main crate cargo-dinghy"
 homepage = "https://medium.com/snips-ai/dinghy-painless-rust-tests-and-benches-on-ios-and-android-c9f94f81d305#.c2sx7two8"
-repository = "https://github.com/snipsco/dinghy"
+repository = "https://github.com/sonos/dinghy"
 keywords = [
     "tests", "mobile", "ios", "android", "cargo"
 ]
@@ -20,7 +20,6 @@ dinghy-build = { path = "../dinghy-build" }
 dirs = "5"
 filetime = "0.2"
 log = "0.4"
-atty = "0.2"
 itertools = "0.10"
 plist = "1"
 regex = "1.0"
@@ -30,17 +29,16 @@ serde = { version = "1.0", features = ["derive"] }
 toml = "0.7"
 shell-escape = "0.1"
 walkdir = "2.0"
-which = "4.0"
+which = "=4.0"
 shellexpand="3"
 semver = "1"
-cargo_metadata = "0.15.0"
+cargo_metadata.workspace=true
+cargo-platform.workspace=true
 colored = "2.0.0"
 lazy_static = "1.4.0"
 dyn-clone = "1.0.8"
 fs-err = "2.11.0"
+tempfile = "3.1"
 
 [dev-dependencies]
 tempfile = "3.1"
-
-[target.'cfg(target_os="macos")'.dependencies]
-tempdir = "0.3"
