@@ -75,7 +75,7 @@ tests_sequence_aarch64_ios_sim() {
         cd test-ws \
         && cargo clean \
         && $CARGO_DINGHY   -d $1 -p auto-ios-aarch64-sim test pass \
-        && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test --doc \
+        && $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test --doc \
         && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test fails \
         && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test \
     )
@@ -85,7 +85,7 @@ tests_sequence_aarch64_ios_sim() {
         cd test-ws/test-app \
         && cargo clean \
         && $CARGO_DINGHY   -d $1 -p auto-ios-aarch64-sim test pass \
-        && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test --doc \
+        && $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test --doc \
         && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test fails \
         && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test \
     )
@@ -95,7 +95,7 @@ tests_sequence_aarch64_ios_sim() {
         cd test-ws \
         && cargo clean \
         && $CARGO_DINGHY   -d $1 -p auto-ios-aarch64-sim test -p test-app pass \
-        && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test -p test-app --doc \
+        && $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test -p test-app --doc \
         && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test -p test-app fails \
         && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test -p test-app \
     )
