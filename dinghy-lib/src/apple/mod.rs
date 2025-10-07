@@ -275,10 +275,12 @@ fn devices_from_devicectl(devices: &mut HashMap<String, IosDevice>) -> Result<()
         bail!("xcrun command failed. Please check that \"xcrun devicectl list devices\" works.\n{devicectl:?}");
     }
     for device in json::parse(&std::fs::read_to_string(tmpjson)?)?["result"]["devices"].members() {
-        let udid = device["hardwareProperties"]["udid"]
+        let Some(udid) = device["hardwareProperties"]["udid"]
             .as_str()
-            .context("no identifier in device json")?
-            .to_string();
+            .map(|s| s.to_string())
+        else {
+            continue;
+        };
         let device = IosDevice::new(
             device["deviceProperties"]["name"]
                 .as_str()
