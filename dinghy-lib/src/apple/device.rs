@@ -552,7 +552,14 @@ fn launch_app(dev: &AppleSimDevice, app_args: &[&str], _envs: &[&str]) -> Result
         .to_string_lossy()
         .into_owned();
     let stdout_param = &format!("--stdout={}", stdout);
-    let mut xcrun_args: Vec<&str> = vec!["simctl", "launch", "-w", stdout_param, &dev.id, "Dinghy"];
+    let mut xcrun_args: Vec<&str> = vec![
+        "simctl",
+        "launch",
+        "--wait-for-debugger",
+        stdout_param,
+        &dev.id,
+        "Dinghy",
+    ];
     xcrun_args.extend(app_args);
     debug!("Launching app via xcrun using args: {:?}", xcrun_args);
     let launch_output = process::Command::new("xcrun")
