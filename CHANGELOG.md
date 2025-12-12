@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.4](https://github.com/sonos/dinghy/tree/0.8.4) (2025-12-12)
+
+[Full Changelog](https://github.com/sonos/dinghy/compare/0.8.2...0.8.4)
+
+**Merged pull requests:**
+
+- bump macos [\#261](https://github.com/sonos/dinghy/pull/261) ([kali](https://github.com/kali))
+- use 1.85 for iDevices [\#259](https://github.com/sonos/dinghy/pull/259) ([kali](https://github.com/kali))
+
 ## [0.8.2](https://github.com/sonos/dinghy/tree/0.8.2) (2025-10-07)
 
 [Full Changelog](https://github.com/sonos/dinghy/compare/0.8.1...0.8.2)
