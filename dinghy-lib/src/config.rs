@@ -2,9 +2,8 @@ use itertools::Itertools;
 use serde::de;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::io::Read;
 use std::result;
-use std::{collections, fs, path};
+use std::{collections, path};
 
 use crate::errors::*;
 
@@ -185,10 +184,9 @@ impl Configuration {
 }
 
 fn read_config_file<P: AsRef<path::Path>>(file: P) -> Result<ConfigurationFileContent> {
-    let mut data = String::new();
-    let mut fd = fs::File::open(file)?;
-    fd.read_to_string(&mut data)?;
-    Ok(::toml::from_str(&data)?)
+    let file = file.as_ref();
+    let data = std::fs::read_to_string(file).with_context(|| format!("Reading {file:?}"))?;
+    Ok(toml::from_str(&data)?)
 }
 
 pub fn dinghy_config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
