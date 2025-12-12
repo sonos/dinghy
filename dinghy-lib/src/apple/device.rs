@@ -577,8 +577,8 @@ fn launch_app(dev: &AppleSimDevice, app_args: &[&str], _envs: &[&str]) -> Result
         .arg("-s")
         .arg(lldb_script_filename)
         .output()?;
-    let test_contents =
-        std::fs::read_to_string(stdout).with_context(|| "Reading llvm stdout from {stdout}")?;
+    let test_contents = std::fs::read_to_string(&stdout)
+        .with_context(|| format!("Reading llvm stdout from {stdout}"))?;
     println!("{}", test_contents);
 
     let output: String = String::from_utf8_lossy(&output.stdout).to_string();
