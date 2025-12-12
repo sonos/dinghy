@@ -274,7 +274,8 @@ fn devices_from_devicectl(devices: &mut HashMap<String, IosDevice>) -> Result<()
     if !devicectl.status.success() {
         bail!("xcrun command failed. Please check that \"xcrun devicectl list devices\" works.\n{devicectl:?}");
     }
-    for device in json::parse(&std::fs::read_to_string(tmpjson)?)?["result"]["devices"].members() {
+    let txt = std::fs::read_to_string(tmpjson).with_context(|| "Reading {tmpjson}")?;
+    for device in json::parse(&txt)?["result"]["devices"].members() {
         let Some(udid) = device["hardwareProperties"]["udid"]
             .as_str()
             .map(|s| s.to_string())

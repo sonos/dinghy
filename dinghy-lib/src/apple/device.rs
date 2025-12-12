@@ -57,7 +57,12 @@ impl IosDevice {
     }
 
     fn is_pre_ios_17(&self) -> Result<bool> {
-        Ok(semver::VersionReq::parse(&self.os)?.comparators.get(0).ok_or_else(|| anyhow!("Invalid iOS version: {}", self.os))?.major < 17)
+        Ok(semver::VersionReq::parse(&self.os)?
+            .comparators
+            .get(0)
+            .ok_or_else(|| anyhow!("Invalid iOS version: {}", self.os))?
+            .major
+            < 17)
     }
 
     fn is_locked(&self) -> Result<bool> {
@@ -572,7 +577,8 @@ fn launch_app(dev: &AppleSimDevice, app_args: &[&str], _envs: &[&str]) -> Result
         .arg("-s")
         .arg(lldb_script_filename)
         .output()?;
-    let test_contents = std::fs::read_to_string(stdout)?;
+    let test_contents =
+        std::fs::read_to_string(stdout).with_context(|| "Reading llvm stdout from {stdout}")?;
     println!("{}", test_contents);
 
     let output: String = String::from_utf8_lossy(&output.stdout).to_string();

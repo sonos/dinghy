@@ -214,7 +214,8 @@ fn ndk() -> Result<Option<path::PathBuf>> {
 
 fn ndk_version(ndk: &path::Path) -> Result<String> {
     let sources_prop_file = ndk.join("source.properties");
-    let props = fs::read_to_string(&sources_prop_file)?;
+    let props = fs::read_to_string(&sources_prop_file)
+        .with_context(|| format!("Reading prop file {sources_prop_file:?}"))?;
     let revision_line = props
         .split("\n")
         .find(|l| l.starts_with("Pkg.Revision"))
