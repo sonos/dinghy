@@ -2,9 +2,8 @@ use itertools::Itertools;
 use serde::de;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::io::Read;
 use std::result;
-use std::{collections, fs, path};
+use std::{collections, path};
 
 use crate::errors::*;
 
