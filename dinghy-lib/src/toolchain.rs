@@ -36,6 +36,13 @@ impl Toolchain {
         Ok(())
     }
 
+    pub fn setup_linker_raw(&self, linker: &str) {
+        set_env(
+            format!("CARGO_TARGET_{}_LINKER", envify(self.rustc_triple.as_str())),
+            linker,
+        );
+    }
+
     pub fn setup_linker<P: AsRef<path::Path>>(
         &self,
         id: &str,
@@ -161,6 +168,10 @@ impl ToolchainConfig {
         linker_cmd
     }
 
+    pub fn setup_linker_raw(&self, linker: &str) {
+        self.as_toolchain().setup_linker_raw(linker)
+    }
+
     pub fn setup_linker<P: AsRef<path::Path>>(
         &self,
         id: &str,
@@ -220,7 +231,7 @@ impl ToolchainConfig {
     }
 }
 
-fn create_shim<P: AsRef<path::Path>>(
+pub fn create_shim<P: AsRef<path::Path>>(
     root: P,
     rustc_triple: &str,
     id: &str,
