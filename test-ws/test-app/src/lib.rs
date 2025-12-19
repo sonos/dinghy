@@ -1,6 +1,37 @@
 #[cfg(test)]
 extern crate dinghy_test;
 
+
+/// this is an example doctest with lots of code blocks that will each generate a separate test.
+///
+/// ```
+/// assert_eq!(2 + 2, 4);
+/// ```
+///
+/// ```
+/// assert_eq!(3 + 3, 6);
+/// ```
+///
+/// ```
+/// assert_eq!(4 + 4, 8);
+/// ```
+///
+/// ```
+/// assert_eq!(5 + 5, 10);
+/// ```
+///
+/// ```
+/// assert_eq!(6 + 6, 12);
+/// ```
+///
+/// ```
+/// assert_eq!(7 + 7, 14);
+/// ```
+
+pub fn example_function() -> i32 {
+    2 + 2
+}
+
 #[cfg(test)]
 mod tests {
     mod pass {

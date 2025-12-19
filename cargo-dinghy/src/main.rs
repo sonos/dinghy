@@ -133,7 +133,14 @@ fn run_command(cli: DinghyCli) -> Result<()> {
                     ),
                     0,
                 );
-                let exe_id = exe_path.file_name().unwrap().to_str().unwrap().to_string();
+                let exe_name = exe_path.file_name().unwrap().to_str().unwrap().to_string();
+                let exe_id = if exe_name == "rust_out" {
+                    // rustdoc may run concurent runners all with the same exe name, fortunately the parent dir is
+                    // different in that case so lets use that instead as an id
+                    exe_path.parent().unwrap().file_name().unwrap().to_str().unwrap().to_string()
+                } else {
+                    exe_name
+                };
 
                 let (args, files_in_run_args): (Vec<String>, Vec<Option<PathBuf>>) = args
                     .into_iter()

@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.8.4](https://github.com/sonos/dinghy/tree/0.8.4) (2025-12-12)
+
+[Full Changelog](https://github.com/sonos/dinghy/compare/0.8.2...0.8.4)
+
+**Merged pull requests:**
+
+- bump macos [\#261](https://github.com/sonos/dinghy/pull/261) ([kali](https://github.com/kali))
+- use 1.85 for iDevices [\#259](https://github.com/sonos/dinghy/pull/259) ([kali](https://github.com/kali))
+
+## [0.8.2](https://github.com/sonos/dinghy/tree/0.8.2) (2025-10-07)
+
+[Full Changelog](https://github.com/sonos/dinghy/compare/0.8.1...0.8.2)
+
+**Closed issues:**
+
+- Doctests freeze on Rust 1.89 [\#255](https://github.com/sonos/dinghy/issues/255)
+
+**Merged pull requests:**
+
+- 1.85.0 [\#258](https://github.com/sonos/dinghy/pull/258) ([kali](https://github.com/kali))
+- ignore devices with no udid [\#257](https://github.com/sonos/dinghy/pull/257) ([kali](https://github.com/kali))
+- 1.89 doctests support [\#256](https://github.com/sonos/dinghy/pull/256) ([fredszaq](https://github.com/fredszaq))
+- fix ci by holding back some deps [\#254](https://github.com/sonos/dinghy/pull/254) ([kali](https://github.com/kali))
+- Fix display of android platforms in cargo dinghy all-devices [\#250](https://github.com/sonos/dinghy/pull/250) ([fredszaq](https://github.com/fredszaq))
+
 ## [0.8.1](https://github.com/sonos/dinghy/tree/0.8.1) (2025-06-30)
 
 [Full Changelog](https://github.com/sonos/dinghy/compare/0.8.0...0.8.1)

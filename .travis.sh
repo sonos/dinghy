@@ -21,7 +21,7 @@ then
     cargo build -p cargo-dinghy
     CARGO_DINGHY="`pwd`/target/debug/cargo-dinghy -vv"
 fi
-echo RUST_VERSION: ${RUST_VERSION:=1.74.0}
+echo RUST_VERSION: ${RUST_VERSION:=1.85.0}
 
 rustup toolchain add $RUST_VERSION
 export RUSTUP_TOOLCHAIN=$RUST_VERSION
@@ -43,6 +43,7 @@ tests_sequence() {
         cd test-ws \
         && cargo clean \
         && $CARGO_DINGHY -d $1 test pass \
+        && $CARGO_DINGHY -d $1 test --doc \
         && ! $CARGO_DINGHY -d $1 test fails \
         && ! $CARGO_DINGHY -d $1 test \
     )
@@ -52,6 +53,7 @@ tests_sequence() {
         cd test-ws/test-app \
         && cargo clean \
         && $CARGO_DINGHY -d $1 test pass \
+        && $CARGO_DINGHY -d $1 test --doc \
         && ! $CARGO_DINGHY -d $1 test fails \
         && ! $CARGO_DINGHY -d $1 test \
     )
@@ -61,6 +63,7 @@ tests_sequence() {
         cd test-ws \
         && cargo clean \
         && $CARGO_DINGHY -d $1 test -p test-app pass \
+        && $CARGO_DINGHY -d $1 test -p test-app --doc \
         && ! $CARGO_DINGHY -d $1 test -p test-app fails \
         && ! $CARGO_DINGHY -d $1 test -p test-app \
     )
@@ -72,6 +75,7 @@ tests_sequence_aarch64_ios_sim() {
         cd test-ws \
         && cargo clean \
         && $CARGO_DINGHY   -d $1 -p auto-ios-aarch64-sim test pass \
+        && $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test --doc \
         && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test fails \
         && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test \
     )
@@ -81,6 +85,7 @@ tests_sequence_aarch64_ios_sim() {
         cd test-ws/test-app \
         && cargo clean \
         && $CARGO_DINGHY   -d $1 -p auto-ios-aarch64-sim test pass \
+        && $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test --doc \
         && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test fails \
         && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test \
     )
@@ -90,6 +95,7 @@ tests_sequence_aarch64_ios_sim() {
         cd test-ws \
         && cargo clean \
         && $CARGO_DINGHY   -d $1 -p auto-ios-aarch64-sim test -p test-app pass \
+        && $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test -p test-app --doc \
         && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test -p test-app fails \
         && ! $CARGO_DINGHY -d $1 -p auto-ios-aarch64-sim test -p test-app \
     )

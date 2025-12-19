@@ -30,7 +30,7 @@ pub fn make_remote_app_with_name(
                 && !path.to_str().unwrap().contains("android"))
     }
 
-    let root_dir = build.target_path.join("dinghy");
+    let root_dir = build.target_path.join("dinghy").join(build.runnable.id.clone());
     let bundle_path = match bundle_name {
         Some(name) => root_dir.join(&build.runnable.package_name).join(name),
         None => root_dir.join(&build.runnable.package_name),
