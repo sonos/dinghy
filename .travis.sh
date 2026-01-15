@@ -156,13 +156,15 @@ else
            && rm emulator-linux_x64-10696886.zip
          )
 
-         # to revert when the bundled emulator doesn't crash anymore use the following line
+         # to use the bundled emulator instead (if we choose to go the x86 route at some point,
+	 #  - add "emulator" to the sdkmanager download list
+	 #  - use it using the following line
 	 # EMULATOR="$ANDROID_SDK_ROOT/emulator/emulator"
 
         # END FIX-EMULATOR
 
         yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null
-        $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-24;default;armeabi-v7a" "ndk;27.3.13750724" "emulator" "platform-tools" # "cmdline-tools;latest"
+        $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-24;default;armeabi-v7a" "ndk;27.3.13750724" "platform-tools" # "cmdline-tools;latest"
         echo no | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager create avd -c 1000M --force -n testdinghy -k "system-images;android-24;default;armeabi-v7a"
         ANDROID_AVD_HOME=$HOME/.config/.android/avd $EMULATOR @testdinghy -partition-size 1024 -no-audio -no-boot-anim -no-window -accel on -gpu off &
         timeout 180 $ANDROID_SDK_ROOT/platform-tools/adb wait-for-device
