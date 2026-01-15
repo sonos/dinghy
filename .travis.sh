@@ -144,28 +144,31 @@ else
         title "setup simulator"
         rustup target add armv7-linux-androideabi
 
-        ## BEGIN FIX-EMULATOR
-        # Use emulator version 32.1.15 as latest version (33.1.23 as of writing) from sdk segfaults
+         ## BEGIN FIX-EMULATOR
+         # Use emulator version 32.1.15 as latest version (36.3.10.0 as of writing)
+	 # doesn't support arm images anymore
 
-        EMULATOR="$(pwd)/target/emulator/emulator"
-        [ -e $EMULATOR ] ||  ( \
-          cd target/ \
-          && wget -q https://redirector.gvt1.com/edgedl/android/repository/emulator-linux_x64-10696886.zip \
-          && unzip emulator-linux_x64-10696886.zip \
-        )
+         EMULATOR="$(pwd)/target/emulator/emulator"
+         [ -e $EMULATOR ] ||  ( \
+           cd target/ \
+           && wget -q https://redirector.gvt1.com/edgedl/android/repository/emulator-linux_x64-10696886.zip \
+           && unzip emulator-linux_x64-10696886.zip \
+           && rm emulator-linux_x64-10696886.zip
+         )
 
-        # to revert when the bundled emulator doesn't crash anymore use the following line
-        # EMULATOR="$ANDROID_SDK_ROOT/emulator/emulator"
+	 # to use the bundled emulator instead (if we choose to go the x86 route at some point)
+	 # use the using the following line instead
+	 # EMULATOR="$ANDROID_SDK_ROOT/emulator/emulator"
 
         # END FIX-EMULATOR
 
         yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null
-        $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-24;default;armeabi-v7a" "ndk;22.1.7171670" "emulator" "platform-tools" # "cmdline-tools;latest"
-        echo no | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager create avd --force -n testdinghy -k "system-images;android-24;default;armeabi-v7a"
-        ANDROID_AVD_HOME=$HOME/.config/.android/avd $EMULATOR @testdinghy -no-audio -no-boot-anim -no-window -accel on -gpu off &
+        $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-24;default;armeabi-v7a" "ndk;27.3.13750724" "emulator" "platform-tools" # "cmdline-tools;latest"
+        echo no | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager create avd -c 1000M --force -n testdinghy -k "system-images;android-24;default;armeabi-v7a"
+        ANDROID_AVD_HOME=$HOME/.config/.android/avd $EMULATOR @testdinghy -partition-size 1024 -no-audio -no-boot-anim -no-window -accel on -gpu off &
         timeout 180 $ANDROID_SDK_ROOT/platform-tools/adb wait-for-device
 
-        export ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/22.1.7171670
+        export ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.3.13750724
 
         tests_sequence android
     fi
