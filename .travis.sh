@@ -152,6 +152,7 @@ else
           cd target/ \
           && wget -q https://redirector.gvt1.com/edgedl/android/repository/emulator-linux_x64-10696886.zip \
           && unzip emulator-linux_x64-10696886.zip \
+          && rm emulator-linux_x64-10696886.zip
         )
 
         # to revert when the bundled emulator doesn't crash anymore use the following line
@@ -161,7 +162,7 @@ else
 
         yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null
         $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --install "system-images;android-24;default;armeabi-v7a" "ndk;22.1.7171670" "emulator" "platform-tools" # "cmdline-tools;latest"
-        echo no | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager create avd --force -n testdinghy -k "system-images;android-24;default;armeabi-v7a"
+        echo no | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/avdmanager create avd -c 1000M --force -n testdinghy -k "system-images;android-24;default;armeabi-v7a"
         ANDROID_AVD_HOME=$HOME/.config/.android/avd $EMULATOR @testdinghy -no-audio -no-boot-anim -no-window -accel on -gpu off &
         timeout 180 $ANDROID_SDK_ROOT/platform-tools/adb wait-for-device
 
