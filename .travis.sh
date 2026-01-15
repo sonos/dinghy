@@ -144,19 +144,19 @@ else
         title "setup simulator"
         rustup target add armv7-linux-androideabi
 
-        ## BEGIN FIX-EMULATOR
-        # Use emulator version 32.1.15 as latest version (33.1.23 as of writing) from sdk segfaults
+        # ## BEGIN FIX-EMULATOR
+        # # Use emulator version 32.1.15 as latest version (33.1.23 as of writing) from sdk segfaults
 
-        EMULATOR="$(pwd)/target/emulator/emulator"
-        [ -e $EMULATOR ] ||  ( \
-          cd target/ \
-          && wget -q https://redirector.gvt1.com/edgedl/android/repository/emulator-linux_x64-10696886.zip \
-          && unzip emulator-linux_x64-10696886.zip \
-          && rm emulator-linux_x64-10696886.zip
-        )
+        # EMULATOR="$(pwd)/target/emulator/emulator"
+        # [ -e $EMULATOR ] ||  ( \
+        #   cd target/ \
+        #   && wget -q https://redirector.gvt1.com/edgedl/android/repository/emulator-linux_x64-10696886.zip \
+        #   && unzip emulator-linux_x64-10696886.zip \
+        #   && rm emulator-linux_x64-10696886.zip
+        # )
 
-        # to revert when the bundled emulator doesn't crash anymore use the following line
-        # EMULATOR="$ANDROID_SDK_ROOT/emulator/emulator"
+        # # to revert when the bundled emulator doesn't crash anymore use the following line
+        EMULATOR="$ANDROID_SDK_ROOT/emulator/emulator"
 
         # END FIX-EMULATOR
 
