@@ -48,6 +48,10 @@ impl AppleDevicePlatform {
             Some(AppleSimulatorType::Ios) => "iphonesimulator",
             Some(AppleSimulatorType::Tvos) => "appletvsimulator",
             Some(AppleSimulatorType::Watchos) => "watchsimulator",
+             // xros and xrsimulator are sdk names.
+             // See https://github.com/rust-lang/rust/pull/121419#discussion_r1501908152 for
+             // more inconsistencies about visionOS and xrOS.
+             Some(AppleSimulatorType::Visionos) => "xrsimulator",
             None => "iphoneos",
         };
         let xcrun = process::Command::new("xcrun")

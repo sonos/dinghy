@@ -36,6 +36,7 @@ pub enum AppleSimulatorType {
     Ios,
     Watchos,
     Tvos,
+    Visionos,
 }
 impl Display for AppleSimulatorType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -43,6 +44,7 @@ impl Display for AppleSimulatorType {
             AppleSimulatorType::Ios => "ios",
             AppleSimulatorType::Watchos => "watchos",
             AppleSimulatorType::Tvos => "tvos",
+            AppleSimulatorType::Visionos => "visionos",
         };
         f.write_str(val)
     }
@@ -184,6 +186,49 @@ impl PlatformManager for TvosManager {
                 };
                 let simulator = if *arch == "x86_64" || *arch == "aarch64-sim" {
                     Some(AppleSimulatorType::Tvos)
+                } else {
+                    None
+                };
+                AppleDevicePlatform::new(
+                    id,
+                    &rustc_triple,
+                    simulator,
+                    crate::config::PlatformConfiguration::default(),
+                )
+                .map(|pf| pf as Box<dyn Platform>)
+            })
+            .collect()
+    }
+}
+
+pub struct VisionosManager {
+    devices: Vec<Box<dyn Device>>,
+}
+
+impl VisionosManager {
+    pub fn new() -> Result<Option<Self>> {
+        let devices = simulators(AppleSimulatorType::Visionos)?;
+        Ok(Some(Self { devices }))
+    }
+}
+
+impl PlatformManager for VisionosManager {
+    fn devices(&self) -> Result<Vec<Box<dyn Device>>> {
+        Ok(self.devices.clone())
+    }
+
+    fn platforms(&self) -> Result<Vec<Box<dyn Platform>>> {
+        ["aarch64", "aarch64-sim"]
+            .iter()
+            .map(|arch| {
+                let id = format!("auto-visionos-{}", arch);
+                let rustc_triple = if *arch != "aarch64-sim" {
+                    format!("{}-apple-visionos", arch)
+                } else {
+                    format!("aarch64-apple-visionos-sim")
+                };
+                let simulator = if *arch == "aarch64-sim" {
+                    Some(AppleSimulatorType::Visionos)
                 } else {
                     None
                 };
