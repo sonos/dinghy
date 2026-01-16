@@ -57,7 +57,7 @@ impl AndroidDevice {
                 return Ok(AndroidDevice {
                     adb,
                     id: id.into(),
-                    supported_targets: supported_targets,
+                    supported_targets,
                 });
             }
         }
