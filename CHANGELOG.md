@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.5](https://github.com/sonos/dinghy/tree/0.8.5) (2026-07-13)
+
+[Full Changelog](https://github.com/sonos/dinghy/compare/0.8.4...0.8.5)
+
+**Closed issues:**
+
+- Failed to parse the OS version when it only contains two components \(major and minor\) instead of the usual three \(major, minor, patch\). [\#240](https://github.com/sonos/dinghy/issues/240)
+
+**Merged pull requests:**
+
+- Don't force RUST\_BACKTRACE=1 on remote runs [\#264](https://github.com/sonos/dinghy/pull/264) ([kali](https://github.com/kali))
+- smaller user space, rm zipfile [\#262](https://github.com/sonos/dinghy/pull/262) ([kali](https://github.com/kali))
+
 ## [0.8.4](https://github.com/sonos/dinghy/tree/0.8.4) (2025-12-12)
 
 [Full Changelog](https://github.com/sonos/dinghy/compare/0.8.2...0.8.4)
@@ -701,7 +714,6 @@
 - Define defualt toolchain directory in .dinghy [\#60](https://github.com/sonos/dinghy/pull/60) ([rtmvc](https://github.com/rtmvc))
 - do not copy target in target [\#58](https://github.com/sonos/dinghy/pull/58) ([kali](https://github.com/kali))
 - Update build\_env.rs [\#57](https://github.com/sonos/dinghy/pull/57) ([warent](https://github.com/warent))
-- Update dinghy crate to cargo-dinghy [\#56](https://github.com/sonos/dinghy/pull/56) ([nebuto](https://github.com/nebuto))
 - Allow debug build mode arg [\#55](https://github.com/sonos/dinghy/pull/55) ([rtmvc](https://github.com/rtmvc))
 - Set permissions before copy [\#54](https://github.com/sonos/dinghy/pull/54) ([rtmvc](https://github.com/rtmvc))
 - Copy libs for host platform too [\#53](https://github.com/sonos/dinghy/pull/53) ([rtmvc](https://github.com/rtmvc))
