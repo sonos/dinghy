@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [ 1.85.0, beta, nightly ]
+        rust: [ 1.88.0, beta, nightly ]
 
     runs-on: ubuntu-latest
 
@@ -54,7 +54,7 @@ jobs:
     - name: build and test
       run: ./.travis.apple-third-tier.sh ${{matrix.sim}}
       env:
-        RUST_VERSION: 1.85.0
+        RUST_VERSION: 1.88.0
 
   linux-musl:
     runs-on: ubuntu-latest

@@ -7,6 +7,9 @@ members = [
     "dinghy-test",
 ]
 
+[workspace.package]
+rust-version = "1.88.0"
+
 [workspace.dependencies]
 cargo_metadata = "=0.14.0"
 cargo-platform = "=0.1.8"

@@ -24,8 +24,7 @@ do
     set_version $c/Cargo.toml $VERSION
 done
 
-(cd cargo-dinghy ; cargo update)
-(cd test-ws ; cargo update)
+cargo update --workspace
 
 git commit . -m "post-release $VERSION"
 git push

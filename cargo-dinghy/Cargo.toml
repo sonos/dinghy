@@ -1,6 +1,7 @@
 [package]
 name = "cargo-dinghy"
 version = "0.8.6-pre"
+rust-version.workspace = true
 authors = ["Mathieu Poumeyrol <mathieu.poumeyrol@sonos>", "Thibaut Lorrain <thibaut.lorrain@sonos.com>"]
 license = "MIT/Apache-2.0"
 description = "Cross-compilation made easier"
