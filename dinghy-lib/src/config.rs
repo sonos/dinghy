@@ -229,11 +229,8 @@ pub fn dinghy_config<P: AsRef<path::Path>>(dir: P) -> Result<Configuration> {
 mod tests {
     #[test]
     fn load_config_with_str_test_data() {
-        let config_file = ::std::env::current_exe()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .join("../../../test-ws/test-app/.dinghy.toml");
+        let config_file = ::std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../test-ws/test-app/.dinghy.toml");
         super::read_config_file(config_file).unwrap();
     }
 }
