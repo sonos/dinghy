@@ -189,10 +189,7 @@ fn get_platforms_from_plugin(plugin: &str) -> Result<BTreeMap<String, Box<dyn Pl
                 .rustc_triple
                 .clone()
                 .ok_or_else(|| anyhow!("Platform {name} from {plugin} has no rustc_triple"))?;
-            let toolchain = conf
-                .toolchain
-                .clone()
-                .ok_or_else(|| anyhow!("Toolchain missing for platform {name} from {plugin}"))?;
+            let toolchain = conf.toolchain.clone();
             Ok((
                 name.clone(),
                 RegularPlatform::new(conf, name, triple, toolchain)?,
