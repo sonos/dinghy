@@ -94,17 +94,19 @@ impl Dinghy {
                 .rustc_triple
                 .as_ref()
                 .ok_or_else(|| anyhow!("Platform {} has no rustc_triple", platform_name))?;
+            let toolchain = platform_conf
+                .toolchain
+                .clone()
+                .map(path::PathBuf::from)
+                .or_else(|| {
+                    dirs::home_dir()
+                        .map(|it| it.join(".dinghy").join("toolchain").join(platform_name))
+                });
             let pf = RegularPlatform::new(
                 platform_conf.clone(),
                 platform_name.to_string(),
                 rustc_triple.clone(),
-                platform_conf
-                    .toolchain
-                    .clone()
-                    .map(|it| path::PathBuf::from(it))
-                    .or(dirs::home_dir()
-                        .map(|it| it.join(".dinghy").join("toolchain").join(platform_name)))
-                    .with_context(|| format!("Toolchain missing for platform {}", platform_name))?,
+                toolchain,
             )
             .with_context(|| format!("Could not assemble platform {}", platform_name))?;
             platforms.push((pf.id(), sync::Arc::new(pf)));

@@ -166,9 +166,11 @@ impl DeviceCompatibility for AndroidDevice {
             self.supported_targets
                 .iter()
                 .any(|target| target.starts_with(cpu))
-        } else {
+        } else if let Some(toolchain) = &platform.toolchain {
             self.supported_targets
-                .contains(&&*platform.toolchain.binutils_prefix)
+                .contains(&&*toolchain.binutils_prefix)
+        } else {
+            false
         }
     }
 }

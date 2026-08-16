@@ -14,14 +14,17 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use fs_err::read_dir;
 use log::trace;
 
 pub struct RegularPlatform {
     pub configuration: PlatformConfiguration,
     pub id: String,
-    pub toolchain: ToolchainConfig,
+    pub rustc_triple: String,
+    /// Cross toolchain for building and stripping; `None` on a runner-only
+    /// platform, which ships prebuilt binaries and needs no toolchain.
+    pub toolchain: Option<ToolchainConfig>,
 }
 
 impl Debug for RegularPlatform {
@@ -31,65 +34,21 @@ impl Debug for RegularPlatform {
 }
 
 impl RegularPlatform {
+    /// Assemble a platform. With no usable `toolchain_path` (absent, or no
+    /// `bin/*-gcc`) the platform is runner-only: it cannot build or strip.
     pub fn new<P: AsRef<Path>>(
         configuration: PlatformConfiguration,
         id: String,
         rustc_triple: String,
-        toolchain_path: P,
+        toolchain_path: Option<P>,
     ) -> Result<Box<dyn Platform>> {
-        if let Some(prefix) = configuration.deb_multiarch.clone() {
-            return Ok(Box::new(RegularPlatform {
-                configuration,
-                id,
-                toolchain: ToolchainConfig {
-                    bin_dir: "/usr/bin".into(),
-                    rustc_triple,
-                    root: "/".into(),
-                    sysroot: Some("/".into()),
-                    cc: "gcc".to_string(),
-                    cxx: "c++".to_string(),
-                    binutils_prefix: prefix.clone(),
-                    cc_prefix: prefix.clone(),
-                },
-            }));
-        }
-        let toolchain_path = toolchain_path.as_ref();
-        let toolchain_bin_path = toolchain_path.join("bin");
-
-        let mut bin: Option<PathBuf> = None;
-        let mut prefix: Option<String> = None;
-        for file in read_dir(&toolchain_bin_path)? {
-            let file = file?;
-            if file.file_name().to_string_lossy().ends_with("-gcc")
-                || file.file_name().to_string_lossy().ends_with("-gcc.exe")
-            {
-                bin = Some(toolchain_bin_path);
-                prefix = Some(
-                    file.file_name()
-                        .to_string_lossy()
-                        .replace(".exe", "")
-                        .replace("-gcc", ""),
-                );
-                break;
-            }
-        }
-        let bin_dir = bin.ok_or_else(|| anyhow!("no bin/*-gcc found in toolchain"))?;
-        let tc_triple = prefix
-            .ok_or_else(|| anyhow!("no gcc in toolchain"))?
-            .to_string();
-        let sysroot = find_sysroot(&toolchain_path)?;
-
-        let toolchain = ToolchainConfig {
-            bin_dir,
+        let toolchain = assemble_toolchain(&configuration, &rustc_triple, toolchain_path)?;
+        Ok(Box::new(RegularPlatform {
+            configuration,
+            id,
             rustc_triple,
-            root: toolchain_path.into(),
-            sysroot,
-            cc: "gcc".to_string(),
-            cxx: "c++".to_string(),
-            binutils_prefix: tc_triple.clone(),
-            cc_prefix: tc_triple,
-        };
-        Self::new_with_tc(configuration, id, toolchain)
+            toolchain,
+        }))
     }
 
     pub fn new_with_tc(
@@ -98,16 +57,83 @@ impl RegularPlatform {
         toolchain: ToolchainConfig,
     ) -> Result<Box<dyn Platform>> {
         Ok(Box::new(RegularPlatform {
+            rustc_triple: toolchain.rustc_triple.clone(),
             configuration,
             id,
-            toolchain,
+            toolchain: Some(toolchain),
         }))
     }
 }
 
+/// The platform's toolchain, or `None` when none is usable (runner-only).
+fn assemble_toolchain<P: AsRef<Path>>(
+    configuration: &PlatformConfiguration,
+    rustc_triple: &str,
+    toolchain_path: Option<P>,
+) -> Result<Option<ToolchainConfig>> {
+    if let Some(prefix) = configuration.deb_multiarch.clone() {
+        return Ok(Some(ToolchainConfig {
+            bin_dir: "/usr/bin".into(),
+            rustc_triple: rustc_triple.to_owned(),
+            root: "/".into(),
+            sysroot: Some("/".into()),
+            cc: "gcc".to_string(),
+            cxx: "c++".to_string(),
+            binutils_prefix: prefix.clone(),
+            cc_prefix: prefix,
+        }));
+    }
+    let Some(toolchain_path) = toolchain_path else {
+        return Ok(None);
+    };
+    let toolchain_path = toolchain_path.as_ref();
+    let toolchain_bin_path = toolchain_path.join("bin");
+
+    let Ok(entries) = read_dir(&toolchain_bin_path) else {
+        trace!("no toolchain at {toolchain_bin_path:?}; platform is remote-run only");
+        return Ok(None);
+    };
+    let mut bin: Option<PathBuf> = None;
+    let mut prefix: Option<String> = None;
+    for file in entries {
+        let file = file?;
+        if file.file_name().to_string_lossy().ends_with("-gcc")
+            || file.file_name().to_string_lossy().ends_with("-gcc.exe")
+        {
+            bin = Some(toolchain_bin_path.clone());
+            prefix = Some(
+                file.file_name()
+                    .to_string_lossy()
+                    .replace(".exe", "")
+                    .replace("-gcc", ""),
+            );
+            break;
+        }
+    }
+    let (Some(bin_dir), Some(tc_triple)) = (bin, prefix) else {
+        trace!("no bin/*-gcc in {toolchain_bin_path:?}; platform is remote-run only");
+        return Ok(None);
+    };
+    let sysroot = find_sysroot(toolchain_path)?;
+
+    Ok(Some(ToolchainConfig {
+        bin_dir,
+        rustc_triple: rustc_triple.to_owned(),
+        root: toolchain_path.into(),
+        sysroot,
+        cc: "gcc".to_string(),
+        cxx: "c++".to_string(),
+        binutils_prefix: tc_triple.clone(),
+        cc_prefix: tc_triple,
+    }))
+}
+
 impl Display for RegularPlatform {
     fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::result::Result<(), ::std::fmt::Error> {
-        write!(f, "{:?}", self.toolchain.root)
+        match &self.toolchain {
+            Some(toolchain) => write!(f, "{:?}", toolchain.root),
+            None => write!(f, "{} (remote-run only)", self.rustc_triple),
+        }
     }
 }
 
@@ -118,51 +144,48 @@ impl Platform for RegularPlatform {
         // Set custom env variables specific to the platform
         set_all_env(&self.configuration.env());
 
-        if let Some(sr) = &self.toolchain.sysroot {
+        let Some(toolchain) = &self.toolchain else {
+            return Ok(());
+        };
+
+        if let Some(sr) = &toolchain.sysroot {
             Overlayer::overlay(&self.configuration, self, project, &sr)?;
         }
 
-        self.toolchain
-            .setup_cc(&self.id, &self.toolchain.cc_executable(&self.toolchain.cc))?;
+        toolchain.setup_cc(&self.id, &toolchain.cc_executable(&toolchain.cc))?;
 
-        if Path::new(&self.toolchain.binutils_executable("ar")).exists() {
-            self.toolchain
-                .setup_tool("AR", &self.toolchain.binutils_executable("ar"))?;
+        if Path::new(&toolchain.binutils_executable("ar")).exists() {
+            toolchain.setup_tool("AR", &toolchain.binutils_executable("ar"))?;
         }
-        if Path::new(&self.toolchain.binutils_executable("as")).exists() {
-            self.toolchain
-                .setup_tool("AS", &self.toolchain.binutils_executable("as"))?;
+        if Path::new(&toolchain.binutils_executable("as")).exists() {
+            toolchain.setup_tool("AS", &toolchain.binutils_executable("as"))?;
         }
-        if Path::new(&self.toolchain.cc_executable(&self.toolchain.cxx)).exists() {
-            self.toolchain
-                .setup_tool("CXX", &self.toolchain.cc_executable(&self.toolchain.cxx))?;
+        if Path::new(&toolchain.cc_executable(&toolchain.cxx)).exists() {
+            toolchain.setup_tool("CXX", &toolchain.cc_executable(&toolchain.cxx))?;
         }
-        if Path::new(&self.toolchain.cc_executable("cpp")).exists() {
-            self.toolchain
-                .setup_tool("CPP", &self.toolchain.cc_executable("cpp"))?;
+        if Path::new(&toolchain.cc_executable("cpp")).exists() {
+            toolchain.setup_tool("CPP", &toolchain.cc_executable("cpp"))?;
         }
-        if Path::new(&self.toolchain.binutils_executable("gfortran")).exists() {
-            self.toolchain
-                .setup_tool("FC", &self.toolchain.binutils_executable("gfortran"))?;
+        if Path::new(&toolchain.binutils_executable("gfortran")).exists() {
+            toolchain.setup_tool("FC", &toolchain.binutils_executable("gfortran"))?;
         }
         trace!("Setup linker...");
-        self.toolchain.setup_linker(
+        toolchain.setup_linker(
             &self.id,
-            &self.toolchain.generate_linker_command(&setup_args),
+            &toolchain.generate_linker_command(&setup_args),
             &project.metadata.workspace_root,
         )?;
 
         trace!("Setup pkg-config");
-        self.toolchain.setup_pkg_config()?;
+        toolchain.setup_pkg_config()?;
         trace!("Setup sysroot...");
-        self.toolchain.setup_sysroot();
+        toolchain.setup_sysroot();
         trace!("Setup shims...");
-        self.toolchain
-            .shim_executables(&self.id, &project.metadata.workspace_root)?;
+        toolchain.shim_executables(&self.id, &project.metadata.workspace_root)?;
         trace!("Setup runner...");
-        self.toolchain.setup_runner(&self.id, setup_args)?;
+        toolchain.setup_runner(&self.id, setup_args)?;
         trace!("Setup target...");
-        self.toolchain.setup_target()?;
+        toolchain.setup_target()?;
         Ok(())
     }
 
@@ -179,20 +202,27 @@ impl Platform for RegularPlatform {
     }
 
     fn rustc_triple(&self) -> &str {
-        &self.toolchain.rustc_triple
+        &self.rustc_triple
     }
 
     fn strip(&self, build: &mut Build) -> Result<()> {
+        let Some(toolchain) = &self.toolchain else {
+            bail!(
+                "platform {} has no cross toolchain, so it cannot strip; it supports \
+                 remote execution only. Drop --strip or configure a toolchain.",
+                self.id
+            );
+        };
         build.runnable = platform::strip_runnable(
             &build.runnable,
-            Command::new(self.toolchain.binutils_executable("strip")),
+            Command::new(toolchain.binutils_executable("strip")),
         )?;
 
         Ok(())
     }
 
     fn sysroot(&self) -> Result<Option<std::path::PathBuf>> {
-        Ok(self.toolchain.sysroot.clone())
+        Ok(self.toolchain.as_ref().and_then(|it| it.sysroot.clone()))
     }
 }
 
@@ -216,4 +246,40 @@ fn find_sysroot<P: AsRef<Path>>(toolchain_path: P) -> Result<Option<PathBuf>> {
         }
     }
     Ok(None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::PlatformConfiguration;
+
+    #[test]
+    fn toolchain_less_platform_assembles_for_remote_run() {
+        let mut conf = PlatformConfiguration::empty();
+        conf.rustc_triple = Some("riscv64gc-unknown-linux-musl".into());
+        let pf = RegularPlatform::new(
+            conf,
+            "riscv".to_string(),
+            "riscv64gc-unknown-linux-musl".to_string(),
+            None::<PathBuf>,
+        )
+        .unwrap();
+        assert_eq!(pf.rustc_triple(), "riscv64gc-unknown-linux-musl");
+        assert_eq!(pf.sysroot().unwrap(), None);
+        assert!(!pf.is_host());
+    }
+
+    #[test]
+    fn deb_multiarch_yields_a_system_toolchain() {
+        let mut conf = PlatformConfiguration::empty();
+        conf.deb_multiarch = Some("riscv64-linux-gnu".into());
+        let pf = RegularPlatform::new(
+            conf,
+            "riscv".to_string(),
+            "riscv64gc-unknown-linux-gnu".to_string(),
+            None::<PathBuf>,
+        )
+        .unwrap();
+        assert_eq!(pf.sysroot().unwrap(), Some(PathBuf::from("/")));
+    }
 }
