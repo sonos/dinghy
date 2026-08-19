@@ -148,6 +148,16 @@ pub struct SshDeviceConfiguration {
     pub remote_shell_vars: collections::HashMap<String, String>,
     pub install_adhoc_rsync_local_path: Option<String>,
     pub use_legacy_scp_protocol_for_adhoc_rsync_copy: Option<bool>,
+    /// Shell commands run on the device, in order, immediately before the runnable, in the
+    /// same remote shell invocation. A failing command does not abort the runnable or affect
+    /// the reported exit status.
+    #[serde(default)]
+    pub pre_run_commands: Vec<String>,
+    /// Shell commands run on the device, in order, immediately after the runnable exits, in
+    /// the same remote shell invocation. Runs even if the runnable fails; does not affect the
+    /// reported exit status, which is always the runnable's own.
+    #[serde(default)]
+    pub post_run_commands: Vec<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
