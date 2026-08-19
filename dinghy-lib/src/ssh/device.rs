@@ -228,14 +228,20 @@ impl Device for SshDevice {
         log::info!("Install {:?}", build.runnable.id);
         let (build_bundle, remote_bundle) = self.install_app(&project, &build)?;
         log::debug!("Installed {:?}", build.runnable.id);
-        let command = format!(
-            "cd '{}' ; {} DINGHY=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {}",
-            path_to_str(&remote_bundle.bundle_dir)?,
+        let run = format!(
+            "{} DINGHY=1 LD_LIBRARY_PATH=\"{}:$LD_LIBRARY_PATH\" {} {}",
             envs.join(" "),
             path_to_str(&remote_bundle.lib_dir)?,
             path_to_str(&remote_bundle.bundle_exe)?,
             args.join(" ")
         );
+        let mut parts = vec![format!("cd '{}'", path_to_str(&remote_bundle.bundle_dir)?)];
+        parts.extend(self.conf.pre_run_commands.iter().cloned());
+        parts.push(run);
+        parts.push("RC=$?".to_string());
+        parts.extend(self.conf.post_run_commands.iter().cloned());
+        parts.push("exit $RC".to_string());
+        let command = parts.join(" ; ");
         log::trace!("Ssh command: {}", command);
         log::info!("Run {} on {}", build.runnable.id, self.id,);
         if get_current_verbosity() < 1 {
