@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.6](https://github.com/sonos/dinghy/tree/0.8.6) (2026-08-19)
+
+[Full Changelog](https://github.com/sonos/dinghy/compare/0.8.5...0.8.6)
+
+**Merged pull requests:**
+
+- ssh device: run pre/post commands around the runnable [\#269](https://github.com/sonos/dinghy/pull/269) ([kali](https://github.com/kali))
+- Add AGENTS.md contributor guide + CLAUDE.md pointer [\#268](https://github.com/sonos/dinghy/pull/268) ([kali](https://github.com/kali))
+- Make the cross toolchain optional so runner needs none [\#267](https://github.com/sonos/dinghy/pull/267) ([kali](https://github.com/kali))
+- anchor config test fixture on CARGO\_MANIFEST\_DIR [\#266](https://github.com/sonos/dinghy/pull/266) ([kali](https://github.com/kali))
+- raise MSRV to 1.88 and keep the release cargo update from breaking it [\#265](https://github.com/sonos/dinghy/pull/265) ([kali](https://github.com/kali))
+
 ## [0.8.5](https://github.com/sonos/dinghy/tree/0.8.5) (2026-07-13)
 
 [Full Changelog](https://github.com/sonos/dinghy/compare/0.8.4...0.8.5)
