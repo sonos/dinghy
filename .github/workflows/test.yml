@@ -47,6 +47,9 @@ jobs:
       matrix:
         os: [ macOS-14, macOS-15 ]
         sim: [ tvOS, watchOS ]
+        include:
+          - os: macos-14
+            sim: visionOS
     runs-on: ${{matrix.os}}
 
     steps:

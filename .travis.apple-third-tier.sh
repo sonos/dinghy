@@ -96,7 +96,9 @@ then
      if [ "$(uname -m)" = "arm64" ]; then
          title "••••• Darwin: visionOS simulator tests •••••"
          title "boot a simulator"
-         xcrun simctl list devicetypes vision
+         xcrun simctl list devices vision
+         system_profiler SPDeveloperToolsDataType
+         xcodebuild -showsdks
          VISIONOS_DEVICE_TYPE=$(xcrun simctl list devicetypes vision -j | jq -r '.devicetypes[0].identifier')
          VISIONOS_RUNTIME_ID=$(xcrun simctl list runtimes | grep visionOS | cut -d ' ' -f 7 | tail -1)
          export VISIONOS_SIM_ID=$(xcrun simctl create My-apple-vision-pro $VISIONOS_DEVICE_TYPE $VISIONOS_RUNTIME_ID)

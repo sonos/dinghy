@@ -21,7 +21,12 @@ pub mod utils;
 pub use crate::config::Configuration;
 
 #[cfg(target_os = "macos")]
-use crate::apple::{IosManager, TvosManager, WatchosManager};
+use crate::apple::{
+    IosManager,
+    TvosManager,
+    WatchosManager,
+    VisionosManager,
+};
 use crate::config::PlatformConfiguration;
 
 use crate::platform::regular_platform::RegularPlatform;
@@ -63,6 +68,9 @@ impl Dinghy {
                 managers.push(Box::new(man));
             }
             if let Some(man) = WatchosManager::new().context("Could not initialize tvOS manager")? {
+                managers.push(Box::new(man));
+            }
+            if let Some(man) = VisionosManager::new().context("Could not initialize tvOS manager")? {
                 managers.push(Box::new(man));
             }
         }
