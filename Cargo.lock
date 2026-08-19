@@ -243,7 +243,7 @@ checksum = "7cd812cc2bc1d69d4764bd80df88b4317eaef9e773c75226407d9bc0876b211c"
 
 [[package]]
 name = "dinghy-build"
-version = "0.8.6-pre"
+version = "0.8.6"
 dependencies = [
  "anyhow",
  "cc",
